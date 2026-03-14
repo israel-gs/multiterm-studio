@@ -96,43 +96,43 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TERM-01 | — | Pending |
-| TERM-02 | — | Pending |
-| TERM-03 | — | Pending |
-| TERM-04 | — | Pending |
-| TERM-05 | — | Pending |
-| TERM-06 | — | Pending |
-| TERM-07 | — | Pending |
-| TERM-08 | — | Pending |
-| TERM-09 | — | Pending |
-| ATTN-01 | — | Pending |
-| ATTN-02 | — | Pending |
-| ATTN-03 | — | Pending |
-| LAYOUT-01 | — | Pending |
-| LAYOUT-02 | — | Pending |
-| LAYOUT-03 | — | Pending |
-| LAYOUT-04 | — | Pending |
-| LAYOUT-05 | — | Pending |
-| LAYOUT-06 | — | Pending |
-| LAYOUT-07 | — | Pending |
-| LAYOUT-08 | — | Pending |
-| PROJ-01 | — | Pending |
-| PROJ-02 | — | Pending |
-| PROJ-03 | — | Pending |
-| PERS-01 | — | Pending |
-| PERS-02 | — | Pending |
-| PERS-03 | — | Pending |
-| INFRA-01 | — | Pending |
-| INFRA-02 | — | Pending |
-| INFRA-03 | — | Pending |
-| INFRA-04 | — | Pending |
-| INFRA-05 | — | Pending |
+| TERM-01 | Phase 1 | Pending |
+| TERM-02 | Phase 1 | Pending |
+| TERM-03 | Phase 1 | Pending |
+| TERM-04 | Phase 1 | Pending |
+| TERM-05 | Phase 1 | Pending |
+| TERM-06 | Phase 1 | Pending |
+| TERM-07 | Phase 1 | Pending |
+| TERM-08 | Phase 1 | Pending |
+| TERM-09 | Phase 1 | Pending |
+| ATTN-01 | Phase 4 | Pending |
+| ATTN-02 | Phase 4 | Pending |
+| ATTN-03 | Phase 4 | Pending |
+| LAYOUT-01 | Phase 2 | Pending |
+| LAYOUT-02 | Phase 2 | Pending |
+| LAYOUT-03 | Phase 2 | Pending |
+| LAYOUT-04 | Phase 2 | Pending |
+| LAYOUT-05 | Phase 2 | Pending |
+| LAYOUT-06 | Phase 2 | Pending |
+| LAYOUT-07 | Phase 2 | Pending |
+| LAYOUT-08 | Phase 2 | Pending |
+| PROJ-01 | Phase 3 | Pending |
+| PROJ-02 | Phase 3 | Pending |
+| PROJ-03 | Phase 3 | Pending |
+| PERS-01 | Phase 4 | Pending |
+| PERS-02 | Phase 4 | Pending |
+| PERS-03 | Phase 4 | Pending |
+| INFRA-01 | Phase 1 | Pending |
+| INFRA-02 | Phase 1 | Pending |
+| INFRA-03 | Phase 1 | Pending |
+| INFRA-04 | Phase 1 | Pending |
+| INFRA-05 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 31 total
-- Mapped to phases: 0
-- Unmapped: 31 ⚠️
+- Mapped to phases: 31
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-14 after initial definition*
+*Last updated: 2026-03-14 after roadmap creation — all 31 requirements mapped to phases*
