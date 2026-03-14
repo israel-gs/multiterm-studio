@@ -116,6 +116,11 @@ export function MosaicLayout(): React.JSX.Element {
           value={tree}
           onChange={handleChange}
           renderTile={(id, path) => <PanelWindow key={id} sessionId={id} path={path} />}
+          createNode={() => {
+            const newId = crypto.randomUUID()
+            addPanel(newId)
+            return newId
+          }}
           zeroStateView={zeroStateView}
           resize={{ minimumPaneSizePercentage: 5 }}
         />

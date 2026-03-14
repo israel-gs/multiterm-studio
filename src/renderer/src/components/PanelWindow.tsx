@@ -14,7 +14,11 @@ export function PanelWindow({ sessionId, path }: Props): React.JSX.Element {
       path={path}
       title={sessionId}
       createNode={() => crypto.randomUUID()}
-      renderToolbar={() => <PanelHeader sessionId={sessionId} path={path} />}
+      renderToolbar={() => (
+        <div style={{ width: '100%' }}>
+          <PanelHeader sessionId={sessionId} path={path} />
+        </div>
+      )}
     >
       <div style={{ width: '100%', height: '100%' }}>
         <TerminalPanel sessionId={sessionId} cwd="." />

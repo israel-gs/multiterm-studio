@@ -1,5 +1,8 @@
 import * as pty from 'node-pty'
 import { ipcMain, WebContents } from 'electron'
+import { homedir } from 'os'
+import { existsSync } from 'fs'
+import { resolve } from 'path'
 
 interface PtySession {
   process: pty.IPty
@@ -12,11 +15,15 @@ export function registerPtyHandlers(webContents: WebContents): void {
     const shell =
       process.env.SHELL || (process.platform === 'win32' ? 'cmd.exe' : '/bin/bash')
 
+    // Resolve cwd to absolute path, fall back to home directory
+    const resolvedCwd = resolve(cwd)
+    const safeCwd = existsSync(resolvedCwd) ? resolvedCwd : homedir()
+
     const ptyProcess = pty.spawn(shell, [], {
       name: 'xterm-256color',
       cols: 80,
       rows: 24,
-      cwd,
+      cwd: safeCwd,
       env: { ...process.env }
     })
 
