@@ -13,7 +13,7 @@ Four phases that build from foundation to differentiators. Phase 1 establishes t
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Foundation + Terminal Core** - Secure Electron scaffold with real PTY session in a single panel
-- [ ] **Phase 2: Multi-Panel Layout** - Tiling canvas with N panels, each with their own PTY
+- [x] **Phase 2: Multi-Panel Layout** - Tiling canvas with N panels, each with their own PTY (completed 2026-03-14)
 - [ ] **Phase 3: Project Context + Panel Identity** - File tree sidebar, folder-on-launch, editable panel headers with color
 - [ ] **Phase 4: Attention Detection + Persistence** - Output watcher, native notifications, and per-project layout save/restore
 
@@ -45,7 +45,7 @@ Plans:
   2. User can drag dividers between panels to resize them, and terminal output re-renders correctly after resize
   3. User can close a panel with the header close button; the associated PTY process is killed (no zombie processes)
   4. Clicking "+ New terminal" adds a new panel with a fresh shell session in the project cwd
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 02-01-PLAN.md — Zustand panel store + react-mosaic controlled tiling layout with PTY lifecycle management
@@ -87,6 +87,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation + Terminal Core | 3/3 | Complete | 2026-03-14 |
-| 2. Multi-Panel Layout | 1/2 | In Progress|  |
+| 2. Multi-Panel Layout | 2/2 | Complete   | 2026-03-14 |
 | 3. Project Context + Panel Identity | 0/1 | Not started | - |
 | 4. Attention Detection + Persistence | 0/2 | Not started | - |

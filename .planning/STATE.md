@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in-progress
-stopped_at: Completed 02-01-PLAN.md — tiling mosaic layout with zustand panel store, PTY lifecycle management
-last_updated: "2026-03-14T07:30:14.143Z"
+status: completed
+stopped_at: "Checkpoint: Task 2 human-verify for 02-02-PLAN.md — awaiting approval of multi-panel terminal experience"
+last_updated: "2026-03-14T07:35:06.933Z"
 last_activity: "2026-03-14 — Plan 02-01 complete: react-mosaic v7 tiling layout, zustand panelStore, MosaicLayout, PanelWindow, PTY kill on onChange diff"
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
   percent: 80
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-14)
 ## Current Position
 
 Phase: 2 of 4 (Multi-Panel Layout)
-Plan: 1 of 3 in current phase (COMPLETE)
-Status: Plan 02-01 complete — advancing to 02-02 (PanelHeader)
-Last activity: 2026-03-14 — Plan 02-01 complete: react-mosaic v7 tiling layout, zustand panelStore, MosaicLayout, PanelWindow, PTY kill on onChange diff
+Plan: 2 of 3 in current phase (COMPLETE — awaiting human verify checkpoint)
+Status: Plan 02-02 Task 1 complete — at checkpoint:human-verify (Task 2) for multi-panel experience
+Last activity: 2026-03-14 — Plan 02-02 complete: PanelHeader with editable title, 6-color picker, split/close buttons
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [████████░░] 80%
 - Trend: stable
 
 *Updated after each plan completion*
+| Phase 02-multi-panel-layout P02 | 3 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [02-01]: react-mosaic v7.0.0-beta0 installed (not v6.1.1) — uses n-ary MosaicSplitNode { type:'split', children:[], splitPercentages:[] } and MosaicPath = number[]
 - [02-01]: MosaicWindowContext in v7 does NOT expose mosaicActions — use MosaicContext for mosaicActions.remove(path)
 - [02-01]: ptyKill removed from Terminal.tsx cleanup; moved exclusively to MosaicLayout.handleChange diff to prevent double-kill
+- [Phase 02-02]: vi.hoisted() required for mockSplit and mockRemove — referenced inside vi.mock() factory which is hoisted to top of file by Vitest before variable declarations
+- [Phase 02-02]: PanelHeader uses both MosaicWindowContext (mosaicWindowActions.split) and MosaicContext (mosaicActions.remove) — v7 API separates these two contexts
 
 ### Pending Todos
 
@@ -87,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14
-Stopped at: Completed 02-01-PLAN.md — tiling mosaic layout with zustand panel store, PTY lifecycle management
+Last session: 2026-03-14T07:35:06.931Z
+Stopped at: Checkpoint: Task 2 human-verify for 02-02-PLAN.md — awaiting approval of multi-panel terminal experience
 Resume file: None
