@@ -1,10 +1,6 @@
-import { useRef } from 'react'
-import { TerminalPanel } from './components/Terminal'
+import { MosaicLayout } from './components/MosaicLayout'
 
 function App(): React.JSX.Element {
-  // useRef keeps sessionId stable across re-renders (no new PTY on each render)
-  const sessionId = useRef(crypto.randomUUID()).current
-
   return (
     <div
       style={{
@@ -13,7 +9,7 @@ function App(): React.JSX.Element {
         background: 'var(--bg-main)'
       }}
     >
-      <TerminalPanel sessionId={sessionId} cwd="." />
+      <MosaicLayout />
     </div>
   )
 }

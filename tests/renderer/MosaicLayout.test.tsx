@@ -126,7 +126,10 @@ describe('MosaicLayout', () => {
     act(() => {
       render(<MosaicLayout />)
     })
-    expect(screen.getByTestId('mosaic-root')).toBeInTheDocument()
+    // mosaic-root is rendered because tree has an initial leaf
+    expect(screen.getByTestId('mosaic-root')).toBeTruthy()
+    // initial tree should have exactly one leaf
+    expect(getLeavesImpl(mosaicValue)).toHaveLength(1)
   })
 
   it('add panel wraps root in a split with the new panel as second child', () => {

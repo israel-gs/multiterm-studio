@@ -171,7 +171,7 @@ describe('TerminalPanel', () => {
     expect(mockTerm.write).toHaveBeenCalledWith('shell output')
   })
 
-  it('calls ptyKill and term.dispose on cleanup', () => {
+  it('calls term.dispose on cleanup (ptyKill moved to MosaicLayout onChange diff)', () => {
     const mockUnsubscribe = vi.fn()
     mockElectronAPI.onPtyData.mockReturnValue(mockUnsubscribe)
 
@@ -185,7 +185,9 @@ describe('TerminalPanel', () => {
       unmount()
     })
 
-    expect(mockElectronAPI.ptyKill).toHaveBeenCalledWith(sessionId)
+    // ptyKill is NOT called here — it is called by MosaicLayout.handleChange diff
+    // to avoid double-kill when the panel is removed from the mosaic tree.
+    expect(mockElectronAPI.ptyKill).not.toHaveBeenCalled()
     expect(mockTerm.dispose).toHaveBeenCalled()
   })
 

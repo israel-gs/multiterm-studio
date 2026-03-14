@@ -83,7 +83,9 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
     return () => {
       unsubscribe()
       observer.disconnect()
-      window.electronAPI.ptyKill(sessionId)
+      // NOTE: ptyKill is intentionally NOT called here.
+      // PTY lifecycle is managed by MosaicLayout's onChange diff handler
+      // to avoid double-kill when a panel is closed (research pitfall 2).
       term.dispose()
     }
   }, [sessionId, cwd])

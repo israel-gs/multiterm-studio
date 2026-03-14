@@ -16,3 +16,30 @@ body {
   height: 100vh;
   width: 100vw;
 }
+
+/* react-mosaic dark theme overrides */
+.mosaic-root {
+  background: var(--bg-main);
+}
+
+.mosaic-tile {
+  margin: 1px;
+}
+
+.mosaic-split {
+  background: var(--bg-main);
+}
+
+.mosaic-split:hover {
+  background: var(--fg-secondary);
+}
+
+/* Hide default mosaic toolbar — we use renderToolbar for full control */
+.mosaic-window .mosaic-window-toolbar {
+  display: none;
+}
+
+/* Panel body uses dark background */
+.mosaic-window .mosaic-window-body {
+  background: var(--bg-panel);
+}
