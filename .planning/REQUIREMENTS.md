@@ -27,14 +27,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Layout & Panels
 
-- [ ] **LAYOUT-01**: Terminal panels are arranged in a tiling layout using react-mosaic
+- [x] **LAYOUT-01**: Terminal panels are arranged in a tiling layout using react-mosaic
 - [ ] **LAYOUT-02**: User can split panels horizontally and vertically
-- [ ] **LAYOUT-03**: User can resize panels by dragging dividers
+- [x] **LAYOUT-03**: User can resize panels by dragging dividers
 - [ ] **LAYOUT-04**: User can close individual panels via header close button
-- [ ] **LAYOUT-05**: Global "+ New terminal" button adds a new panel to the canvas
+- [x] **LAYOUT-05**: Global "+ New terminal" button adds a new panel to the canvas
 - [ ] **LAYOUT-06**: Panel header displays editable session title (double-click to edit)
 - [ ] **LAYOUT-07**: Panel header has a color dot picker with 6 preset colors
-- [ ] **LAYOUT-08**: Closing a panel kills the associated PTY process
+- [x] **LAYOUT-08**: Closing a panel kills the associated PTY process
 
 ### Project Context
 
@@ -108,14 +108,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ATTN-01 | Phase 4 | Pending |
 | ATTN-02 | Phase 4 | Pending |
 | ATTN-03 | Phase 4 | Pending |
-| LAYOUT-01 | Phase 2 | Pending |
+| LAYOUT-01 | Phase 2 | Complete |
 | LAYOUT-02 | Phase 2 | Pending |
-| LAYOUT-03 | Phase 2 | Pending |
+| LAYOUT-03 | Phase 2 | Complete |
 | LAYOUT-04 | Phase 2 | Pending |
-| LAYOUT-05 | Phase 2 | Pending |
+| LAYOUT-05 | Phase 2 | Complete |
 | LAYOUT-06 | Phase 2 | Pending |
 | LAYOUT-07 | Phase 2 | Pending |
-| LAYOUT-08 | Phase 2 | Pending |
+| LAYOUT-08 | Phase 2 | Complete |
 | PROJ-01 | Phase 3 | Pending |
 | PROJ-02 | Phase 3 | Pending |
 | PROJ-03 | Phase 3 | Pending |

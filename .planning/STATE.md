@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Completed 01-03-PLAN.md — xterm.js Terminal component, full Phase 1 terminal experience human-verified
-last_updated: "2026-03-14T07:05:19.740Z"
-last_activity: "2026-03-14 — Plan 01-03 complete: xterm.js Terminal component, FitAddon, WebLinksAddon, ResizeObserver resize roundtrip, human-verified"
+status: in-progress
+stopped_at: Completed 02-01-PLAN.md — tiling mosaic layout with zustand panel store, PTY lifecycle management
+last_updated: "2026-03-14T07:30:14.143Z"
+last_activity: "2026-03-14 — Plan 02-01 complete: react-mosaic v7 tiling layout, zustand panelStore, MosaicLayout, PanelWindow, PTY kill on onChange diff"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 25
+  total_plans: 5
+  completed_plans: 4
+  percent: 80
 ---
 
 # Project State
@@ -21,32 +21,33 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-14)
 
 **Core value:** Terminals that are project-aware: every panel inherits the project's working directory, layout and sessions persist per-project, and an output watcher alerts you when a long-running process needs attention.
-**Current focus:** Phase 1 — Foundation + Terminal Core
+**Current focus:** Phase 2 — Multi-Panel Layout
 
 ## Current Position
 
-Phase: 1 of 4 (Foundation + Terminal Core)
-Plan: 3 of 3 in current phase (COMPLETE)
-Status: Phase 1 complete — advancing to Phase 2
-Last activity: 2026-03-14 — Plan 01-03 complete: xterm.js Terminal component, FitAddon, WebLinksAddon, ResizeObserver resize roundtrip, human-verified
+Phase: 2 of 4 (Multi-Panel Layout)
+Plan: 1 of 3 in current phase (COMPLETE)
+Status: Plan 02-01 complete — advancing to 02-02 (PanelHeader)
+Last activity: 2026-03-14 — Plan 02-01 complete: react-mosaic v7 tiling layout, zustand panelStore, MosaicLayout, PanelWindow, PTY kill on onChange diff
 
-Progress: [███░░░░░░░] 25%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 6 min
-- Total execution time: 0.3 hours
+- Total plans completed: 4
+- Average duration: 5.75 min
+- Total execution time: 0.38 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | Phase 1 | 3 of 3 | 18 min | 6 min |
+| Phase 2 | 1 of 3 | 5 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (5 min), 01-02 (3 min), 01-03 (10 min)
+- Last 5 plans: 01-01 (5 min), 01-02 (3 min), 01-03 (10 min), 02-01 (5 min)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -70,6 +71,9 @@ Recent decisions affecting current work:
 - [01-03]: vi.hoisted() required to declare mock constructor refs before vi.mock() factory executes — standard declarations are silently undefined due to Vitest hoisting
 - [01-03]: sessionId uses useRef(crypto.randomUUID()) to remain stable across re-renders — avoids re-creating PTY session on unrelated state changes
 - [01-03]: cwd passed as '.' from renderer, resolved to absolute path by ptyManager.ts via path.resolve — main process is authoritative over filesystem paths
+- [02-01]: react-mosaic v7.0.0-beta0 installed (not v6.1.1) — uses n-ary MosaicSplitNode { type:'split', children:[], splitPercentages:[] } and MosaicPath = number[]
+- [02-01]: MosaicWindowContext in v7 does NOT expose mosaicActions — use MosaicContext for mosaicActions.remove(path)
+- [02-01]: ptyKill removed from Terminal.tsx cleanup; moved exclusively to MosaicLayout.handleChange diff to prevent double-kill
 
 ### Pending Todos
 
@@ -84,5 +88,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 01-03-PLAN.md — xterm.js Terminal component, full Phase 1 terminal experience human-verified
+Stopped at: Completed 02-01-PLAN.md — tiling mosaic layout with zustand panel store, PTY lifecycle management
 Resume file: None

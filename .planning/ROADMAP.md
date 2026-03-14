@@ -45,7 +45,7 @@ Plans:
   2. User can drag dividers between panels to resize them, and terminal output re-renders correctly after resize
   3. User can close a panel with the header close button; the associated PTY process is killed (no zombie processes)
   4. Clicking "+ New terminal" adds a new panel with a fresh shell session in the project cwd
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 02-01-PLAN.md — Zustand panel store + react-mosaic controlled tiling layout with PTY lifecycle management
@@ -87,6 +87,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation + Terminal Core | 3/3 | Complete | 2026-03-14 |
-| 2. Multi-Panel Layout | 0/2 | Planned | - |
+| 2. Multi-Panel Layout | 1/2 | In Progress|  |
 | 3. Project Context + Panel Identity | 0/1 | Not started | - |
 | 4. Attention Detection + Persistence | 0/2 | Not started | - |
