@@ -29,12 +29,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. The terminal panel opens with cwd set to the project folder the user opened
   4. Terminal renders ANSI colors, handles Ctrl+C, and resizes correctly when the window is resized
   5. Clicking a URL in terminal output opens it in the system browser
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 01-01: Electron + electron-vite scaffold with contextIsolation, all IPC channels, and postinstall rebuild
-- [ ] 01-02: PTY manager in main process with pty:create/write/resize/kill/data IPC handlers
-- [ ] 01-03: Renderer terminal panel with xterm.js, FitAddon, WebLinksAddon, and ResizeObserver resize roundtrip
+- [ ] 01-01-PLAN.md — Electron + electron-vite scaffold with contextIsolation, IPC bridge, dark theme, and Wave 0 test scaffolds
+- [ ] 01-02-PLAN.md — PTY manager in main process with pty:create/write/resize/kill/data IPC handlers
+- [ ] 01-03-PLAN.md — Renderer terminal panel with xterm.js, FitAddon, WebLinksAddon, ResizeObserver, and human verification
 
 ### Phase 2: Multi-Panel Layout
 **Goal**: User can work with multiple terminal panels simultaneously — splitting, resizing, closing, and adding panels — each with its own live PTY session
