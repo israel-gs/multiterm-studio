@@ -56,11 +56,11 @@ completed: 2026-03-14
 
 ## Performance
 
-- **Duration:** ~2 min
+- **Duration:** ~20 min (including human verification)
 - **Started:** 2026-03-14T07:31:28Z
-- **Completed:** 2026-03-14T07:33:55Z
-- **Tasks:** 1 complete (Task 2 awaits human verification)
-- **Files modified:** 4
+- **Completed:** 2026-03-14T07:50:00Z
+- **Tasks:** 2 complete
+- **Files modified:** 7
 
 ## Accomplishments
 
@@ -68,6 +68,7 @@ completed: 2026-03-14
 - PanelWindow.tsx: removed inline placeholder toolbar, now uses `renderToolbar={() => <PanelHeader sessionId={sessionId} path={path} />}`
 - global.css: panel-header, panel-header-title, panel-header-input, panel-header-btn, color-dot, color-option CSS classes added
 - 8 PanelHeader tests pass; 51 total tests pass; build clean
+- Human verification approved: all 9 scenarios verified (add panel, split, resize, close, edit title, color picker, zero state, stress test)
 
 ## Task Commits
 
@@ -75,6 +76,8 @@ TDD: RED then GREEN per task:
 
 1. **Task 1: PanelHeader (TDD RED)** — `628c72b` (test) — 8 failing tests
 2. **Task 1: PanelHeader (TDD GREEN)** — `23f9f0b` (feat) — implementation + all 51 tests pass
+3. **Task 1: Bug fixes during verification** — `2aa3e5e` (fix) — PTY cwd, react-dnd wrapper, Mosaic createNode
+4. **Task 2: Human verification** — approved, all 9 scenarios pass
 
 _Note: TDD tasks have two commits — failing tests first (RED), then implementation (GREEN)._
 
@@ -85,8 +88,10 @@ _Note: TDD tasks have two commits — failing tests first (RED), then implementa
 - `tests/renderer/PanelHeader.test.tsx` — 8 unit tests for all header interactions
 
 **Modified:**
-- `src/renderer/src/components/PanelWindow.tsx` — replaced inline placeholder with `<PanelHeader>` via renderToolbar
+- `src/renderer/src/components/PanelWindow.tsx` — replaced inline placeholder with `<PanelHeader>` via renderToolbar; wrapped PanelHeader in `<div>` for react-dnd connector compatibility
 - `src/renderer/src/assets/global.css` — panel-header CSS classes appended
+- `src/main/ptyManager.ts` — resolve cwd to absolute path with homedir fallback (fixes `posix_spawnp` failure on relative `"."`)
+- `src/renderer/src/components/MosaicLayout.tsx` — added `createNode` prop to Mosaic component (required by split action)
 
 ## Decisions Made
 
@@ -106,14 +111,38 @@ _Note: TDD tasks have two commits — failing tests first (RED), then implementa
 - **Verification:** All 8 tests pass after fix
 - **Committed in:** `23f9f0b` (Task 1 GREEN commit)
 
+**2. [Rule 1 - Bug] PTY spawn failure on relative "." cwd**
+- **Found during:** Task 2 (human verification — app failed to spawn PTY)
+- **Issue:** `ptyManager.spawn()` received cwd `"."` (relative path), causing `posix_spawnp` to fail on macOS
+- **Fix:** Added `path.resolve(options.cwd || '.')` with homedir fallback so ptyManager always receives an absolute path
+- **Files modified:** `src/main/ptyManager.ts`
+- **Verification:** PTY spawns successfully after fix
+- **Committed in:** `2aa3e5e`
+
+**3. [Rule 1 - Bug] react-dnd connector requires DOM node, not React element**
+- **Found during:** Task 2 (human verification — drag/resize threw react-dnd connector error)
+- **Issue:** react-mosaic's drag connector requires a DOM node ref; wrapping `<PanelHeader>` directly caused connector to receive a React element instead
+- **Fix:** Wrapped `<PanelHeader>` in a `<div>` inside `renderToolbar` in `PanelWindow.tsx` so the connector attaches to a real DOM node
+- **Files modified:** `src/renderer/src/components/PanelWindow.tsx`
+- **Verification:** Drag/resize works without console errors
+- **Committed in:** `2aa3e5e`
+
+**4. [Rule 1 - Bug] Missing createNode prop on Mosaic breaks split action**
+- **Found during:** Task 2 (human verification — split button caused runtime error)
+- **Issue:** `mosaicWindowActions.split()` in react-mosaic v7 requires a `createNode` callback on the `<Mosaic>` component to generate new node IDs; without it, split threw an error
+- **Fix:** Added `createNode={() => crypto.randomUUID()}` prop to `<Mosaic>` in `MosaicLayout.tsx`
+- **Files modified:** `src/renderer/src/components/MosaicLayout.tsx`
+- **Verification:** Split button creates new panels successfully
+- **Committed in:** `2aa3e5e`
+
 ---
 
-**Total deviations:** 1 auto-fixed (Rule 1 — bug in test setup)
-**Impact on plan:** Necessary fix for test infrastructure. No scope creep.
+**Total deviations:** 4 auto-fixed (1 Rule 1 bug in test setup, 3 Rule 1 bugs found during human verification)
+**Impact on plan:** All fixes were necessary for correct operation. No scope creep.
 
 ## Issues Encountered
 
-None beyond the vi.hoisted() fix above.
+Three runtime bugs surfaced during human verification that were not caught by unit tests: PTY cwd resolution, react-dnd DOM connector, and missing createNode prop. All resolved in a single fix commit `2aa3e5e`.
 
 ## User Setup Required
 
@@ -121,8 +150,9 @@ None — no external service configuration required.
 
 ## Next Phase Readiness
 
-- PanelHeader complete; ready for human verification of full multi-panel experience
+- Full multi-panel terminal experience verified and working: add, split, resize, close, title edit, color change, zero state, stress test
 - Phase 03 (project-aware cwd) can consume PanelHeader as-is — no changes needed to interface
+- PTY cwd now resolved in ptyManager; Phase 03 can pass absolute project paths without workarounds
 
 ---
 *Phase: 02-multi-panel-layout*
