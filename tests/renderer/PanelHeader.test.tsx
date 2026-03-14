@@ -3,12 +3,15 @@ import { render, screen, act, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { usePanelStore } from '@renderer/store/panelStore'
 
+// --- Hoist mocks so they are available inside vi.mock() factory ---
+const { mockSplit, mockRemove } = vi.hoisted(() => ({
+  mockSplit: vi.fn().mockResolvedValue(undefined),
+  mockRemove: vi.fn()
+}))
+
 // --- Mock react-mosaic-component ---
 // MosaicWindowContext provides mosaicWindowActions (split, etc.)
 // MosaicContext provides mosaicActions (remove, etc.)
-
-const mockSplit = vi.fn().mockResolvedValue(undefined)
-const mockRemove = vi.fn()
 
 vi.mock('react-mosaic-component', () => {
   const MosaicWindowContext = React.createContext({
@@ -19,7 +22,7 @@ vi.mock('react-mosaic-component', () => {
       getRoot: vi.fn(),
       replaceWithNew: vi.fn(),
       setAdditionalControlsOpen: vi.fn(),
-      getPath: vi.fn(() => []),
+      getPath: vi.fn(() => [] as number[]),
       connectDragSource: vi.fn()
     }
   })
@@ -56,12 +59,11 @@ vi.mock('react-mosaic-component/react-mosaic-component.css', () => ({}))
 // --- Import after mocks ---
 import { PanelHeader } from '@renderer/components/PanelHeader'
 
-// Helper to get the mocked context providers
+// Helper to render PanelHeader wrapped in both contexts
 function renderWithContexts(
   ui: React.ReactElement,
   opts?: { path?: number[] }
 ): ReturnType<typeof render> {
-  // We need to import the mocked context to wrap
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { MosaicWindowContext, MosaicContext } = require('react-mosaic-component')
   const path = opts?.path ?? []
@@ -111,7 +113,7 @@ describe('PanelHeader', () => {
     vi.clearAllMocks()
     // Reset zustand store between tests
     usePanelStore.setState({ panels: {} })
-    // Add a test panel
+    // Add a test panel with defaults (title='Terminal', color='#569cd6')
     usePanelStore.getState().addPanel(TEST_SESSION_ID)
   })
 

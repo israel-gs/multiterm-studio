@@ -43,3 +43,65 @@ body {
 .mosaic-window .mosaic-window-body {
   background: var(--bg-panel);
 }
+
+/* Panel header */
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  height: 28px;
+  background: var(--bg-header);
+  color: var(--fg-primary);
+  font-size: 12px;
+  user-select: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.panel-header-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+.panel-header-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--fg-secondary);
+  color: var(--fg-primary);
+  font-size: 12px;
+  outline: none;
+  padding: 0;
+}
+.panel-header-btn {
+  background: none;
+  border: none;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 14px;
+  line-height: 1;
+}
+.panel-header-btn:hover {
+  color: var(--fg-primary);
+}
+.color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.color-option {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.color-option:hover {
+  transform: scale(1.3);
+}
