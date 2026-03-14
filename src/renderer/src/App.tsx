@@ -1,22 +1,19 @@
-// Minimal placeholder — Plan 03 replaces this with the full terminal workspace UI
+import { useRef } from 'react'
+import { TerminalPanel } from './components/Terminal'
+
 function App(): React.JSX.Element {
+  // useRef keeps sessionId stable across re-renders (no new PTY on each render)
+  const sessionId = useRef(crypto.randomUUID()).current
+
   return (
     <div
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
         width: '100vw',
         height: '100vh',
-        background: 'var(--bg-main)',
-        color: 'var(--fg-primary)',
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        fontSize: '24px',
-        fontWeight: 600,
-        userSelect: 'none'
+        background: 'var(--bg-main)'
       }}
     >
-      Multiterm Studio
+      <TerminalPanel sessionId={sessionId} cwd="." />
     </div>
   )
 }

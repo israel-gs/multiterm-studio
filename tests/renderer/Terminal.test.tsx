@@ -2,26 +2,28 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, act } from '@testing-library/react'
 import React from 'react'
 
-// --- Mocks ---
+// --- Hoisted mock refs (available inside vi.mock factory) ---
 
-const mockFitAddon = {
-  fit: vi.fn()
-}
+const { mockTerm, mockFitAddon, mockWebLinksAddon, MockTerminalConstructor } = vi.hoisted(() => {
+  const mockTerm = {
+    loadAddon: vi.fn(),
+    open: vi.fn(),
+    onData: vi.fn(),
+    write: vi.fn(),
+    dispose: vi.fn(),
+    cols: 80,
+    rows: 24
+  }
+  const mockFitAddon = { fit: vi.fn() }
+  const mockWebLinksAddon = {}
+  const MockTerminalConstructor = vi.fn(() => mockTerm)
+  return { mockTerm, mockFitAddon, mockWebLinksAddon, MockTerminalConstructor }
+})
 
-const mockWebLinksAddon = {}
-
-const mockTerm = {
-  loadAddon: vi.fn(),
-  open: vi.fn(),
-  onData: vi.fn(),
-  write: vi.fn(),
-  dispose: vi.fn(),
-  cols: 80,
-  rows: 24
-}
+// --- Module mocks ---
 
 vi.mock('@xterm/xterm', () => ({
-  Terminal: vi.fn(() => mockTerm)
+  Terminal: MockTerminalConstructor
 }))
 
 vi.mock('@xterm/addon-fit', () => ({
@@ -35,26 +37,24 @@ vi.mock('@xterm/addon-web-links', () => ({
 // Mock xterm.css import (no-op in tests)
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}))
 
-// Mock ResizeObserver
+// --- Mock ResizeObserver ---
+
 const mockObserve = vi.fn()
 const mockDisconnect = vi.fn()
-const mockResizeObserverCb = vi.fn()
 
-global.ResizeObserver = vi.fn((cb) => {
-  mockResizeObserverCb.mockImplementation(cb)
-  return {
-    observe: mockObserve,
-    disconnect: mockDisconnect
-  }
-})
+global.ResizeObserver = vi.fn((_cb) => ({
+  observe: mockObserve,
+  disconnect: mockDisconnect
+}))
 
-// Mock window.electronAPI
+// --- Mock window.electronAPI ---
+
 const mockElectronAPI = {
   ptyCreate: vi.fn().mockResolvedValue(undefined),
   ptyWrite: vi.fn().mockResolvedValue(undefined),
   ptyResize: vi.fn().mockResolvedValue(undefined),
   ptyKill: vi.fn().mockResolvedValue(undefined),
-  onPtyData: vi.fn().mockReturnValue(vi.fn()) // returns unsubscribe fn
+  onPtyData: vi.fn().mockReturnValue(vi.fn())
 }
 
 Object.defineProperty(window, 'electronAPI', {
@@ -73,30 +73,29 @@ describe('TerminalPanel', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    // Reset mock return values after clearAllMocks
+    // Restore return values that clearAllMocks clears
     mockElectronAPI.ptyCreate.mockResolvedValue(undefined)
     mockElectronAPI.ptyWrite.mockResolvedValue(undefined)
     mockElectronAPI.ptyResize.mockResolvedValue(undefined)
     mockElectronAPI.ptyKill.mockResolvedValue(undefined)
     mockElectronAPI.onPtyData.mockReturnValue(vi.fn())
+    MockTerminalConstructor.mockReturnValue(mockTerm)
   })
 
   it('creates xterm Terminal with scrollback: 10000', () => {
-    const { Terminal } = require('@xterm/xterm')
     act(() => {
       render(<TerminalPanel sessionId={sessionId} cwd={cwd} />)
     })
-    expect(Terminal).toHaveBeenCalledWith(
+    expect(MockTerminalConstructor).toHaveBeenCalledWith(
       expect.objectContaining({ scrollback: 10000 })
     )
   })
 
   it('creates xterm Terminal with cursorBlink: true', () => {
-    const { Terminal } = require('@xterm/xterm')
     act(() => {
       render(<TerminalPanel sessionId={sessionId} cwd={cwd} />)
     })
-    expect(Terminal).toHaveBeenCalledWith(
+    expect(MockTerminalConstructor).toHaveBeenCalledWith(
       expect.objectContaining({ cursorBlink: true })
     )
   })
