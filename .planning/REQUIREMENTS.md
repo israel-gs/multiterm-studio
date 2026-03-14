@@ -50,11 +50,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: Electron app runs with contextIsolation: true and nodeIntegration: false
-- [ ] **INFRA-02**: All main↔renderer communication uses IPC via contextBridge (pty:create, pty:write, pty:resize, pty:kill, pty:data, pty:attention, folder:open, folder:readdir)
+- [x] **INFRA-01**: Electron app runs with contextIsolation: true and nodeIntegration: false
+- [x] **INFRA-02**: All main↔renderer communication uses IPC via contextBridge (pty:create, pty:write, pty:resize, pty:kill, pty:data, pty:attention, folder:open, folder:readdir)
 - [ ] **INFRA-03**: node-pty instances are managed exclusively in the main process
-- [ ] **INFRA-04**: App builds and launches with `npm install && npm run dev` using electron-vite
-- [ ] **INFRA-05**: Dark theme styling (background #1a1a1a, panels #242424, headers #2e2e2e)
+- [x] **INFRA-04**: App builds and launches with `npm install && npm run dev` using electron-vite
+- [x] **INFRA-05**: Dark theme styling (background #1a1a1a, panels #242424, headers #2e2e2e)
 
 ## v2 Requirements
 
@@ -122,11 +122,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PERS-01 | Phase 4 | Pending |
 | PERS-02 | Phase 4 | Pending |
 | PERS-03 | Phase 4 | Pending |
-| INFRA-01 | Phase 1 | Pending |
-| INFRA-02 | Phase 1 | Pending |
+| INFRA-01 | Phase 1 | Complete (01-01) |
+| INFRA-02 | Phase 1 | Complete (01-01) |
 | INFRA-03 | Phase 1 | Pending |
-| INFRA-04 | Phase 1 | Pending |
-| INFRA-05 | Phase 1 | Pending |
+| INFRA-04 | Phase 1 | Complete (01-01) |
+| INFRA-05 | Phase 1 | Complete (01-01) |
 
 **Coverage:**
 - v1 requirements: 31 total
@@ -135,4 +135,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-14 after roadmap creation — all 31 requirements mapped to phases*
+*Last updated: 2026-03-14 after plan 01-01 — INFRA-01, INFRA-02, INFRA-04, INFRA-05 complete*

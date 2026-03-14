@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Electron + electron-vite scaffold with contextIsolation, IPC bridge, dark theme, and Wave 0 test scaffolds
+- [x] 01-01-PLAN.md — Electron + electron-vite scaffold with contextIsolation, IPC bridge, dark theme, and Wave 0 test scaffolds
 - [ ] 01-02-PLAN.md — PTY manager in main process with pty:create/write/resize/kill/data IPC handlers
 - [ ] 01-03-PLAN.md — Renderer terminal panel with xterm.js, FitAddon, WebLinksAddon, ResizeObserver, and human verification
 
@@ -86,7 +86,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation + Terminal Core | 0/3 | Not started | - |
+| 1. Foundation + Terminal Core | 1/3 | In progress | - |
 | 2. Multi-Panel Layout | 0/2 | Not started | - |
 | 3. Project Context + Panel Identity | 0/1 | Not started | - |
 | 4. Attention Detection + Persistence | 0/2 | Not started | - |
