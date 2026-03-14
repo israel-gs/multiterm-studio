@@ -9,8 +9,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Terminal Core
 
-- [ ] **TERM-01**: User can open a real shell session (bash/zsh on macOS/Linux, cmd/powershell on Windows) in each terminal panel
-- [ ] **TERM-02**: Each panel's shell starts with cwd set to the opened project folder
+- [x] **TERM-01**: User can open a real shell session (bash/zsh on macOS/Linux, cmd/powershell on Windows) in each terminal panel
+- [x] **TERM-02**: Each panel's shell starts with cwd set to the opened project folder
 - [ ] **TERM-03**: Terminal renders with xterm.js including FitAddon and WebLinksAddon
 - [ ] **TERM-04**: PTY resizes correctly when panel is resized (FitAddon + ResizeObserver → pty:resize IPC)
 - [ ] **TERM-05**: Terminal supports scrollback buffer (10,000+ lines)
@@ -52,7 +52,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **INFRA-01**: Electron app runs with contextIsolation: true and nodeIntegration: false
 - [x] **INFRA-02**: All main↔renderer communication uses IPC via contextBridge (pty:create, pty:write, pty:resize, pty:kill, pty:data, pty:attention, folder:open, folder:readdir)
-- [ ] **INFRA-03**: node-pty instances are managed exclusively in the main process
+- [x] **INFRA-03**: node-pty instances are managed exclusively in the main process
 - [x] **INFRA-04**: App builds and launches with `npm install && npm run dev` using electron-vite
 - [x] **INFRA-05**: Dark theme styling (background #1a1a1a, panels #242424, headers #2e2e2e)
 
@@ -96,8 +96,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TERM-01 | Phase 1 | Pending |
-| TERM-02 | Phase 1 | Pending |
+| TERM-01 | Phase 1 | Complete (01-02) |
+| TERM-02 | Phase 1 | Complete (01-02) |
 | TERM-03 | Phase 1 | Pending |
 | TERM-04 | Phase 1 | Pending |
 | TERM-05 | Phase 1 | Pending |
@@ -124,7 +124,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PERS-03 | Phase 4 | Pending |
 | INFRA-01 | Phase 1 | Complete (01-01) |
 | INFRA-02 | Phase 1 | Complete (01-01) |
-| INFRA-03 | Phase 1 | Pending |
+| INFRA-03 | Phase 1 | Complete (01-02) |
 | INFRA-04 | Phase 1 | Complete (01-01) |
 | INFRA-05 | Phase 1 | Complete (01-01) |
 
@@ -135,4 +135,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-14 after plan 01-01 — INFRA-01, INFRA-02, INFRA-04, INFRA-05 complete*
+*Last updated: 2026-03-14 after plan 01-02 — INFRA-03, TERM-01, TERM-02 complete*
