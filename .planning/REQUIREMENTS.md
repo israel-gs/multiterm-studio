@@ -11,13 +11,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **TERM-01**: User can open a real shell session (bash/zsh on macOS/Linux, cmd/powershell on Windows) in each terminal panel
 - [x] **TERM-02**: Each panel's shell starts with cwd set to the opened project folder
-- [ ] **TERM-03**: Terminal renders with xterm.js including FitAddon and WebLinksAddon
-- [ ] **TERM-04**: PTY resizes correctly when panel is resized (FitAddon + ResizeObserver → pty:resize IPC)
-- [ ] **TERM-05**: Terminal supports scrollback buffer (10,000+ lines)
-- [ ] **TERM-06**: Terminal renders ANSI colors, 256-color, and 24-bit color correctly
-- [ ] **TERM-07**: Terminal supports Unicode and emoji rendering
-- [ ] **TERM-08**: Keyboard input passes through to PTY correctly (Ctrl+C, arrow keys, tab completion)
-- [ ] **TERM-09**: User can copy selected text and paste from clipboard
+- [x] **TERM-03**: Terminal renders with xterm.js including FitAddon and WebLinksAddon
+- [x] **TERM-04**: PTY resizes correctly when panel is resized (FitAddon + ResizeObserver → pty:resize IPC)
+- [x] **TERM-05**: Terminal supports scrollback buffer (10,000+ lines)
+- [x] **TERM-06**: Terminal renders ANSI colors, 256-color, and 24-bit color correctly
+- [x] **TERM-07**: Terminal supports Unicode and emoji rendering
+- [x] **TERM-08**: Keyboard input passes through to PTY correctly (Ctrl+C, arrow keys, tab completion)
+- [x] **TERM-09**: User can copy selected text and paste from clipboard
 
 ### Attention Detection
 
@@ -98,13 +98,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | TERM-01 | Phase 1 | Complete (01-02) |
 | TERM-02 | Phase 1 | Complete (01-02) |
-| TERM-03 | Phase 1 | Pending |
-| TERM-04 | Phase 1 | Pending |
-| TERM-05 | Phase 1 | Pending |
-| TERM-06 | Phase 1 | Pending |
-| TERM-07 | Phase 1 | Pending |
-| TERM-08 | Phase 1 | Pending |
-| TERM-09 | Phase 1 | Pending |
+| TERM-03 | Phase 1 | Complete |
+| TERM-04 | Phase 1 | Complete |
+| TERM-05 | Phase 1 | Complete |
+| TERM-06 | Phase 1 | Complete |
+| TERM-07 | Phase 1 | Complete |
+| TERM-08 | Phase 1 | Complete |
+| TERM-09 | Phase 1 | Complete |
 | ATTN-01 | Phase 4 | Pending |
 | ATTN-02 | Phase 4 | Pending |
 | ATTN-03 | Phase 4 | Pending |

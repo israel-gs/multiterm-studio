@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2026-03-14)
 ## Current Position
 
 Phase: 1 of 4 (Foundation + Terminal Core)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-03-14 — Plan 01-02 complete: PTY manager IPC handlers, node-pty session lifecycle, 22 tests green
+Plan: 3 of 3 in current phase (COMPLETE)
+Status: Phase 1 complete — advancing to Phase 2
+Last activity: 2026-03-14 — Plan 01-03 complete: xterm.js Terminal component, FitAddon, WebLinksAddon, ResizeObserver resize roundtrip, human-verified
 
-Progress: [██░░░░░░░░] 17%
+Progress: [███░░░░░░░] 25%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 4 min
-- Total execution time: 0.1 hours
+- Total plans completed: 3
+- Average duration: 6 min
+- Total execution time: 0.3 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| Phase 1 | 2 of 3 | 8 min | 4 min |
+| Phase 1 | 3 of 3 | 18 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (5 min), 01-02 (3 min)
+- Last 5 plans: 01-01 (5 min), 01-02 (3 min), 01-03 (10 min)
 - Trend: stable
 
 *Updated after each plan completion*
@@ -50,6 +50,10 @@ Recent decisions affecting current work:
 - [01-01]: node-pty placed in `dependencies` (not devDependencies) — electron-builder only rebuilds native modules in `dependencies` for production builds
 - [01-02]: IPC handlers return void (not Promise) for early-return no-op paths — test assertions use expect().not.toThrow(), not .resolves
 - [01-02]: capturedHandlers dict pattern for unit testing ipcMain.handle — mock captures handler function by channel, tests invoke directly without Electron runtime
+- [01-03]: Import @xterm/xterm/css/xterm.css inside Terminal.tsx — terminal renders blank without it; co-location ensures the import is never forgotten
+- [01-03]: vi.hoisted() required to declare mock constructor refs before vi.mock() factory executes — standard declarations are silently undefined due to Vitest hoisting
+- [01-03]: sessionId uses useRef(crypto.randomUUID()) to remain stable across re-renders — avoids re-creating PTY session on unrelated state changes
+- [01-03]: cwd passed as '.' from renderer, resolved to absolute path by ptyManager.ts via path.resolve — main process is authoritative over filesystem paths
 
 ### Pending Todos
 
@@ -64,5 +68,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: Completed 01-02-PLAN.md — PTY manager IPC handlers, node-pty session lifecycle, 22 tests green
+Stopped at: Completed 01-03-PLAN.md — xterm.js Terminal component, full Phase 1 terminal experience human-verified
 Resume file: None
