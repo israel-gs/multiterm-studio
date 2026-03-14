@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: completed
+stopped_at: Completed 01-03-PLAN.md — xterm.js Terminal component, full Phase 1 terminal experience human-verified
+last_updated: "2026-03-14T07:05:19.740Z"
+last_activity: "2026-03-14 — Plan 01-03 complete: xterm.js Terminal component, FitAddon, WebLinksAddon, ResizeObserver resize roundtrip, human-verified"
+progress:
+  total_phases: 4
+  completed_phases: 1
+  total_plans: 3
+  completed_plans: 3
+  percent: 25
+---
+
 # Project State
 
 ## Project Reference
