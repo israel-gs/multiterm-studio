@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Electron + electron-vite scaffold with contextIsolation, IPC bridge, dark theme, and Wave 0 test scaffolds
 - [x] 01-02-PLAN.md — PTY manager in main process with pty:create/write/resize/kill/data IPC handlers
-- [ ] 01-03-PLAN.md — Renderer terminal panel with xterm.js, FitAddon, WebLinksAddon, ResizeObserver, and human verification
+- [x] 01-03-PLAN.md — Renderer terminal panel with xterm.js, FitAddon, WebLinksAddon, ResizeObserver, and human verification
 
 ### Phase 2: Multi-Panel Layout
 **Goal**: User can work with multiple terminal panels simultaneously — splitting, resizing, closing, and adding panels — each with its own live PTY session
@@ -45,11 +45,11 @@ Plans:
   2. User can drag dividers between panels to resize them, and terminal output re-renders correctly after resize
   3. User can close a panel with the header close button; the associated PTY process is killed (no zombie processes)
   4. Clicking "+ New terminal" adds a new panel with a fresh shell session in the project cwd
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 02-01: react-mosaic controlled component integrated with Zustand panel store (mosaicTree + panel registry)
-- [ ] 02-02: Panel header with editable title, color dot picker, and close button wired to PTY lifecycle
+- [ ] 02-01-PLAN.md — Zustand panel store + react-mosaic controlled tiling layout with PTY lifecycle management
+- [ ] 02-02-PLAN.md — PanelHeader with editable title, color dot picker, split/close buttons, and human verification
 
 ### Phase 3: Project Context + Panel Identity
 **Goal**: The application feels project-aware — a folder picker on launch, a visible file tree sidebar, and panels with meaningful identities (custom names and colors)
@@ -86,7 +86,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation + Terminal Core | 2/3 | In progress | - |
-| 2. Multi-Panel Layout | 0/2 | Not started | - |
+| 1. Foundation + Terminal Core | 3/3 | Complete | 2026-03-14 |
+| 2. Multi-Panel Layout | 0/2 | Planned | - |
 | 3. Project Context + Panel Identity | 0/1 | Not started | - |
 | 4. Attention Detection + Persistence | 0/2 | Not started | - |
