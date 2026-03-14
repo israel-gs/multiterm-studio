@@ -1,0 +1,18 @@
+:root {
+  --bg-main: #1a1a1a;
+  --bg-panel: #242424;
+  --bg-header: #2e2e2e;
+  --fg-primary: #d4d4d4;
+  --fg-secondary: #808080;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-main);
+  color: var(--fg-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}

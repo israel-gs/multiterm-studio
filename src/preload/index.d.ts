@@ -1,0 +1,11 @@
+declare global {
+  interface Window {
+    electronAPI: {
+      ptyCreate: (id: string, cwd: string) => Promise<void>
+      ptyWrite: (id: string, data: string) => Promise<void>
+      ptyResize: (id: string, cols: number, rows: number) => Promise<void>
+      ptyKill: (id: string) => Promise<void>
+      onPtyData: (id: string, callback: (data: string) => void) => () => void
+    }
+  }
+}
