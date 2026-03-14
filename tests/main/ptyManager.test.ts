@@ -134,9 +134,7 @@ describe('ptyManager IPC handlers (INFRA-02)', () => {
     const { registerPtyHandlers } = await import('../../src/main/ptyManager')
     registerPtyHandlers(mockWebContents as never)
 
-    await expect(
-      capturedHandlers['pty:write'](fakeEvent, 'nonexistent', 'data')
-    ).resolves.not.toThrow()
+    expect(() => capturedHandlers['pty:write'](fakeEvent, 'nonexistent', 'data')).not.toThrow()
     expect(mockPtyProcess.write).not.toHaveBeenCalled()
   })
 
@@ -144,9 +142,7 @@ describe('ptyManager IPC handlers (INFRA-02)', () => {
     const { registerPtyHandlers } = await import('../../src/main/ptyManager')
     registerPtyHandlers(mockWebContents as never)
 
-    await expect(
-      capturedHandlers['pty:resize'](fakeEvent, 'nonexistent', 80, 24)
-    ).resolves.not.toThrow()
+    expect(() => capturedHandlers['pty:resize'](fakeEvent, 'nonexistent', 80, 24)).not.toThrow()
     expect(mockPtyProcess.resize).not.toHaveBeenCalled()
   })
 
@@ -154,7 +150,7 @@ describe('ptyManager IPC handlers (INFRA-02)', () => {
     const { registerPtyHandlers } = await import('../../src/main/ptyManager')
     registerPtyHandlers(mockWebContents as never)
 
-    await expect(capturedHandlers['pty:kill'](fakeEvent, 'nonexistent')).resolves.not.toThrow()
+    expect(() => capturedHandlers['pty:kill'](fakeEvent, 'nonexistent')).not.toThrow()
     expect(mockPtyProcess.kill).not.toHaveBeenCalled()
   })
 })
