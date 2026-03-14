@@ -1,4 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { tmpdir } from 'os'
 
 /**
  * INFRA-02: All IPC channels registered via contextBridge
@@ -41,6 +42,7 @@ vi.mock('node-pty', () => ({
   spawn: mockPtySpawn
 }))
 
+
 const mockWebContents = { send: vi.fn() }
 const fakeEvent = {}
 
@@ -68,7 +70,8 @@ describe('ptyManager IPC handlers (INFRA-02)', () => {
     const { registerPtyHandlers } = await import('../../src/main/ptyManager')
     registerPtyHandlers(mockWebContents as never)
 
-    await capturedHandlers['pty:create'](fakeEvent, 'session-1', '/home/user/project')
+    const testCwd = tmpdir()
+    await capturedHandlers['pty:create'](fakeEvent, 'session-1', testCwd)
 
     expect(mockPtySpawn).toHaveBeenCalledOnce()
     const [shell, args, opts] = mockPtySpawn.mock.calls[0]
@@ -78,7 +81,7 @@ describe('ptyManager IPC handlers (INFRA-02)', () => {
     expect(opts.name).toBe('xterm-256color')
     expect(opts.cols).toBe(80)
     expect(opts.rows).toBe(24)
-    expect(opts.cwd).toBe('/home/user/project')
+    expect(opts.cwd).toBe(testCwd)
     expect(opts.env).toMatchObject(process.env)
   })
 
@@ -174,10 +177,11 @@ describe('PTY session behavior (TERM-01, TERM-02)', () => {
   })
 
   test('spawns with cwd from IPC argument', async () => {
+    const testCwd = tmpdir()
     const { registerPtyHandlers } = await import('../../src/main/ptyManager')
     registerPtyHandlers(mockWebContents as never)
-    await capturedHandlers['pty:create'](fakeEvent, 'term-02', '/home/user/myproject')
+    await capturedHandlers['pty:create'](fakeEvent, 'term-02', testCwd)
 
-    expect(mockPtySpawn.mock.calls[0][2].cwd).toBe('/home/user/myproject')
+    expect(mockPtySpawn.mock.calls[0][2].cwd).toBe(testCwd)
   })
 })
