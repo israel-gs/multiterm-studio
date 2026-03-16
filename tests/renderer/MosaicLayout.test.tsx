@@ -9,7 +9,8 @@ const mockElectronAPI = {
   ptyWrite: vi.fn().mockResolvedValue(undefined),
   ptyResize: vi.fn().mockResolvedValue(undefined),
   ptyKill: vi.fn().mockResolvedValue(undefined),
-  onPtyData: vi.fn().mockReturnValue(vi.fn())
+  onPtyData: vi.fn().mockReturnValue(vi.fn()),
+  layoutSave: vi.fn().mockResolvedValue(undefined)
 }
 
 Object.defineProperty(window, 'electronAPI', {
@@ -105,8 +106,17 @@ vi.mock('@renderer/components/Terminal', () => ({
 // Mock xterm CSS
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}))
 
+// vi.hoisted() required so mockScheduleSave is initialized before vi.mock() factory executes
+const { mockScheduleSave } = vi.hoisted(() => ({ mockScheduleSave: vi.fn() }))
+
+// Mock layoutPersistence to isolate timer behavior in MosaicLayout tests
+vi.mock('@renderer/utils/layoutPersistence', () => ({
+  scheduleSave: mockScheduleSave
+}))
+
 // --- Import component under test AFTER mocks ---
 import { MosaicLayout } from '@renderer/components/MosaicLayout'
+import { usePanelStore } from '@renderer/store/panelStore'
 
 // --- Tests ---
 
@@ -120,6 +130,8 @@ describe('MosaicLayout', () => {
     mosaicRenderTileCb = null
     mosaicZeroStateView = null
     mosaicValue = null
+    // Reset panelStore between tests
+    usePanelStore.setState({ panels: {} })
   })
 
   it('renders initial panel — Mosaic component appears with a leaf', () => {
@@ -183,5 +195,38 @@ describe('MosaicLayout', () => {
     })
 
     expect(mockElectronAPI.ptyKill).toHaveBeenCalledWith(removedId)
+  })
+
+  // --- Layout restore tests ---
+
+  it('when savedLayout prop is null, MosaicLayout creates a single panel (default behavior)', () => {
+    act(() => {
+      render(<MosaicLayout savedLayout={null} />)
+    })
+    expect(screen.getByTestId('mosaic-root')).toBeTruthy()
+    expect(getLeavesImpl(mosaicValue)).toHaveLength(1)
+  })
+
+  it('when savedLayout has tree + panels, MosaicLayout initializes with saved tree and calls addPanel for each panel with correct id/title/color', () => {
+    const savedLayout = {
+      version: 1,
+      tree: { type: 'split', direction: 'row', children: ['panel-x', 'panel-y'], splitPercentages: [50, 50] } as MosaicNode<string>,
+      panels: [
+        { id: 'panel-x', title: 'Build', color: '#f44747' },
+        { id: 'panel-y', title: 'Test', color: '#4ec9b0' }
+      ]
+    }
+
+    act(() => {
+      render(<MosaicLayout savedLayout={savedLayout} />)
+    })
+
+    // Mosaic should show both panels from saved tree
+    expect(getLeavesImpl(mosaicValue)).toHaveLength(2)
+
+    // Panel store should have both panels with correct metadata
+    const panels = usePanelStore.getState().panels
+    expect(panels['panel-x']).toEqual({ title: 'Build', color: '#f44747', attention: false })
+    expect(panels['panel-y']).toEqual({ title: 'Test', color: '#4ec9b0', attention: false })
   })
 })

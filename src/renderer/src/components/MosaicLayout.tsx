@@ -5,22 +5,77 @@ import 'react-mosaic-component/react-mosaic-component.css'
 import { PanelWindow } from './PanelWindow'
 import { usePanelStore } from '../store/panelStore'
 import { useProjectStore } from '../store/projectStore'
+import { scheduleSave } from '../utils/layoutPersistence'
 
-export function MosaicLayout(): React.JSX.Element {
+export interface SavedLayoutShape {
+  version: number
+  tree: MosaicNode<string> | null
+  panels: Array<{ id: string; title: string; color: string }>
+}
+
+interface MosaicLayoutProps {
+  savedLayout?: SavedLayoutShape | null
+}
+
+export function MosaicLayout({ savedLayout }: MosaicLayoutProps): React.JSX.Element {
   const addPanel = usePanelStore((s) => s.addPanel)
   const removePanel = usePanelStore((s) => s.removePanel)
   const folderPath = useProjectStore((s) => s.folderPath)
 
-  // Generate initial panel id — must be stable (not re-created on re-render)
+  // Generate initial panel id — only used when there is no savedLayout
   const initialIdRef = useRef<string>(crypto.randomUUID())
-  const [tree, setTree] = useState<MosaicNode<string> | null>(initialIdRef.current)
-  const treeRef = useRef<MosaicNode<string> | null>(initialIdRef.current)
 
-  // Initialize first panel in store on mount
+  // Determine starting tree: saved tree or a fresh single-panel leaf
+  const startTree: MosaicNode<string> | null =
+    savedLayout != null ? (savedLayout.tree ?? null) : initialIdRef.current
+
+  const [tree, setTree] = useState<MosaicNode<string> | null>(startTree)
+  const treeRef = useRef<MosaicNode<string> | null>(startTree)
+
+  // Initialize panel store on mount: restore from saved layout or create fresh panel
   useEffect(() => {
-    addPanel(initialIdRef.current)
+    if (savedLayout != null && savedLayout.panels.length > 0) {
+      for (const p of savedLayout.panels) {
+        addPanel(p.id, p.title, p.color)
+      }
+    } else {
+      addPanel(initialIdRef.current)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Subscribe to panelStore title/color changes and trigger scheduleSave
+  useEffect(() => {
+    const unsubscribe = usePanelStore.subscribe((state, prev) => {
+      if (state.panels === prev.panels) return
+      // Check if any title or color changed (not attention)
+      for (const id of Object.keys(state.panels)) {
+        const cur = state.panels[id]
+        const prevPanel = prev.panels[id]
+        if (prevPanel && (cur.title !== prevPanel.title || cur.color !== prevPanel.color)) {
+          if (folderPath) {
+            scheduleSave(folderPath, buildSnapshot(treeRef.current))
+          }
+          return
+        }
+      }
+    })
+    return unsubscribe
+  }, [folderPath])
+
+  function buildSnapshot(currentTree: MosaicNode<string> | null): {
+    version: number
+    tree: MosaicNode<string> | null
+    panels: Array<{ id: string; title: string; color: string }>
+  } {
+    const allPanels = usePanelStore.getState().panels
+    const panels = Object.entries(allPanels).map(([id, meta]) => ({
+      id,
+      title: meta.title,
+      color: meta.color
+    }))
+    return { version: 1, tree: currentTree, panels }
+  }
 
   function handleChange(newTree: MosaicNode<string> | null): void {
     const oldLeaves = new Set(getLeaves(treeRef.current))
@@ -35,6 +90,11 @@ export function MosaicLayout(): React.JSX.Element {
 
     treeRef.current = newTree
     setTree(newTree)
+
+    // Auto-save on every tree change (split, resize, close)
+    if (folderPath) {
+      scheduleSave(folderPath, buildSnapshot(newTree))
+    }
   }
 
   function handleAddPanel(): void {

@@ -72,4 +72,18 @@ describe('panelStore', () => {
       usePanelStore.getState().clearAttention('non-existent-id')
     }).not.toThrow()
   })
+
+  // --- addPanel optional title/color for restore (PERS-01) ---
+
+  it('addPanel with optional title and color uses provided values instead of defaults', () => {
+    usePanelStore.getState().addPanel('panel-restore', 'My Build', '#f44747')
+    const panel = usePanelStore.getState().panels['panel-restore']
+    expect(panel).toEqual({ title: 'My Build', color: '#f44747', attention: false })
+  })
+
+  it('addPanel without optional parameters still uses "Terminal" and "#569cd6" defaults', () => {
+    usePanelStore.getState().addPanel('panel-default')
+    const panel = usePanelStore.getState().panels['panel-default']
+    expect(panel).toEqual({ title: 'Terminal', color: '#569cd6', attention: false })
+  })
 })

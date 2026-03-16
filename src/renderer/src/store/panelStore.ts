@@ -8,7 +8,7 @@ export interface PanelMeta {
 
 export interface PanelStore {
   panels: Record<string, PanelMeta>
-  addPanel: (id: string) => void
+  addPanel: (id: string, title?: string, color?: string) => void
   removePanel: (id: string) => void
   setTitle: (id: string, title: string) => void
   setColor: (id: string, color: string) => void
@@ -19,9 +19,12 @@ export interface PanelStore {
 export const usePanelStore = create<PanelStore>((set) => ({
   panels: {},
 
-  addPanel: (id) =>
+  addPanel: (id, title, color) =>
     set((s) => ({
-      panels: { ...s.panels, [id]: { title: 'Terminal', color: '#569cd6', attention: false } }
+      panels: {
+        ...s.panels,
+        [id]: { title: title ?? 'Terminal', color: color ?? '#569cd6', attention: false }
+      }
     })),
 
   removePanel: (id) =>

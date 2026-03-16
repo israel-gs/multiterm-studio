@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import React from 'react'
 import { MosaicLayout } from './components/MosaicLayout'
+import type { SavedLayoutShape } from './components/MosaicLayout'
 import { Sidebar } from './components/Sidebar'
 import { useProjectStore } from './store/projectStore'
 import { usePanelStore } from './store/panelStore'
@@ -11,11 +12,22 @@ function App(): React.JSX.Element {
   const setAttention = usePanelStore((s) => s.setAttention)
   const clearAttention = usePanelStore((s) => s.clearAttention)
 
+  // savedLayout: null = fresh start, loaded object = restore from file
+  const [savedLayout, setSavedLayout] = useState<SavedLayoutShape | null>(null)
+  // layoutLoaded: true once we've attempted a load (prevents flash of default panel before restore)
+  const [layoutLoaded, setLayoutLoaded] = useState(false)
+
   // Trigger native folder picker on first launch when no folder is set
   useEffect(() => {
     if (folderPath !== null) return
-    window.electronAPI.folderOpen().then((selected) => {
-      if (selected) setFolderPath(selected)
+    window.electronAPI.folderOpen().then(async (selected) => {
+      if (selected) {
+        const layout = await window.electronAPI.layoutLoad(selected)
+        setSavedLayout((layout as SavedLayoutShape) ?? null)
+        setFolderPath(selected)
+      }
+      // Whether or not user selected a folder, mark layout as loaded
+      setLayoutLoaded(true)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -31,10 +43,14 @@ function App(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function handlePickFolder(): void {
-    window.electronAPI.folderOpen().then((selected) => {
-      if (selected) setFolderPath(selected)
-    })
+  async function handlePickFolder(): Promise<void> {
+    const selected = await window.electronAPI.folderOpen()
+    if (selected) {
+      const layout = await window.electronAPI.layoutLoad(selected)
+      setSavedLayout((layout as SavedLayoutShape) ?? null)
+      setFolderPath(selected)
+      setLayoutLoaded(true)
+    }
   }
 
   if (folderPath === null) {
@@ -72,6 +88,20 @@ function App(): React.JSX.Element {
     )
   }
 
+  // Only render MosaicLayout once we've attempted to load the saved layout
+  // to prevent a flash of a default single panel before restoration
+  if (!layoutLoaded) {
+    return (
+      <div
+        style={{
+          width: '100vw',
+          height: '100vh',
+          background: 'var(--bg-main)'
+        }}
+      />
+    )
+  }
+
   return (
     <div
       style={{
@@ -83,7 +113,7 @@ function App(): React.JSX.Element {
     >
       <Sidebar folderPath={folderPath} />
       <div style={{ flex: 1, minWidth: 0, height: '100vh' }}>
-        <MosaicLayout />
+        <MosaicLayout savedLayout={savedLayout} />
       </div>
     </div>
   )
