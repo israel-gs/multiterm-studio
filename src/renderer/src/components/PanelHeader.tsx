@@ -14,7 +14,8 @@ export function PanelHeader({ sessionId, path }: Props): React.JSX.Element {
   const { mosaicWindowActions } = useContext(MosaicWindowContext)
   const { mosaicActions } = useContext(MosaicContext)
 
-  const panel = usePanelStore((s) => s.panels[sessionId]) ?? { title: 'Terminal', color: '#569cd6' }
+  const panel =
+    usePanelStore((s) => s.panels[sessionId]) ?? { title: 'Terminal', color: '#569cd6', attention: false }
   const setTitle = usePanelStore((s) => s.setTitle)
   const setColor = usePanelStore((s) => s.setColor)
 
@@ -22,13 +23,21 @@ export function PanelHeader({ sessionId, path }: Props): React.JSX.Element {
 
   return (
     <div className="panel-header">
-      {/* Color dot */}
+      {/* Color dot with optional attention badge overlay */}
       <span
         className="color-dot"
         data-testid="color-dot"
-        style={{ background: panel.color }}
+        style={{ background: panel.color, position: 'relative', display: 'inline-block' }}
         title="Panel color"
-      />
+      >
+        {panel.attention && (
+          <span
+            className="attention-badge"
+            data-testid="attention-badge"
+            aria-label="Attention needed"
+          />
+        )}
+      </span>
 
       {/* Color picker: 6 small preset dots */}
       {PRESET_COLORS.map((hex) => (

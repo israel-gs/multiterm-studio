@@ -3,6 +3,7 @@ import { create } from 'zustand'
 export interface PanelMeta {
   title: string
   color: string
+  attention: boolean
 }
 
 export interface PanelStore {
@@ -11,6 +12,8 @@ export interface PanelStore {
   removePanel: (id: string) => void
   setTitle: (id: string, title: string) => void
   setColor: (id: string, color: string) => void
+  setAttention: (id: string) => void
+  clearAttention: (id: string) => void
 }
 
 export const usePanelStore = create<PanelStore>((set) => ({
@@ -18,7 +21,7 @@ export const usePanelStore = create<PanelStore>((set) => ({
 
   addPanel: (id) =>
     set((s) => ({
-      panels: { ...s.panels, [id]: { title: 'Terminal', color: '#569cd6' } }
+      panels: { ...s.panels, [id]: { title: 'Terminal', color: '#569cd6', attention: false } }
     })),
 
   removePanel: (id) =>
@@ -36,5 +39,17 @@ export const usePanelStore = create<PanelStore>((set) => ({
   setColor: (id, color) =>
     set((s) => ({
       panels: { ...s.panels, [id]: { ...s.panels[id], color } }
-    }))
+    })),
+
+  setAttention: (id) =>
+    set((s) => {
+      if (!s.panels[id]) return s
+      return { panels: { ...s.panels, [id]: { ...s.panels[id], attention: true } } }
+    }),
+
+  clearAttention: (id) =>
+    set((s) => {
+      if (!s.panels[id]) return s
+      return { panels: { ...s.panels, [id]: { ...s.panels[id], attention: false } } }
+    })
 }))

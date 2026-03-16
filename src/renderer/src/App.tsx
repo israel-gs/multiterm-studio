@@ -3,10 +3,13 @@ import React from 'react'
 import { MosaicLayout } from './components/MosaicLayout'
 import { Sidebar } from './components/Sidebar'
 import { useProjectStore } from './store/projectStore'
+import { usePanelStore } from './store/panelStore'
 
 function App(): React.JSX.Element {
   const folderPath = useProjectStore((s) => s.folderPath)
   const setFolderPath = useProjectStore((s) => s.setFolderPath)
+  const setAttention = usePanelStore((s) => s.setAttention)
+  const clearAttention = usePanelStore((s) => s.clearAttention)
 
   // Trigger native folder picker on first launch when no folder is set
   useEffect(() => {
@@ -14,6 +17,17 @@ function App(): React.JSX.Element {
     window.electronAPI.folderOpen().then((selected) => {
       if (selected) setFolderPath(selected)
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Wire attention events: main process -> panelStore badge
+  useEffect(() => {
+    const unsubAttention = window.electronAPI.onAttention((data) => setAttention(data.id))
+    const unsubPanelFocus = window.electronAPI.onPanelFocus((id) => clearAttention(id))
+    return () => {
+      unsubAttention()
+      unsubPanelFocus()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

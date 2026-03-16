@@ -15,7 +15,7 @@ describe('panelStore', () => {
   it('addPanel adds entry with default title "Terminal" and default color "#569cd6"', () => {
     usePanelStore.getState().addPanel('panel-1')
     const panels = usePanelStore.getState().panels
-    expect(panels['panel-1']).toEqual({ title: 'Terminal', color: '#569cd6' })
+    expect(panels['panel-1']).toEqual({ title: 'Terminal', color: '#569cd6', attention: false })
   })
 
   it('removePanel removes entry for existing id', () => {
@@ -45,5 +45,31 @@ describe('panelStore', () => {
     usePanelStore.getState().addPanel('panel-1')
     usePanelStore.getState().setColor('panel-1', '#f44747')
     expect(usePanelStore.getState().panels['panel-1'].color).toBe('#f44747')
+  })
+
+  // --- Attention badge (ATTN-01, ATTN-02) ---
+
+  it('addPanel creates entry with attention: false', () => {
+    usePanelStore.getState().addPanel('panel-1')
+    expect(usePanelStore.getState().panels['panel-1'].attention).toBe(false)
+  })
+
+  it('setAttention(id) sets attention to true', () => {
+    usePanelStore.getState().addPanel('panel-1')
+    usePanelStore.getState().setAttention('panel-1')
+    expect(usePanelStore.getState().panels['panel-1'].attention).toBe(true)
+  })
+
+  it('clearAttention(id) sets attention to false', () => {
+    usePanelStore.getState().addPanel('panel-1')
+    usePanelStore.getState().setAttention('panel-1')
+    usePanelStore.getState().clearAttention('panel-1')
+    expect(usePanelStore.getState().panels['panel-1'].attention).toBe(false)
+  })
+
+  it('clearAttention on non-existent panel does not throw', () => {
+    expect(() => {
+      usePanelStore.getState().clearAttention('non-existent-id')
+    }).not.toThrow()
   })
 })

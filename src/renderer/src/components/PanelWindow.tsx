@@ -2,6 +2,7 @@ import { MosaicWindow } from 'react-mosaic-component'
 import type { MosaicPath } from 'react-mosaic-component'
 import { TerminalPanel } from './Terminal'
 import { PanelHeader } from './PanelHeader'
+import { usePanelStore } from '../store/panelStore'
 
 interface Props {
   sessionId: string
@@ -10,6 +11,8 @@ interface Props {
 }
 
 export function PanelWindow({ sessionId, path, cwd }: Props): React.JSX.Element {
+  const clearAttention = usePanelStore((s) => s.clearAttention)
+
   return (
     <MosaicWindow<string>
       path={path}
@@ -21,7 +24,12 @@ export function PanelWindow({ sessionId, path, cwd }: Props): React.JSX.Element 
         </div>
       )}
     >
-      <div style={{ width: '100%', height: '100%' }}>
+      {/* Click/focus clears attention badge for this panel */}
+      <div
+        style={{ width: '100%', height: '100%' }}
+        onClick={() => clearAttention(sessionId)}
+        onFocus={() => clearAttention(sessionId)}
+      >
         <TerminalPanel sessionId={sessionId} cwd={cwd} />
       </div>
     </MosaicWindow>

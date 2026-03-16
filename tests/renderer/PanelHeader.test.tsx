@@ -220,4 +220,22 @@ describe('PanelHeader', () => {
     const stored = usePanelStore.getState().panels[TEST_SESSION_ID]
     expect(stored.color).toBe('#6a9955')
   })
+
+  // --- Attention badge tests (ATTN-01, ATTN-02) ---
+
+  it('renders attention-badge when panel.attention is true', () => {
+    usePanelStore.getState().setAttention(TEST_SESSION_ID)
+    renderWithContexts(<PanelHeader sessionId={TEST_SESSION_ID} path={[]} />)
+
+    const badge = screen.queryByTestId('attention-badge')
+    expect(badge).not.toBeNull()
+  })
+
+  it('does NOT render attention-badge when panel.attention is false (default)', () => {
+    // panel was added with attention: false in beforeEach
+    renderWithContexts(<PanelHeader sessionId={TEST_SESSION_ID} path={[]} />)
+
+    const badge = screen.queryByTestId('attention-badge')
+    expect(badge).toBeNull()
+  })
 })
