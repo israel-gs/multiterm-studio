@@ -44,9 +44,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Persistence
 
-- [ ] **PERS-01**: Layout (panel arrangement, sizes) and session metadata (titles, colors) are saved to a local JSON config file per project
-- [ ] **PERS-02**: Layout saves automatically on change
-- [ ] **PERS-03**: Layout restores automatically when reopening the same project folder
+- [x] **PERS-01**: Layout (panel arrangement, sizes) and session metadata (titles, colors) are saved to a local JSON config file per project
+- [x] **PERS-02**: Layout saves automatically on change
+- [x] **PERS-03**: Layout restores automatically when reopening the same project folder
 
 ### Infrastructure
 
@@ -119,9 +119,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROJ-01 | Phase 3 | Complete |
 | PROJ-02 | Phase 3 | Complete |
 | PROJ-03 | Phase 3 | Complete |
-| PERS-01 | Phase 4 | Pending |
-| PERS-02 | Phase 4 | Pending |
-| PERS-03 | Phase 4 | Pending |
+| PERS-01 | Phase 4 | Complete |
+| PERS-02 | Phase 4 | Complete |
+| PERS-03 | Phase 4 | Complete |
 | INFRA-01 | Phase 1 | Complete (01-01) |
 | INFRA-02 | Phase 1 | Complete (01-01) |
 | INFRA-03 | Phase 1 | Complete (01-02) |

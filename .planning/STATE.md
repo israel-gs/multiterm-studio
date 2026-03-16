@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 04-01-PLAN.md — human verification approved
-last_updated: "2026-03-16T13:35:57.661Z"
-last_activity: "2026-03-16 — Plan 04-01 complete: attention detection with regex cooldown, pulsing badge, OS notification, 99 tests passing"
+status: complete
+stopped_at: Completed 04-02-PLAN.md — human verification approved
+last_updated: "2026-03-16T13:47:14Z"
+last_activity: "2026-03-16 — Plan 04-02 complete: layout persistence with debounced auto-save, before-quit flush, restore on reopen, 117 tests passing"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
   percent: 100
 ---
 
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-14)
 
 ## Current Position
 
-Phase: 4 of 4 (Attention Detection + Persistence) — In Progress
-Plan: 1 of 2 in current phase (COMPLETE)
-Status: Plan 04-01 complete — PTY attention detection, pulsing badge, native notification, IPC channels — human verification approved
-Last activity: 2026-03-16 — Plan 04-01 complete: attention detection with regex cooldown, pulsing badge, OS notification, 99 tests passing
+Phase: 4 of 4 (Attention Detection + Persistence) — COMPLETE
+Plan: 2 of 2 in current phase (COMPLETE)
+Status: Plan 04-02 complete — layout persistence with debounced auto-save, before-quit flush, full restore on reopen — human verification approved
+Last activity: 2026-03-16 — Plan 04-02 complete: layout persistence with debounced auto-save, before-quit flush, restore on reopen, 117 tests passing
 
-Progress: [█████████░] 89%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [█████████░] 89%
 | Phase 03-project-context-panel-identity P01 | 2 | 2 tasks | 8 files |
 | Phase 03-project-context-panel-identity P02 | 5 | 3 tasks | 6 files |
 | Phase 04-attention-detection-persistence P01 | 5 | 2 tasks | 13 files |
+| Phase 04-attention-detection-persistence P02 | 9 | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,11 @@ Recent decisions affecting current work:
 - [Phase 04]: registerPtyHandlers accepts BrowserWindow (not WebContents) so ptyManager can fire notifications directly without extra IPC round-trip
 - [Phase 04]: attentionService extracted to separate module for testability — vi.mock() isolates it in ptyManager tests
 - [Phase 04]: attention:boolean defaults false on addPanel; setAttention/clearAttention actions wired to App.tsx IPC listeners
+- [04-02]: lastSaveData module-level cache in index.ts (not per-window state) — single-window app, simpler than forwarding layout through before-quit event args
+- [04-02]: scheduleSave uses module-level singleton timer (not React hook) — survives MosaicLayout re-renders without stale closure issues
+- [04-02]: layoutLoaded gate in App.tsx prevents flash of default panel before async layoutLoad resolves
+- [04-02]: addPanel extended with optional title/color (not a separate restorePanel action) — backward-compatible, all existing callers unaffected
+- [04-02]: usePanelStore.subscribe() wired centrally in MosaicLayout — one subscription handles all title/color changes
 
 ### Pending Todos
 
@@ -101,6 +107,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T13:35:53.420Z
-Stopped at: Completed 04-01-PLAN.md — human verification approved
+Last session: 2026-03-16T13:47:14Z
+Stopped at: Completed 04-02-PLAN.md — human verification approved — milestone v1.0 COMPLETE
 Resume file: None

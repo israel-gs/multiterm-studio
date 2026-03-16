@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Foundation + Terminal Core** - Secure Electron scaffold with real PTY session in a single panel
 - [x] **Phase 2: Multi-Panel Layout** - Tiling canvas with N panels, each with their own PTY (completed 2026-03-14)
 - [x] **Phase 3: Project Context + Panel Identity** - File tree sidebar, folder-on-launch, editable panel headers with color (completed 2026-03-16)
-- [ ] **Phase 4: Attention Detection + Persistence** - Output watcher, native notifications, and per-project layout save/restore
+- [x] **Phase 4: Attention Detection + Persistence** - Output watcher, native notifications, and per-project layout save/restore (completed 2026-03-16)
 
 ## Phase Details
 
@@ -74,7 +74,7 @@ Plans:
   2. When the app is in the background during an attention event, a native OS notification appears
   3. After closing the app and reopening the same project folder, all panels are restored with their previous titles, colors, and layout arrangement
   4. Layout changes (split, resize, rename) are auto-saved without any user action required
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 04-01-PLAN.md — Attention detection in ptyManager onData pipeline with pulsing badge, native notification, and notification click focus
@@ -90,4 +90,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation + Terminal Core | 3/3 | Complete | 2026-03-14 |
 | 2. Multi-Panel Layout | 2/2 | Complete   | 2026-03-14 |
 | 3. Project Context + Panel Identity | 2/2 | Complete   | 2026-03-16 |
-| 4. Attention Detection + Persistence | 1/2 | In Progress|  |
+| 4. Attention Detection + Persistence | 2/2 | Complete   | 2026-03-16 |
