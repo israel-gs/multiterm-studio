@@ -4,10 +4,12 @@ import type { MosaicNode } from 'react-mosaic-component'
 import 'react-mosaic-component/react-mosaic-component.css'
 import { PanelWindow } from './PanelWindow'
 import { usePanelStore } from '../store/panelStore'
+import { useProjectStore } from '../store/projectStore'
 
 export function MosaicLayout(): React.JSX.Element {
   const addPanel = usePanelStore((s) => s.addPanel)
   const removePanel = usePanelStore((s) => s.removePanel)
+  const folderPath = useProjectStore((s) => s.folderPath)
 
   // Generate initial panel id — must be stable (not re-created on re-render)
   const initialIdRef = useRef<string>(crypto.randomUUID())
@@ -115,7 +117,7 @@ export function MosaicLayout(): React.JSX.Element {
         <Mosaic<string>
           value={tree}
           onChange={handleChange}
-          renderTile={(id, path) => <PanelWindow key={id} sessionId={id} path={path} />}
+          renderTile={(id, path) => <PanelWindow key={id} sessionId={id} path={path} cwd={folderPath ?? '.'} />}
           createNode={() => {
             const newId = crypto.randomUUID()
             addPanel(newId)

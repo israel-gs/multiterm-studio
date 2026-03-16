@@ -6,9 +6,10 @@ import { PanelHeader } from './PanelHeader'
 interface Props {
   sessionId: string
   path: MosaicPath
+  cwd: string
 }
 
-export function PanelWindow({ sessionId, path }: Props): React.JSX.Element {
+export function PanelWindow({ sessionId, path, cwd }: Props): React.JSX.Element {
   return (
     <MosaicWindow<string>
       path={path}
@@ -21,7 +22,7 @@ export function PanelWindow({ sessionId, path }: Props): React.JSX.Element {
       )}
     >
       <div style={{ width: '100%', height: '100%' }}>
-        <TerminalPanel sessionId={sessionId} cwd="." />
+        <TerminalPanel sessionId={sessionId} cwd={cwd} />
       </div>
     </MosaicWindow>
   )
