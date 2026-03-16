@@ -6,6 +6,8 @@ declare global {
       ptyResize: (id: string, cols: number, rows: number) => Promise<void>
       ptyKill: (id: string) => Promise<void>
       onPtyData: (id: string, callback: (data: string) => void) => () => void
+      folderOpen: () => Promise<string | null>
+      folderReaddir: (dirPath: string) => Promise<Array<{ name: string; isDir: boolean }>>
     }
   }
 }

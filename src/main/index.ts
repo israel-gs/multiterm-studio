@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerPtyHandlers } from './ptyManager'
+import { registerFolderHandlers } from './folderManager'
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -29,6 +30,8 @@ function createWindow(): void {
 
   // Register PTY IPC handlers (stub until Plan 02)
   registerPtyHandlers(win.webContents)
+  // Register folder IPC handlers for project context panel (Phase 03)
+  registerFolderHandlers(win)
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.

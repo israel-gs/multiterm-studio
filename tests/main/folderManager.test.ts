@@ -32,6 +32,7 @@ vi.mock('electron', () => ({
 const mockReaddir = vi.fn()
 
 vi.mock('fs/promises', () => ({
+  default: { readdir: mockReaddir },
   readdir: mockReaddir
 }))
 

@@ -18,6 +18,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   ptyKill: (id: string): Promise<void> => ipcRenderer.invoke('pty:kill', id),
 
+  // Folder operations — project context panel (Phase 03)
+  folderOpen: (): Promise<string | null> => ipcRenderer.invoke('folder:open'),
+
+  folderReaddir: (dirPath: string): Promise<Array<{ name: string; isDir: boolean }>> =>
+    ipcRenderer.invoke('folder:readdir', dirPath),
+
   // Main → Renderer (push) — returns unsubscribe function
   // NOTE: listener is created inside this function so we hold the EXACT reference
   // registered with ipcRenderer.on — this is what makes removeListener work.
