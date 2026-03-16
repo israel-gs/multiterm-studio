@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-14T07:58:02.012Z"
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-16T05:40:12.913Z"
 last_activity: "2026-03-14 — Plan 02-02 complete: PanelHeader verified, PTY cwd fix, react-dnd wrapper fix, Mosaic createNode fix"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_plans: 7
+  completed_plans: 6
+  percent: 86
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-14)
 
 **Core value:** Terminals that are project-aware: every panel inherits the project's working directory, layout and sessions persist per-project, and an output watcher alerts you when a long-running process needs attention.
-**Current focus:** Phase 2 — Multi-Panel Layout
+**Current focus:** Phase 3 — Project Context Panel Identity
 
 ## Current Position
 
-Phase: 2 of 4 (Multi-Panel Layout)
-Plan: 2 of 3 in current phase (COMPLETE — human verification approved)
-Status: Plan 02-02 complete — all tasks done, human verification approved
-Last activity: 2026-03-14 — Plan 02-02 complete: PanelHeader verified, PTY cwd fix, react-dnd wrapper fix, Mosaic createNode fix
+Phase: 3 of 4 (Project Context Panel Identity)
+Plan: 1 of 2 in current phase (COMPLETE)
+Status: Plan 03-01 complete — FolderService IPC, contextBridge extension, useProjectStore — all tests pass
+Last activity: 2026-03-16 — Plan 03-01 complete: folderManager IPC handlers, preload bridge, useProjectStore Zustand slice
 
-Progress: [██████████] 100%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [██████████] 100%
 
 *Updated after each plan completion*
 | Phase 02-multi-panel-layout P02 | 3 | 2 tasks | 4 files |
+| Phase 03-project-context-panel-identity P01 | 2 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Recent decisions affecting current work:
 - [02-01]: ptyKill removed from Terminal.tsx cleanup; moved exclusively to MosaicLayout.handleChange diff to prevent double-kill
 - [Phase 02-02]: vi.hoisted() required for mockSplit and mockRemove — referenced inside vi.mock() factory which is hoisted to top of file by Vitest before variable declarations
 - [Phase 02-02]: PanelHeader uses both MosaicWindowContext (mosaicWindowActions.split) and MosaicContext (mosaicActions.remove) — v7 API separates these two contexts
+- [Phase 03-project-context-panel-identity]: folderManager takes full BrowserWindow (not WebContents) because dialog.showOpenDialog needs window reference for modal behavior
+- [Phase 03-project-context-panel-identity]: Vitest fs/promises ESM mock: use { default: { fn }, fn } dual-export pattern — importOriginal spread silently falls through to real fs in Vite 7/Vitest 3
 
 ### Pending Todos
 
@@ -90,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T07:52:18.088Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-03-16T05:40:12.912Z
+Stopped at: Completed 03-01-PLAN.md
 Resume file: None

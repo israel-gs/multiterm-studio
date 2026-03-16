@@ -59,7 +59,7 @@ Plans:
   1. On first launch (no prior folder), a native folder picker dialog opens automatically
   2. The left sidebar displays the file tree of the opened project folder with expandable directories
   3. User can double-click a panel header to rename it; the new name persists while the app is open
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 03-01-PLAN.md — FolderManager IPC handlers (folder:open, folder:readdir), preload bridge, useProjectStore, and unit tests
@@ -89,5 +89,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation + Terminal Core | 3/3 | Complete | 2026-03-14 |
 | 2. Multi-Panel Layout | 2/2 | Complete   | 2026-03-14 |
-| 3. Project Context + Panel Identity | 0/2 | Not started | - |
+| 3. Project Context + Panel Identity | 1/2 | In Progress|  |
 | 4. Attention Detection + Persistence | 0/2 | Not started | - |

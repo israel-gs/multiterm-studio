@@ -38,8 +38,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Project Context
 
-- [ ] **PROJ-01**: On launch, if no folder is loaded, a native folder picker dialog opens
-- [ ] **PROJ-02**: Left sidebar displays a file tree of the opened project folder
+- [x] **PROJ-01**: On launch, if no folder is loaded, a native folder picker dialog opens
+- [x] **PROJ-02**: Left sidebar displays a file tree of the opened project folder
 - [ ] **PROJ-03**: File tree supports expand/collapse of directories
 
 ### Persistence
@@ -116,8 +116,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LAYOUT-06 | Phase 2 | Complete |
 | LAYOUT-07 | Phase 2 | Complete |
 | LAYOUT-08 | Phase 2 | Complete |
-| PROJ-01 | Phase 3 | Pending |
-| PROJ-02 | Phase 3 | Pending |
+| PROJ-01 | Phase 3 | Complete |
+| PROJ-02 | Phase 3 | Complete |
 | PROJ-03 | Phase 3 | Pending |
 | PERS-01 | Phase 4 | Pending |
 | PERS-02 | Phase 4 | Pending |
