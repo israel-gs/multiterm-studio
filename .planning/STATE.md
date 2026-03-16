@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-03-16T05:40:12.913Z"
-last_activity: "2026-03-14 — Plan 02-02 complete: PanelHeader verified, PTY cwd fix, react-dnd wrapper fix, Mosaic createNode fix"
+status: in-progress
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-03-16T06:00:00.000Z"
+last_activity: "2026-03-16 — Plan 03-02 complete: FileTree sidebar, folder-picker-on-launch, project-aware cwd in all terminal panels — human verification approved"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
-  percent: 86
+  completed_plans: 7
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-14)
 
 ## Current Position
 
-Phase: 3 of 4 (Project Context Panel Identity)
-Plan: 1 of 2 in current phase (COMPLETE)
-Status: Plan 03-01 complete — FolderService IPC, contextBridge extension, useProjectStore — all tests pass
-Last activity: 2026-03-16 — Plan 03-01 complete: folderManager IPC handlers, preload bridge, useProjectStore Zustand slice
+Phase: 3 of 4 (Project Context Panel Identity) — COMPLETE
+Plan: 2 of 2 in current phase (COMPLETE)
+Status: Plan 03-02 complete — FileTree sidebar, folder-picker-on-launch, project-aware cwd — human verification approved
+Last activity: 2026-03-16 — Plan 03-02 complete: FileTree sidebar with lazy expand/collapse, folder-picker-on-launch, all terminal panels use project cwd
 
-Progress: [█████████░] 86%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [█████████░] 86%
 *Updated after each plan completion*
 | Phase 02-multi-panel-layout P02 | 3 | 2 tasks | 4 files |
 | Phase 03-project-context-panel-identity P01 | 2 | 2 tasks | 8 files |
+| Phase 03-project-context-panel-identity P02 | 5 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,9 @@ Recent decisions affecting current work:
 - [Phase 02-02]: PanelHeader uses both MosaicWindowContext (mosaicWindowActions.split) and MosaicContext (mosaicActions.remove) — v7 API separates these two contexts
 - [Phase 03-project-context-panel-identity]: folderManager takes full BrowserWindow (not WebContents) because dialog.showOpenDialog needs window reference for modal behavior
 - [Phase 03-project-context-panel-identity]: Vitest fs/promises ESM mock: use { default: { fn }, fn } dual-export pattern — importOriginal spread silently falls through to real fs in Vite 7/Vitest 3
+- [03-02]: FileTreeNode caches children in useState after first folderReaddir IPC call — collapse/re-expand never re-fetches from disk
+- [03-02]: minWidth:0 on the mosaic flex container prevents xterm long-line overflow when a sidebar is in the flex layout
+- [03-02]: cwd prop injected at MosaicLayout renderTile time (not at panel creation) so store changes apply to all panels on each render
 
 ### Pending Todos
 
@@ -93,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T05:40:12.912Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-03-16T06:00:00.000Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None

@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Foundation + Terminal Core** - Secure Electron scaffold with real PTY session in a single panel
 - [x] **Phase 2: Multi-Panel Layout** - Tiling canvas with N panels, each with their own PTY (completed 2026-03-14)
-- [ ] **Phase 3: Project Context + Panel Identity** - File tree sidebar, folder-on-launch, editable panel headers with color
+- [x] **Phase 3: Project Context + Panel Identity** - File tree sidebar, folder-on-launch, editable panel headers with color (completed 2026-03-16)
 - [ ] **Phase 4: Attention Detection + Persistence** - Output watcher, native notifications, and per-project layout save/restore
 
 ## Phase Details
@@ -59,7 +59,7 @@ Plans:
   1. On first launch (no prior folder), a native folder picker dialog opens automatically
   2. The left sidebar displays the file tree of the opened project folder with expandable directories
   3. User can double-click a panel header to rename it; the new name persists while the app is open
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 03-01-PLAN.md — FolderManager IPC handlers (folder:open, folder:readdir), preload bridge, useProjectStore, and unit tests
@@ -89,5 +89,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation + Terminal Core | 3/3 | Complete | 2026-03-14 |
 | 2. Multi-Panel Layout | 2/2 | Complete   | 2026-03-14 |
-| 3. Project Context + Panel Identity | 1/2 | In Progress|  |
+| 3. Project Context + Panel Identity | 2/2 | Complete   | 2026-03-16 |
 | 4. Attention Detection + Persistence | 0/2 | Not started | - |
