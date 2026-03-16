@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: "04-01: Tasks 1-2 complete, checkpoint at Task 3 (human-verify)"
-last_updated: "2026-03-16T13:30:24.001Z"
-last_activity: "2026-03-16 — Plan 03-02 complete: FileTree sidebar with lazy expand/collapse, folder-picker-on-launch, all terminal panels use project cwd"
+stopped_at: Completed 04-01-PLAN.md — human verification approved
+last_updated: "2026-03-16T13:35:57.661Z"
+last_activity: "2026-03-16 — Plan 04-01 complete: attention detection with regex cooldown, pulsing badge, OS notification, 99 tests passing"
 progress:
   total_phases: 4
   completed_phases: 3
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-14)
 
 **Core value:** Terminals that are project-aware: every panel inherits the project's working directory, layout and sessions persist per-project, and an output watcher alerts you when a long-running process needs attention.
-**Current focus:** Phase 3 — Project Context Panel Identity
+**Current focus:** Phase 4 — Attention Detection + Persistence
 
 ## Current Position
 
-Phase: 3 of 4 (Project Context Panel Identity) — COMPLETE
-Plan: 2 of 2 in current phase (COMPLETE)
-Status: Plan 03-02 complete — FileTree sidebar, folder-picker-on-launch, project-aware cwd — human verification approved
-Last activity: 2026-03-16 — Plan 03-02 complete: FileTree sidebar with lazy expand/collapse, folder-picker-on-launch, all terminal panels use project cwd
+Phase: 4 of 4 (Attention Detection + Persistence) — In Progress
+Plan: 1 of 2 in current phase (COMPLETE)
+Status: Plan 04-01 complete — PTY attention detection, pulsing badge, native notification, IPC channels — human verification approved
+Last activity: 2026-03-16 — Plan 04-01 complete: attention detection with regex cooldown, pulsing badge, OS notification, 99 tests passing
 
-Progress: [██████████] 100%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -96,11 +96,11 @@ None yet.
 ### Blockers/Concerns
 
 - [Phase 1 RESOLVED]: node-pty ABI mismatch — resolved via postinstall script, rebuilt successfully for Electron 39.x arm64
-- [Phase 4]: Attention detection regex corpus needs validation against real-world CLI tool output (npm init, git commit, pip, cargo) before implementation — false positives degrade UX
+- [Phase 4 RESOLVED]: Attention detection regex validated — conservative patterns only, human verification confirmed no false positives on real CLI output
 - [Phase 4]: node-pty 1.2.0-beta.12 has conpty improvements for Windows; monitor before committing to Windows release target
 
 ## Session Continuity
 
-Last session: 2026-03-16T13:30:23.999Z
-Stopped at: 04-01: Tasks 1-2 complete, checkpoint at Task 3 (human-verify)
+Last session: 2026-03-16T13:35:53.420Z
+Stopped at: Completed 04-01-PLAN.md — human verification approved
 Resume file: None
