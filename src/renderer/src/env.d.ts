@@ -11,5 +11,7 @@ interface Window {
     folderReaddir: (dirPath: string) => Promise<Array<{ name: string; isDir: boolean }>>
     onAttention: (callback: (data: { id: string; snippet: string }) => void) => () => void
     onPanelFocus: (callback: (id: string) => void) => () => void
+    layoutSave: (folderPath: string, layout: unknown) => Promise<void>
+    layoutLoad: (folderPath: string) => Promise<unknown>
   }
 }

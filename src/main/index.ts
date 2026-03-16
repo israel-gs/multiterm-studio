@@ -1,8 +1,13 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerPtyHandlers } from './ptyManager'
 import { registerFolderHandlers } from './folderManager'
+import { saveLayout, saveLayoutSync, loadLayout, ensureGitignore } from './layoutManager'
+import type { LayoutSnapshot } from './layoutManager'
+
+// Cache the most-recent save data so before-quit can do a synchronous flush
+let lastSaveData: { folderPath: string; layout: LayoutSnapshot } | null = null
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -41,6 +46,24 @@ function createWindow(): void {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
+
+// Layout persistence IPC handlers
+ipcMain.handle('layout:save', async (_event, folderPath: string, layout: LayoutSnapshot) => {
+  lastSaveData = { folderPath, layout }
+  await saveLayout(folderPath, layout)
+  await ensureGitignore(folderPath)
+})
+
+ipcMain.handle('layout:load', async (_event, folderPath: string) => {
+  return loadLayout(folderPath)
+})
+
+// Synchronous save on quit to capture any last-second changes
+app.on('before-quit', () => {
+  if (lastSaveData !== null) {
+    saveLayoutSync(lastSaveData.folderPath, lastSaveData.layout)
+  }
+})
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.

@@ -49,5 +49,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (_event: Electron.IpcRendererEvent, id: string): void => callback(id)
     ipcRenderer.on('panel:focus', listener)
     return () => ipcRenderer.removeListener('panel:focus', listener)
-  }
+  },
+
+  // Layout persistence — saves and loads .multiterm/layout.json per project folder
+  layoutSave: (folderPath: string, layout: unknown): Promise<void> =>
+    ipcRenderer.invoke('layout:save', folderPath, layout),
+
+  layoutLoad: (folderPath: string): Promise<unknown> =>
+    ipcRenderer.invoke('layout:load', folderPath)
 })
