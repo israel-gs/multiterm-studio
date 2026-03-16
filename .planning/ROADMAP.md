@@ -74,11 +74,11 @@ Plans:
   2. When the app is in the background during an attention event, a native OS notification appears
   3. After closing the app and reopening the same project folder, all panels are restored with their previous titles, colors, and layout arrangement
   4. Layout changes (split, resize, rename) are auto-saved without any user action required
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 04-01: AttentionWatcher inline in PtyManager onData pipeline with pulsing badge and native notification
-- [ ] 04-02: LayoutPersistence service with debounced save to .multiterm/layout.json and restore on folder:open
+- [ ] 04-01-PLAN.md — Attention detection in ptyManager onData pipeline with pulsing badge, native notification, and notification click focus
+- [ ] 04-02-PLAN.md — LayoutPersistence service with debounced save to .multiterm/layout.json, before-quit sync save, and instant restore on folder open
 
 ## Progress
 
