@@ -28,8 +28,8 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-  // Register PTY IPC handlers (stub until Plan 02)
-  registerPtyHandlers(win.webContents)
+  // Register PTY IPC handlers
+  registerPtyHandlers(win)
   // Register folder IPC handlers for project context panel (Phase 03)
   registerFolderHandlers(win)
 

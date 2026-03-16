@@ -8,6 +8,8 @@ declare global {
       onPtyData: (id: string, callback: (data: string) => void) => () => void
       folderOpen: () => Promise<string | null>
       folderReaddir: (dirPath: string) => Promise<Array<{ name: string; isDir: boolean }>>
+      onAttention: (callback: (data: { id: string; snippet: string }) => void) => () => void
+      onPanelFocus: (callback: (id: string) => void) => () => void
     }
   }
 }
