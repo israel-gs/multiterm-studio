@@ -27,7 +27,10 @@ import { FileTree } from '@renderer/components/FileTree'
 describe('FileTree', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Restore mock after clearAllMocks resets the fn state
     mockFolderReaddir.mockResolvedValue([])
+    // Re-assign to ensure the window object still has the mock
+    ;(window.electronAPI as unknown as Record<string, unknown>).folderReaddir = mockFolderReaddir
   })
 
   it('renders root entries from folderReaddir', async () => {
@@ -39,8 +42,8 @@ describe('FileTree', () => {
     render(<FileTree rootPath="/test" />)
 
     await waitFor(() => {
-      expect(screen.getByText('src')).toBeInTheDocument()
-      expect(screen.getByText('README.md')).toBeInTheDocument()
+      expect(screen.getByText('src')).toBeTruthy()
+      expect(screen.getByText('README.md')).toBeTruthy()
     })
 
     expect(mockFolderReaddir).toHaveBeenCalledWith('/test')
@@ -54,14 +57,15 @@ describe('FileTree', () => {
     render(<FileTree rootPath="/test" />)
 
     await waitFor(() => {
-      expect(screen.getByText('src')).toBeInTheDocument()
+      expect(screen.getByText('src')).toBeTruthy()
     })
 
-    // Click src to expand
-    fireEvent.click(screen.getByText('src'))
+    // Click the row containing src to expand
+    const srcSpan = screen.getByText('src')
+    fireEvent.click(srcSpan)
 
     await waitFor(() => {
-      expect(screen.getByText('index.ts')).toBeInTheDocument()
+      expect(screen.getByText('index.ts')).toBeTruthy()
     })
 
     expect(mockFolderReaddir).toHaveBeenCalledWith('/test/src')
@@ -75,25 +79,25 @@ describe('FileTree', () => {
     render(<FileTree rootPath="/test" />)
 
     await waitFor(() => {
-      expect(screen.getByText('src')).toBeInTheDocument()
+      expect(screen.getByText('src')).toBeTruthy()
     })
 
     // Expand
     fireEvent.click(screen.getByText('src'))
     await waitFor(() => {
-      expect(screen.getByText('index.ts')).toBeInTheDocument()
+      expect(screen.getByText('index.ts')).toBeTruthy()
     })
 
     // Collapse
     fireEvent.click(screen.getByText('src'))
     await waitFor(() => {
-      expect(screen.queryByText('index.ts')).not.toBeInTheDocument()
+      expect(screen.queryByText('index.ts')).toBeNull()
     })
 
     // Re-expand
     fireEvent.click(screen.getByText('src'))
     await waitFor(() => {
-      expect(screen.getByText('index.ts')).toBeInTheDocument()
+      expect(screen.getByText('index.ts')).toBeTruthy()
     })
 
     // folderReaddir for /test/src should only be called once (cache hit on re-expand)
@@ -109,7 +113,7 @@ describe('FileTree', () => {
     render(<FileTree rootPath="/test" />)
 
     await waitFor(() => {
-      expect(screen.getByText('README.md')).toBeInTheDocument()
+      expect(screen.getByText('README.md')).toBeTruthy()
     })
 
     // Click the file entry
