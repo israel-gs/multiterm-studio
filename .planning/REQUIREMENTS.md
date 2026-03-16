@@ -21,9 +21,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Attention Detection
 
-- [ ] **ATTN-01**: Main process monitors each PTY's stdout for patterns indicating user attention needed (prompts "?", "> ", "Do you want", ANSI pause sequences)
-- [ ] **ATTN-02**: When attention pattern detected, panel header shows a pulsing badge
-- [ ] **ATTN-03**: When attention pattern detected, a native OS notification fires (if app is backgrounded)
+- [x] **ATTN-01**: Main process monitors each PTY's stdout for patterns indicating user attention needed (prompts "?", "> ", "Do you want", ANSI pause sequences)
+- [x] **ATTN-02**: When attention pattern detected, panel header shows a pulsing badge
+- [x] **ATTN-03**: When attention pattern detected, a native OS notification fires (if app is backgrounded)
 
 ### Layout & Panels
 
@@ -105,9 +105,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TERM-07 | Phase 1 | Complete |
 | TERM-08 | Phase 1 | Complete |
 | TERM-09 | Phase 1 | Complete |
-| ATTN-01 | Phase 4 | Pending |
-| ATTN-02 | Phase 4 | Pending |
-| ATTN-03 | Phase 4 | Pending |
+| ATTN-01 | Phase 4 | Complete |
+| ATTN-02 | Phase 4 | Complete |
+| ATTN-03 | Phase 4 | Complete |
 | LAYOUT-01 | Phase 2 | Complete |
 | LAYOUT-02 | Phase 2 | Complete |
 | LAYOUT-03 | Phase 2 | Complete |

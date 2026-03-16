@@ -74,7 +74,7 @@ Plans:
   2. When the app is in the background during an attention event, a native OS notification appears
   3. After closing the app and reopening the same project folder, all panels are restored with their previous titles, colors, and layout arrangement
   4. Layout changes (split, resize, rename) are auto-saved without any user action required
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 04-01-PLAN.md — Attention detection in ptyManager onData pipeline with pulsing badge, native notification, and notification click focus
@@ -90,4 +90,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation + Terminal Core | 3/3 | Complete | 2026-03-14 |
 | 2. Multi-Panel Layout | 2/2 | Complete   | 2026-03-14 |
 | 3. Project Context + Panel Identity | 2/2 | Complete   | 2026-03-16 |
-| 4. Attention Detection + Persistence | 0/2 | Not started | - |
+| 4. Attention Detection + Persistence | 1/2 | In Progress|  |

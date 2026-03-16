@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Phase 4 context gathered
-last_updated: "2026-03-16T06:05:44.465Z"
+stopped_at: "04-01: Tasks 1-2 complete, checkpoint at Task 3 (human-verify)"
+last_updated: "2026-03-16T13:30:24.001Z"
 last_activity: "2026-03-16 — Plan 03-02 complete: FileTree sidebar with lazy expand/collapse, folder-picker-on-launch, all terminal panels use project cwd"
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 9
+  completed_plans: 8
   percent: 100
 ---
 
@@ -54,6 +54,7 @@ Progress: [██████████] 100%
 | Phase 02-multi-panel-layout P02 | 3 | 2 tasks | 4 files |
 | Phase 03-project-context-panel-identity P01 | 2 | 2 tasks | 8 files |
 | Phase 03-project-context-panel-identity P02 | 5 | 3 tasks | 6 files |
+| Phase 04-attention-detection-persistence P01 | 5 | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,9 @@ Recent decisions affecting current work:
 - [03-02]: FileTreeNode caches children in useState after first folderReaddir IPC call — collapse/re-expand never re-fetches from disk
 - [03-02]: minWidth:0 on the mosaic flex container prevents xterm long-line overflow when a sidebar is in the flex layout
 - [03-02]: cwd prop injected at MosaicLayout renderTile time (not at panel creation) so store changes apply to all panels on each render
+- [Phase 04]: registerPtyHandlers accepts BrowserWindow (not WebContents) so ptyManager can fire notifications directly without extra IPC round-trip
+- [Phase 04]: attentionService extracted to separate module for testability — vi.mock() isolates it in ptyManager tests
+- [Phase 04]: attention:boolean defaults false on addPanel; setAttention/clearAttention actions wired to App.tsx IPC listeners
 
 ### Pending Todos
 
@@ -97,6 +101,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T06:05:44.463Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-attention-detection-persistence/04-CONTEXT.md
+Last session: 2026-03-16T13:30:23.999Z
+Stopped at: 04-01: Tasks 1-2 complete, checkpoint at Task 3 (human-verify)
+Resume file: None
