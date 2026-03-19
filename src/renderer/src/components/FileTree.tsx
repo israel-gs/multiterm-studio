@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import React from 'react'
 
 interface TreeEntry {
@@ -7,6 +7,119 @@ interface TreeEntry {
   itemCount?: number
   modifiedAt?: number
 }
+
+// --- Icons (inline SVGs, no external deps) ---
+
+function ChevronIcon({ expanded }: { expanded: boolean }): React.JSX.Element {
+  return (
+    <svg
+      className={`file-tree-chevron${expanded ? ' file-tree-chevron--open' : ''}`}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+    >
+      <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function FolderIcon({ open }: { open: boolean }): React.JSX.Element {
+  if (open) {
+    return (
+      <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M1.5 4C1.5 3.17 2.17 2.5 3 2.5h3.17l1.5 1.5H13c.83 0 1.5.67 1.5 1.5v1H3.5L1.5 12V4z" fill="#e8a87c" />
+        <path d="M2.5 6.5h12l-2 7h-10l2-7z" fill="#dcb67a" fillOpacity="0.7" />
+      </svg>
+    )
+  }
+  return (
+    <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        d="M1.5 4C1.5 3.17 2.17 2.5 3 2.5h3.17l1.5 1.5H13c.83 0 1.5.67 1.5 1.5v7c0 .83-.67 1.5-1.5 1.5H3c-.83 0-1.5-.67-1.5-1.5V4z"
+        fill="#e8a87c"
+      />
+    </svg>
+  )
+}
+
+function getFileIcon(name: string): React.JSX.Element {
+  const ext = name.includes('.') ? name.split('.').pop()?.toLowerCase() ?? '' : ''
+
+  // Code files
+  if (['ts', 'tsx', 'js', 'jsx', 'py', 'rb', 'go', 'rs', 'c', 'cpp', 'h', 'java', 'swift', 'kt'].includes(ext)) {
+    return (
+      <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="#569cd6" strokeWidth="1.2" fill="none" />
+        <path d="M5.5 6.5L4 8l1.5 1.5M10.5 6.5L12 8l10.5 1.5" stroke="#569cd6" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  }
+
+  // Config/data files
+  if (['json', 'yaml', 'yml', 'toml', 'xml', 'ini', 'env', 'conf', 'config'].includes(ext)) {
+    return (
+      <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="#6a9955" strokeWidth="1.2" fill="none" />
+        <path d="M5 5.5h6M5 8h4M5 10.5h5" stroke="#6a9955" strokeWidth="1" strokeLinecap="round" />
+      </svg>
+    )
+  }
+
+  // Markdown/docs
+  if (['md', 'mdx', 'txt', 'rst', 'doc', 'docx', 'pdf'].includes(ext)) {
+    return (
+      <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="#d7ba7d" strokeWidth="1.2" fill="none" />
+        <path d="M5 5h6M5 7.5h6M5 10h3" stroke="#d7ba7d" strokeWidth="1" strokeLinecap="round" />
+      </svg>
+    )
+  }
+
+  // Style files
+  if (['css', 'scss', 'sass', 'less', 'styl'].includes(ext)) {
+    return (
+      <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="#c678dd" strokeWidth="1.2" fill="none" />
+        <path d="M6 5.5c-1 0-1.5.5-1.5 1s.5 1 1.5 1 1.5.5 1.5 1-.5 1-1.5 1" stroke="#c678dd" strokeWidth="1.2" strokeLinecap="round" />
+      </svg>
+    )
+  }
+
+  // Image files
+  if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp'].includes(ext)) {
+    return (
+      <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="#4ec9b0" strokeWidth="1.2" fill="none" />
+        <circle cx="6" cy="5.5" r="1.5" stroke="#4ec9b0" strokeWidth="1" fill="none" />
+        <path d="M3 11l3-3 2 2 2-2 3 3" stroke="#4ec9b0" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    )
+  }
+
+  // Default file
+  return (
+    <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        d="M3.5 2A1.5 1.5 0 002 3.5v9A1.5 1.5 0 003.5 14h9a1.5 1.5 0 001.5-1.5V5.5L10.5 2H3.5z"
+        stroke="var(--fg-secondary)"
+        strokeWidth="1.2"
+        fill="none"
+      />
+      <path d="M10 2v4h4" stroke="var(--fg-secondary)" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function SpinnerIcon(): React.JSX.Element {
+  return (
+    <svg className="file-tree-icon file-tree-spinner" width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <circle cx="7" cy="7" r="5.5" stroke="var(--fg-secondary)" strokeWidth="1.5" strokeDasharray="10 20" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+// --- Helpers ---
 
 function formatDate(ms: number): string {
   const d = new Date(ms)
@@ -33,6 +146,8 @@ function filterEntries(entries: TreeEntry[], query: string): TreeEntry[] {
   return entries.filter((e) => e.name.toLowerCase().includes(lq))
 }
 
+// --- FileTreeNode ---
+
 interface FileTreeNodeProps {
   path: string
   name: string
@@ -44,7 +159,7 @@ interface FileTreeNodeProps {
   sortOrder: 'asc' | 'desc'
 }
 
-function FileTreeNode({
+const FileTreeNode = React.memo(function FileTreeNode({
   path,
   name,
   isDir,
@@ -56,50 +171,61 @@ function FileTreeNode({
 }: FileTreeNodeProps): React.JSX.Element {
   const [expanded, setExpanded] = useState(false)
   const [children, setChildren] = useState<TreeEntry[] | null>(null)
-  const [hovered, setHovered] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  async function handleToggle(): Promise<void> {
+  const handleToggle = useCallback(async (): Promise<void> => {
     if (!isDir) return
 
     if (!expanded && children === null) {
+      setLoading(true)
       const entries = await window.electronAPI.folderReaddir(path)
       setChildren(entries)
+      setLoading(false)
     }
 
     setExpanded((prev) => !prev)
-  }
+  }, [isDir, expanded, children, path])
 
   const displayChildren = useMemo(() => {
     if (!children) return null
     return sortEntries(filterEntries(children, searchQuery), sortOrder)
   }, [children, searchQuery, sortOrder])
 
-  const icon = isDir ? (expanded ? '📂' : '📁') : '📄'
+  const isHidden = name.startsWith('.')
 
   return (
     <div>
       <div
         onClick={() => void handleToggle()}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        className="file-tree-node"
-        style={{
-          paddingLeft: depth * 16,
-          background: hovered ? 'rgba(255,255,255,0.05)' : 'transparent'
-        }}
+        className={`file-tree-node${isHidden ? ' file-tree-node--hidden' : ''}`}
+        style={{ paddingLeft: depth * 12 + 4 }}
       >
-        <span className="file-tree-icon">{icon}</span>
+        {/* Chevron (folders only) */}
+        {isDir ? (
+          <ChevronIcon expanded={expanded} />
+        ) : (
+          <span className="file-tree-chevron-spacer" />
+        )}
+
+        {/* Icon */}
+        {isDir ? <FolderIcon open={expanded} /> : getFileIcon(name)}
+
+        {/* Name */}
         <span className="file-tree-name" data-entry-name>
           {name}
         </span>
-        {isDir && itemCount !== undefined && (
+
+        {/* Loading spinner */}
+        {loading && <SpinnerIcon />}
+
+        {/* Folder item count */}
+        {isDir && !loading && itemCount !== undefined && (
           <span className="file-tree-count">{itemCount}</span>
         )}
+
+        {/* File modified date */}
         {!isDir && modifiedAt !== undefined && (
           <span className="file-tree-date">{formatDate(modifiedAt)}</span>
-        )}
-        {isDir && (
-          <span className="file-tree-arrow">{expanded ? '▾' : '▸'}</span>
         )}
       </div>
       {expanded && displayChildren !== null && (
@@ -121,7 +247,9 @@ function FileTreeNode({
       )}
     </div>
   )
-}
+})
+
+// --- FileTree ---
 
 interface FileTreeProps {
   rootPath: string
@@ -151,25 +279,12 @@ export function FileTree({
   return (
     <div style={{ padding: '4px 0' }}>
       {displayEntries === null ? (
-        <div
-          style={{
-            paddingLeft: 8,
-            fontSize: 13,
-            color: 'var(--fg-secondary)'
-          }}
-        >
-          Loading...
+        <div className="file-tree-status">
+          <SpinnerIcon />
+          <span>Loading...</span>
         </div>
       ) : displayEntries.length === 0 ? (
-        <div
-          style={{
-            paddingLeft: 8,
-            fontSize: 13,
-            color: 'var(--fg-secondary)'
-          }}
-        >
-          No matches
-        </div>
+        <div className="file-tree-status">No matches</div>
       ) : (
         displayEntries.map((entry) => (
           <FileTreeNode

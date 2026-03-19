@@ -586,9 +586,9 @@ body.canvas-interacting .floating-card-inner {
 .file-tree-node {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   font-size: 13px;
-  line-height: 24px;
+  height: 28px;
   color: var(--fg-primary);
   cursor: pointer;
   user-select: none;
@@ -596,19 +596,49 @@ body.canvas-interacting .floating-card-inner {
   overflow: hidden;
   text-overflow: ellipsis;
   padding-right: 8px;
+  border-radius: 4px;
+  margin: 0 4px;
 }
 
-.file-tree-icon {
-  font-size: 14px;
+.file-tree-node:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.file-tree-node--hidden {
+  opacity: 0.5;
+}
+
+/* Chevron for folder expand/collapse */
+.file-tree-chevron {
   flex-shrink: 0;
-  width: 18px;
-  text-align: center;
+  width: 16px;
+  height: 16px;
+  color: var(--fg-secondary);
+  transition: transform 150ms ease;
+}
+
+.file-tree-chevron--open {
+  transform: rotate(90deg);
+}
+
+/* Spacer for files (same width as chevron) */
+.file-tree-chevron-spacer {
+  flex-shrink: 0;
+  width: 16px;
+}
+
+/* SVG icon */
+.file-tree-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
 }
 
 .file-tree-name {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-left: 4px;
 }
 
 .file-tree-count {
@@ -626,12 +656,23 @@ body.canvas-interacting .floating-card-inner {
   flex-shrink: 0;
 }
 
-.file-tree-arrow {
-  font-size: 10px;
+/* Loading spinner */
+.file-tree-spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Status messages (loading, no matches) */
+.file-tree-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
   color: var(--fg-secondary);
-  flex-shrink: 0;
-  width: 12px;
-  text-align: center;
 }
 
 /* ===== Reduced Motion ===== */
