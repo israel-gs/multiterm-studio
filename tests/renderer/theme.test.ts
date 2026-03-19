@@ -3,7 +3,8 @@ import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
 /**
- * INFRA-05: Dark theme styling (background #1a1a1a, panels #242424, headers #2e2e2e)
+ * INFRA-05: Dark theme styling
+ * Canvas #111, cards #1c1c1c, headers #2a2a2a (updated for infinite canvas redesign)
  *
  * Static verification: reads global.css as text and asserts the required
  * CSS custom properties are defined with the correct values.
@@ -14,16 +15,16 @@ describe('Dark theme CSS custom properties (INFRA-05)', () => {
     'utf-8'
   )
 
-  test('--bg-main is defined as #1a1a1a', () => {
-    expect(css).toContain('--bg-main: #1a1a1a')
+  test('--bg-canvas is defined as #111', () => {
+    expect(css).toContain('--bg-canvas: #111')
   })
 
-  test('--bg-panel is defined as #242424', () => {
-    expect(css).toContain('--bg-panel: #242424')
+  test('--bg-card is defined as #1c1c1c', () => {
+    expect(css).toContain('--bg-card: #1c1c1c')
   })
 
-  test('--bg-header is defined as #2e2e2e', () => {
-    expect(css).toContain('--bg-header: #2e2e2e')
+  test('--bg-header is defined as #2a2a2a', () => {
+    expect(css).toContain('--bg-header: #2a2a2a')
   })
 
   test('--fg-primary is defined as #d4d4d4', () => {

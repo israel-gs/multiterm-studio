@@ -10,7 +10,7 @@ interface Props {
 }
 
 const darkTheme = {
-  background: '#1a1a1a',
+  background: '#1c1c1c',
   foreground: '#d4d4d4',
   cursor: '#d4d4d4',
   selectionBackground: '#264f78',
@@ -84,8 +84,8 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
       unsubscribe()
       observer.disconnect()
       // NOTE: ptyKill is intentionally NOT called here.
-      // PTY lifecycle is managed by MosaicLayout's onChange diff handler
-      // to avoid double-kill when a panel is closed (research pitfall 2).
+      // PTY lifecycle is managed by TerminalGrid's handleClosePanel
+      // to avoid double-kill when a panel is closed.
       term.dispose()
     }
   }, [sessionId, cwd])

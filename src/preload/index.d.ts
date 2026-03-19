@@ -7,7 +7,9 @@ declare global {
       ptyKill: (id: string) => Promise<void>
       onPtyData: (id: string, callback: (data: string) => void) => () => void
       folderOpen: () => Promise<string | null>
-      folderReaddir: (dirPath: string) => Promise<Array<{ name: string; isDir: boolean }>>
+      folderReaddir: (
+        dirPath: string
+      ) => Promise<Array<{ name: string; isDir: boolean; itemCount?: number; modifiedAt?: number }>>
       onAttention: (callback: (data: { id: string; snippet: string }) => void) => () => void
       onPanelFocus: (callback: (id: string) => void) => () => void
       layoutSave: (folderPath: string, layout: unknown) => Promise<void>

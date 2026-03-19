@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import React from 'react'
-import { MosaicLayout } from './components/MosaicLayout'
-import type { SavedLayoutShape } from './components/MosaicLayout'
-import { Sidebar } from './components/Sidebar'
+import { TerminalCanvas } from './components/TerminalCanvas'
+import type { SavedLayoutShape } from './components/TerminalCanvas'
+import { EnhancedSidebar } from './components/EnhancedSidebar'
 import { useProjectStore } from './store/projectStore'
 import { usePanelStore } from './store/panelStore'
 
@@ -59,7 +59,7 @@ function App(): React.JSX.Element {
         style={{
           width: '100vw',
           height: '100vh',
-          background: 'var(--bg-main)',
+          background: 'var(--bg-canvas)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -88,7 +88,7 @@ function App(): React.JSX.Element {
     )
   }
 
-  // Only render MosaicLayout once we've attempted to load the saved layout
+  // Only render TerminalGrid once we've attempted to load the saved layout
   // to prevent a flash of a default single panel before restoration
   if (!layoutLoaded) {
     return (
@@ -96,7 +96,7 @@ function App(): React.JSX.Element {
         style={{
           width: '100vw',
           height: '100vh',
-          background: 'var(--bg-main)'
+          background: 'var(--bg-canvas)'
         }}
       />
     )
@@ -108,12 +108,12 @@ function App(): React.JSX.Element {
         width: '100vw',
         height: '100vh',
         display: 'flex',
-        background: 'var(--bg-main)'
+        background: 'var(--bg-canvas)'
       }}
     >
-      <Sidebar folderPath={folderPath} />
+      <EnhancedSidebar folderPath={folderPath} />
       <div style={{ flex: 1, minWidth: 0, height: '100vh' }}>
-        <MosaicLayout savedLayout={savedLayout} />
+        <TerminalCanvas savedLayout={savedLayout} />
       </div>
     </div>
   )

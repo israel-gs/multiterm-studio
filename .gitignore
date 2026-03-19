@@ -7,3 +7,6 @@ out
 
 # Multiterm Studio local config
 .multiterm/
+
+# docs
+docs/

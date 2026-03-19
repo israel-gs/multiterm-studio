@@ -8,11 +8,34 @@ export interface PanelEntry {
   color: string
 }
 
-export interface LayoutSnapshot {
+export interface CardRect {
+  x: number
+  y: number
+  w: number
+  h: number
+  z: number
+}
+
+export interface LayoutSnapshotV1 {
   version: 1
   tree: unknown // MosaicNode<string> | null — stored as plain JSON
   panels: PanelEntry[]
 }
+
+export interface LayoutSnapshotV2 {
+  version: 2
+  panelIds: string[]
+  panels: PanelEntry[]
+}
+
+export interface LayoutSnapshotV3 {
+  version: 3
+  panelIds: string[]
+  panels: PanelEntry[]
+  positions: Record<string, CardRect>
+}
+
+export type LayoutSnapshot = LayoutSnapshotV1 | LayoutSnapshotV2 | LayoutSnapshotV3
 
 function layoutPath(folderPath: string): string {
   return join(folderPath, '.multiterm', 'layout.json')
@@ -20,6 +43,43 @@ function layoutPath(folderPath: string): string {
 
 function multitermDir(folderPath: string): string {
   return join(folderPath, '.multiterm')
+}
+
+function extractLeafIds(node: unknown): string[] {
+  if (node === null || node === undefined) return []
+  if (typeof node === 'string') return [node]
+  if (typeof node === 'object' && node !== null) {
+    const obj = node as Record<string, unknown>
+    if (Array.isArray(obj.children)) {
+      return obj.children.flatMap((child: unknown) => extractLeafIds(child))
+    }
+    if (obj.first !== undefined || obj.second !== undefined) {
+      return [...extractLeafIds(obj.first), ...extractLeafIds(obj.second)]
+    }
+  }
+  return []
+}
+
+function migrateV1toV2(v1: LayoutSnapshotV1): LayoutSnapshotV2 {
+  let panelIds = extractLeafIds(v1.tree)
+  if (panelIds.length === 0) {
+    panelIds = v1.panels.map((p) => p.id)
+  }
+  return { version: 2, panelIds, panels: v1.panels }
+}
+
+function migrateV2toV3(v2: LayoutSnapshotV2): LayoutSnapshotV3 {
+  const positions: Record<string, CardRect> = {}
+  v2.panelIds.forEach((id, i) => {
+    positions[id] = {
+      x: 40 + i * 30,
+      y: 40 + i * 30,
+      w: 480,
+      h: 320,
+      z: i + 1
+    }
+  })
+  return { version: 3, panelIds: v2.panelIds, panels: v2.panels, positions }
 }
 
 /**
@@ -51,11 +111,19 @@ export function saveLayoutSync(folderPath: string, layout: LayoutSnapshot): void
 /**
  * Loads layout from .multiterm/layout.json.
  * Returns null if file is missing (ENOENT) or contains invalid JSON.
+ * Automatically migrates v1 (mosaic tree) to v2 (flat array) format.
  */
 export async function loadLayout(folderPath: string): Promise<LayoutSnapshot | null> {
   try {
     const raw = await readFile(layoutPath(folderPath), 'utf-8')
-    return JSON.parse(raw) as LayoutSnapshot
+    const parsed = JSON.parse(raw) as LayoutSnapshot
+    if (parsed.version === 1) {
+      return migrateV2toV3(migrateV1toV2(parsed as LayoutSnapshotV1))
+    }
+    if (parsed.version === 2) {
+      return migrateV2toV3(parsed as LayoutSnapshotV2)
+    }
+    return parsed
   } catch {
     return null
   }

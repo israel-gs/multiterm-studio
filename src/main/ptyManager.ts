@@ -48,7 +48,7 @@ export function registerPtyHandlers(win: BrowserWindow): void {
       cols: 80,
       rows: 24,
       cwd: safeCwd,
-      env: { ...process.env }
+      env: { ...process.env, PROMPT_EOL_MARK: '' }
     })
 
     ptyProcess.onData((data: string) => {

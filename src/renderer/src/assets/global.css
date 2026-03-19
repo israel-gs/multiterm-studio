@@ -1,15 +1,24 @@
+@import './main.css';
+
 :root {
-  --bg-main: #1a1a1a;
-  --bg-panel: #242424;
-  --bg-header: #2e2e2e;
+  /* Canvas & card tokens */
+  --bg-canvas: #111;
+  --bg-card: #1c1c1c;
+  --bg-header: #2a2a2a;
   --fg-primary: #d4d4d4;
   --fg-secondary: #808080;
+  --sidebar-width: 300px;
+  --card-radius: 8px;
+  --card-border: rgba(255, 255, 255, 0.06);
+  --card-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 2px 12px rgba(0, 0, 0, 0.5);
+  --card-shadow-elevated: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 32px rgba(0, 0, 0, 0.6);
+  --border-subtle: #3e3e3e;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg-main);
+  background: var(--bg-canvas);
   color: var(--fg-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow: hidden;
@@ -17,91 +26,643 @@ body {
   width: 100vw;
 }
 
-/* react-mosaic dark theme overrides */
-.mosaic-root {
-  background: var(--bg-main);
+/* ===== Terminal Canvas ===== */
+
+.terminal-canvas {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
 }
 
-.mosaic-tile {
-  margin: 1px;
+.terminal-canvas-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
-.mosaic-split {
-  background: var(--bg-main);
+.terminal-canvas-add-btn {
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--fg-primary);
+  border: 1px solid var(--fg-secondary);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
 }
 
-.mosaic-split:hover {
-  background: var(--fg-secondary);
+.terminal-canvas-add-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
-/* Hide default mosaic toolbar — we use renderToolbar for full control */
-.mosaic-window .mosaic-window-toolbar {
-  display: none;
+.terminal-canvas-toolbar-spacer {
+  flex: 1;
 }
 
-/* Panel body uses dark background */
-.mosaic-window .mosaic-window-body {
-  background: var(--bg-panel);
+.terminal-canvas-zoom-reset {
+  padding: 2px 8px;
+  background: transparent;
+  color: var(--fg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
 }
 
-/* Panel header */
+.terminal-canvas-zoom-reset:hover {
+  color: var(--fg-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Infinite canvas viewport — no scroll, transform-based pan/zoom */
+.terminal-canvas-viewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-canvas);
+}
+
+/* HTML Canvas 2D grid — fills viewport, behind everything */
+.terminal-canvas-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Tile layer — transform: translate(panX, panY) scale(zoom) applied via JS */
+.terminal-canvas-tile-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* ===== Edge Indicators ===== */
+
+.terminal-canvas-edge-indicators {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.edge-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #4a9eff;
+  transform: translate(-50%, -50%) scale(0.5);
+  opacity: 0;
+  pointer-events: all;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.edge-dot.visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.edge-dot:hover {
+  background: #78b8ff;
+  transform: translate(-50%, -50%) scale(1.4);
+}
+
+/* ===== Zoom Indicator Badge ===== */
+
+.terminal-canvas-zoom-indicator {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ccc;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  z-index: 1001;
+}
+
+.terminal-canvas-zoom-indicator.visible {
+  opacity: 1;
+}
+
+/* ===== Empty State ===== */
+
+.terminal-canvas-empty-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 500;
+}
+
+.terminal-canvas-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.terminal-canvas-empty-ghost {
+  width: 300px;
+  height: 200px;
+  border: 2px dashed rgba(255, 255, 255, 0.08);
+  border-radius: var(--card-radius);
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-canvas-empty-ghost-header {
+  height: 28px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+  border-radius: var(--card-radius) var(--card-radius) 0 0;
+}
+
+.terminal-canvas-empty-ghost-body {
+  flex: 1;
+}
+
+.terminal-canvas-empty-text {
+  color: var(--fg-secondary);
+  font-size: 13px;
+  margin: 0;
+}
+
+.terminal-canvas-empty-text strong {
+  color: var(--fg-primary);
+}
+
+/* ===== Floating Card ===== */
+
+.floating-card {
+  position: absolute;
+  border-radius: var(--card-radius);
+  border: 1px solid var(--card-border);
+  background: var(--bg-card);
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  outline: none;
+  transition: box-shadow 0.15s ease;
+  animation: card-enter 150ms ease-out;
+  pointer-events: all;
+}
+
+.floating-card:hover {
+  box-shadow: var(--card-shadow-elevated);
+}
+
+.floating-card--focused {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.floating-card--dragging {
+  box-shadow: var(--card-shadow-elevated);
+  transition: none;
+}
+
+.floating-card--resizing {
+  transition: none;
+}
+
+.floating-card-body {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+.floating-card-inner {
+  position: absolute;
+  inset: 0;
+}
+
+/* Overlay: block terminal pointer events during drag/resize/pan */
+body.canvas-interacting .floating-card-inner {
+  pointer-events: none;
+}
+
+/* Space-held pan mode: grab cursor, disable card interactions */
+.space-held,
+.space-held * {
+  cursor: grab !important;
+}
+
+.space-held .floating-card {
+  pointer-events: none !important;
+}
+
+/* Active panning (space+drag or middle-click drag): grabbing cursor */
+.space-held.panning,
+.space-held.panning *,
+.panning,
+.panning * {
+  cursor: grabbing !important;
+}
+
+/* Card entry animation */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ===== Drag Handle ===== */
+
+[data-drag-handle] {
+  cursor: grab;
+}
+
+.floating-card--dragging [data-drag-handle] {
+  cursor: grabbing;
+}
+
+/* ===== Resize Handles ===== */
+
+.resize-handle {
+  position: absolute;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+
+.floating-card--focused .resize-handle,
+.floating-card:hover .resize-handle {
+  opacity: 1;
+}
+
+/* East edge */
+.resize-handle--e {
+  top: 28px;
+  right: -5px;
+  width: 16px;
+  bottom: 24px;
+  cursor: ew-resize;
+  z-index: 10;
+}
+
+/* South edge */
+.resize-handle--s {
+  bottom: -5px;
+  left: 0;
+  right: 24px;
+  height: 16px;
+  cursor: ns-resize;
+  z-index: 10;
+}
+
+/* SE corner */
+.resize-handle--se {
+  bottom: -4px;
+  right: -4px;
+  width: 24px;
+  height: 24px;
+  cursor: nwse-resize;
+  z-index: 11;
+}
+
+.resize-handle--se::before {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid rgba(255, 255, 255, 0.15);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.floating-card--focused .resize-handle--se::before,
+.floating-card:hover .resize-handle--se::before {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ===== Panel Header ===== */
+
 .panel-header {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 0 8px;
   height: 28px;
-  background: var(--bg-header);
-  color: var(--fg-primary);
   font-size: 12px;
   user-select: none;
   width: 100%;
   box-sizing: border-box;
+  flex-shrink: 0;
+  border-radius: var(--card-radius) var(--card-radius) 0 0;
 }
+
 .panel-header-title {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: default;
+  font-weight: 500;
 }
+
 .panel-header-input {
   flex: 1;
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--fg-secondary);
-  color: var(--fg-primary);
+  border-bottom: 1px solid currentColor;
+  color: inherit;
   font-size: 12px;
   outline: none;
   padding: 0;
 }
+
 .panel-header-btn {
   background: none;
   border: none;
-  color: var(--fg-secondary);
+  color: inherit;
   cursor: pointer;
   padding: 2px 4px;
   font-size: 14px;
   line-height: 1;
+  opacity: 0.7;
 }
+
 .panel-header-btn:hover {
-  color: var(--fg-primary);
+  opacity: 1;
 }
-.color-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.color-option {
+
+/* Attention badge inline */
+.attention-badge-inline {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  border: none;
+  background: #f44747;
+  flex-shrink: 0;
+  animation: pulse-attention 1.2s ease-in-out infinite;
+}
+
+/* ===== Color Context Menu ===== */
+
+.color-context-menu {
+  position: fixed;
+  z-index: 99999;
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.color-context-option {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
   cursor: pointer;
   padding: 0;
+  transition: transform 100ms, border-color 100ms;
+}
+
+.color-context-option:hover {
+  transform: scale(1.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* ===== Enhanced Sidebar ===== */
+
+.enhanced-sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-subtle);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-project-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sidebar-project-selector:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sidebar-project-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-project-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-project-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-project-path {
+  font-size: 11px;
+  color: var(--fg-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-project-chevron {
+  color: var(--fg-secondary);
+  font-size: 16px;
   flex-shrink: 0;
 }
-.color-option:hover {
-  transform: scale(1.3);
+
+.sidebar-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 12px;
+  padding: 4px 8px;
+  background: var(--bg-canvas);
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle);
+}
+
+.sidebar-search:focus-within {
+  border-color: #569cd6;
+}
+
+.sidebar-search-icon {
+  flex-shrink: 0;
+}
+
+.sidebar-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--fg-primary);
+  font-size: 12px;
+  outline: none;
+  padding: 2px 0;
+}
+
+.sidebar-search-input::placeholder {
+  color: var(--fg-secondary);
+}
+
+.sidebar-search-shortcut {
+  font-size: 10px;
+  color: var(--fg-secondary);
+  background: var(--bg-header);
+  padding: 1px 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.sidebar-sort-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sidebar-sort-label {
+  font-size: 11px;
+  color: var(--fg-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sidebar-sort-btn {
+  background: none;
+  border: none;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+}
+
+.sidebar-sort-btn:hover {
+  color: var(--fg-primary);
+}
+
+.sidebar-tree-container {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ===== File Tree ===== */
+
+.file-tree-node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 24px;
+  color: var(--fg-primary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 8px;
+}
+
+.file-tree-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+}
+
+.file-tree-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-tree-count {
+  font-size: 10px;
+  color: var(--fg-secondary);
+  background: var(--bg-header);
+  padding: 0 5px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.file-tree-date {
+  font-size: 10px;
+  color: var(--fg-secondary);
+  flex-shrink: 0;
+}
+
+.file-tree-arrow {
+  font-size: 10px;
+  color: var(--fg-secondary);
+  flex-shrink: 0;
+  width: 12px;
+  text-align: center;
+}
+
+/* ===== Reduced Motion ===== */
+
+@media (prefers-reduced-motion: reduce) {
+  .floating-card {
+    animation: none;
+    transition: none;
+  }
+
+  .floating-card--dragging {
+    transition: none;
+  }
+
+  .resize-handle {
+    transition: none;
+  }
+
+  .attention-badge-inline {
+    animation: none;
+  }
+
+  .color-context-option:hover {
+    transform: none;
+  }
+
+  .edge-dot {
+    transition: none;
+  }
+
+  .terminal-canvas-zoom-indicator {
+    transition: none;
+  }
 }

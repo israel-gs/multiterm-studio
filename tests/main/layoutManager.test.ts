@@ -105,9 +105,17 @@ describe('layoutManager', () => {
 
   // --- loadLayout ---
 
-  it('loadLayout returns parsed LayoutSnapshot when file is valid JSON', async () => {
+  it('loadLayout returns parsed LayoutSnapshot when file is valid JSON (v1 migrated to v3)', async () => {
     const result = await loadLayout(folderPath)
-    expect(result).toEqual(sampleSnapshot)
+    // v1 snapshots are automatically migrated through v2 to v3 format
+    expect(result).toEqual({
+      version: 3,
+      panelIds: ['panel-abc'],
+      panels: [{ id: 'panel-abc', title: 'My Terminal', color: '#569cd6' }],
+      positions: {
+        'panel-abc': { x: 40, y: 40, w: 480, h: 320, z: 1 }
+      }
+    })
   })
 
   it('loadLayout returns null when file does not exist (ENOENT)', async () => {

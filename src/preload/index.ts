@@ -21,7 +21,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Folder operations — project context panel (Phase 03)
   folderOpen: (): Promise<string | null> => ipcRenderer.invoke('folder:open'),
 
-  folderReaddir: (dirPath: string): Promise<Array<{ name: string; isDir: boolean }>> =>
+  folderReaddir: (
+    dirPath: string
+  ): Promise<Array<{ name: string; isDir: boolean; itemCount?: number; modifiedAt?: number }>> =>
     ipcRenderer.invoke('folder:readdir', dirPath),
 
   // Main → Renderer (push) — returns unsubscribe function
