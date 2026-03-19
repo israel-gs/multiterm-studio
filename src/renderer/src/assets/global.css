@@ -323,7 +323,7 @@ body.canvas-interacting .floating-card-inner {
 /* South edge */
 .resize-handle--s {
   bottom: -5px;
-  left: 0;
+  left: 24px;
   right: 24px;
   height: 16px;
   cursor: ns-resize;
@@ -354,6 +354,106 @@ body.canvas-interacting .floating-card-inner {
 .floating-card--focused .resize-handle--se::before,
 .floating-card:hover .resize-handle--se::before {
   border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* North edge */
+.resize-handle--n {
+  top: -5px;
+  left: 24px;
+  right: 24px;
+  height: 16px;
+  cursor: ns-resize;
+  z-index: 10;
+}
+
+/* West edge */
+.resize-handle--w {
+  left: -5px;
+  top: 28px;
+  bottom: 24px;
+  width: 16px;
+  cursor: ew-resize;
+  z-index: 10;
+}
+
+/* NE corner */
+.resize-handle--ne {
+  top: -4px;
+  right: -4px;
+  width: 24px;
+  height: 24px;
+  cursor: nesw-resize;
+  z-index: 11;
+}
+
+/* NW corner */
+.resize-handle--nw {
+  top: -4px;
+  left: -4px;
+  width: 24px;
+  height: 24px;
+  cursor: nwse-resize;
+  z-index: 11;
+}
+
+/* SW corner */
+.resize-handle--sw {
+  bottom: -4px;
+  left: -4px;
+  width: 24px;
+  height: 24px;
+  cursor: nesw-resize;
+  z-index: 11;
+}
+
+/* ===== Selected Card State ===== */
+
+.floating-card--selected {
+  border-color: #4a9eff;
+  box-shadow: var(--card-shadow), 0 0 0 1px #4a9eff, 0 0 12px rgba(74, 158, 255, 0.25);
+}
+
+/* ===== Selection Marquee ===== */
+
+.selection-marquee {
+  position: absolute;
+  border: 1px dashed #4a9eff;
+  background: rgba(74, 158, 255, 0.08);
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* ===== Canvas Context Menu ===== */
+
+.canvas-context-menu {
+  position: fixed;
+  z-index: 99999;
+  min-width: 160px;
+  padding: 4px 0;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.canvas-context-menu-item {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--fg-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.canvas-context-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.canvas-context-menu-item--danger {
+  color: #f44747;
+}
+
+.canvas-context-menu-item--danger:hover {
+  background: rgba(244, 71, 71, 0.1);
 }
 
 /* ===== Panel Header ===== */

@@ -15,9 +15,7 @@ export function registerFolderHandlers(win: BrowserWindow): void {
 
   ipcMain.handle('folder:readdir', async (_event, dirPath: string) => {
     const entries = await readdir(dirPath, { withFileTypes: true })
-    const filtered = entries.filter(
-      (e) => !e.name.startsWith('.') && e.name !== 'node_modules'
-    )
+    const filtered = entries.filter((e) => e.name !== 'node_modules')
 
     const enriched = await Promise.all(
       filtered.map(async (e) => {
@@ -34,9 +32,7 @@ export function registerFolderHandlers(win: BrowserWindow): void {
 
           if (isDir) {
             const children = await readdir(fullPath)
-            result.itemCount = children.filter(
-              (c) => !c.startsWith('.') && c !== 'node_modules'
-            ).length
+            result.itemCount = children.filter((c) => c !== 'node_modules').length
           }
           return result
         } catch {

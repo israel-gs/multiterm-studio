@@ -130,7 +130,7 @@ describe('registerFolderHandlers (PROJ-01, PROJ-02)', () => {
     ])
   })
 
-  test('folder:readdir filters out dotfiles (entries starting with .)', async () => {
+  test('folder:readdir includes dotfiles (entries starting with .)', async () => {
     mockReaddir.mockResolvedValue([
       makeDirent('.git', true),
       makeDirent('.env', false),
@@ -144,7 +144,9 @@ describe('registerFolderHandlers (PROJ-01, PROJ-02)', () => {
     const result = await capturedHandlers['folder:readdir'](fakeEvent, '/some/dir')
 
     expect(result).toEqual([
+      { name: '.git', isDir: true },
       { name: 'src', isDir: true },
+      { name: '.env', isDir: false },
       { name: 'README.md', isDir: false }
     ])
   })

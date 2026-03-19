@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { FloatingCard } from './FloatingCard'
 import type { CardRect } from './FloatingCard'
+import { CanvasContextMenu } from './CanvasContextMenu'
 import { usePanelStore } from '../store/panelStore'
 import { useProjectStore } from '../store/projectStore'
 import { scheduleSave } from '../utils/layoutPersistence'
@@ -18,6 +19,13 @@ interface TerminalCanvasProps {
   savedLayout?: SavedLayoutShape | null
 }
 
+interface ContextMenuState {
+  x: number
+  y: number
+  type: 'canvas' | 'card'
+  cardId?: string
+}
+
 const DEFAULT_W = 480
 const DEFAULT_H = 320
 const CASCADE_OFFSET = 30
@@ -26,6 +34,7 @@ const MAX_ZOOM = 3.0
 const GRID_CELL = 24
 const GRID_MAJOR = 5
 const EDGE_INSET = 12
+const MARQUEE_THRESHOLD = 3
 
 function extractLeafIds(node: unknown): string[] {
   if (node === null || node === undefined) return []
@@ -157,6 +166,17 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   // Expose updateCanvas to call from outside the main effect
   const updateCanvasRef = useRef<() => void>(() => { })
 
+  // Selection state
+  const selectedIdsRef = useRef<Set<string>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+
+  // Refs for accessing component-level functions from the main effect
+  const handleAddPanelAtRef = useRef<(x: number, y: number) => void>(() => { })
+  const handleClosePanelRef = useRef<(id: string) => void>(() => { })
+
   // Keep refs in sync
   useEffect(() => {
     panelIdsRef.current = panelIds
@@ -168,7 +188,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     folderPathRef.current = folderPath
   }, [folderPath])
 
-  // === Main viewport effect: grid, pan, zoom, edge indicators, keyboard ===
+  // === Main viewport effect: grid, pan, zoom, edge indicators, keyboard, selection, marquee ===
   useEffect(() => {
     const viewport = viewportRef.current
     const gridCanvas = gridCanvasRef.current
@@ -181,8 +201,12 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     let zoomTimer: ReturnType<typeof setTimeout> | undefined
     let viewportSaveTimer: ReturnType<typeof setTimeout> | undefined
     let panAnimRaf: number | undefined
+    let snapBackTimer: ReturnType<typeof setTimeout> | undefined
+    let snapBackRaf: number | undefined
     let spaceHeld = false
     let isPanning = false
+    let lastPanEndTime = 0
+    let marqueeDidDrag = false
     const dotMap = edgeDotMapRef.current
     const dotFadeOuts = edgeDotFadeOutsRef.current
 
@@ -369,10 +393,65 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       }, 2000)
     }
 
-    // --- Focal-point zoom ---
+    // --- Rubber-band zoom snap-back animation ---
+    function animateSnapBack(): void {
+      const current = scaleRef.current
+      let target: number | null = null
+      if (current < MIN_ZOOM) target = MIN_ZOOM
+      else if (current > MAX_ZOOM) target = MAX_ZOOM
+      if (target === null) return
+
+      const startScale = current
+      const startTime = performance.now()
+      const vw = viewport.clientWidth
+      const vh = viewport.clientHeight
+      const focalX = vw / 2
+      const focalY = vh / 2
+
+      function step(now: number): void {
+        const t = Math.min((now - startTime) / 200, 1)
+        const ease = 1 - Math.pow(1 - t, 3) // easeOutCubic
+        const prev = scaleRef.current
+        const nextScale = startScale + (target! - startScale) * ease
+        scaleRef.current = nextScale
+        const ratio = nextScale / prev - 1
+        canvasXRef.current -= (focalX - canvasXRef.current) * ratio
+        canvasYRef.current -= (focalY - canvasYRef.current) * ratio
+        updateCanvas()
+        showZoomIndicator()
+        if (t < 1) {
+          snapBackRaf = requestAnimationFrame(step)
+        } else {
+          snapBackRaf = undefined
+          scheduleViewportSave()
+        }
+      }
+
+      snapBackRaf = requestAnimationFrame(step)
+    }
+
+    // --- Focal-point zoom with rubber-band overshoot ---
     function applyZoom(factor: number, focalX: number, focalY: number): void {
+      // Cancel any active snap-back
+      if (snapBackRaf) {
+        cancelAnimationFrame(snapBackRaf)
+        snapBackRaf = undefined
+      }
+      clearTimeout(snapBackTimer)
+
       const prev = scaleRef.current
-      const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prev * factor))
+      let next = prev * factor
+
+      // Damped overshoot instead of hard clamp
+      const K = 400
+      if (next < MIN_ZOOM) {
+        const overshoot = MIN_ZOOM - next
+        next = MIN_ZOOM - overshoot / (1 + overshoot * K)
+      } else if (next > MAX_ZOOM) {
+        const overshoot = next - MAX_ZOOM
+        next = MAX_ZOOM + overshoot / (1 + overshoot * K)
+      }
+
       if (next === prev) return
       scaleRef.current = next
       const ratio = next / prev - 1
@@ -381,6 +460,9 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       updateCanvas()
       showZoomIndicator()
       scheduleViewportSave()
+
+      // Schedule snap-back after 150ms of no zoom input
+      snapBackTimer = setTimeout(() => animateSnapBack(), 150)
     }
 
     // --- Animated pan to a tile (easeOut cubic) ---
@@ -433,39 +515,143 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       }
     }
 
-    // --- Middle-click drag & Space+left-click drag to pan ---
+    // --- Middle-click drag, Space+left-click drag to pan, Left-click drag for marquee ---
     function handleMouseDown(e: MouseEvent): void {
+      // Pan: middle-click or space+left-click
       const shouldPan = e.button === 1 || (e.button === 0 && spaceHeld)
-      if (!shouldPan) return
+      if (shouldPan) {
+        e.preventDefault()
+        isPanning = true
+        viewport.classList.add('panning')
+        document.body.classList.add('canvas-interacting')
 
+        const startMX = e.clientX
+        const startMY = e.clientY
+        const startPanX = canvasXRef.current
+        const startPanY = canvasYRef.current
+
+        function onMove(ev: MouseEvent): void {
+          canvasXRef.current = startPanX + (ev.clientX - startMX)
+          canvasYRef.current = startPanY + (ev.clientY - startMY)
+          updateCanvas()
+        }
+
+        function onUp(): void {
+          isPanning = false
+          viewport.classList.remove('panning')
+          document.body.classList.remove('canvas-interacting')
+          if (!spaceHeld) viewport.classList.remove('space-held')
+          document.removeEventListener('mousemove', onMove)
+          document.removeEventListener('mouseup', onUp)
+          scheduleViewportSave()
+          lastPanEndTime = performance.now()
+        }
+
+        document.addEventListener('mousemove', onMove)
+        document.addEventListener('mouseup', onUp)
+        return
+      }
+
+      // Marquee selection: left-click on empty canvas (not card, not edge dot)
+      if (e.button === 0 && !(e.target as HTMLElement).closest('.floating-card, .edge-dot')) {
+        const startScreenX = e.clientX
+        const startScreenY = e.clientY
+        const vpRect = viewport.getBoundingClientRect()
+        let marqueeEl: HTMLDivElement | null = null
+
+        function onMarqueeMove(ev: MouseEvent): void {
+          const dx = ev.clientX - startScreenX
+          const dy = ev.clientY - startScreenY
+          if (
+            !marqueeEl &&
+            (Math.abs(dx) > MARQUEE_THRESHOLD || Math.abs(dy) > MARQUEE_THRESHOLD)
+          ) {
+            marqueeEl = document.createElement('div')
+            marqueeEl.className = 'selection-marquee'
+            viewport.appendChild(marqueeEl)
+            marqueeDidDrag = true
+          }
+          if (marqueeEl) {
+            const left = Math.min(startScreenX, ev.clientX) - vpRect.left
+            const top = Math.min(startScreenY, ev.clientY) - vpRect.top
+            const width = Math.abs(dx)
+            const height = Math.abs(dy)
+            marqueeEl.style.left = `${left}px`
+            marqueeEl.style.top = `${top}px`
+            marqueeEl.style.width = `${width}px`
+            marqueeEl.style.height = `${height}px`
+
+            // AABB hit-test all cards (convert marquee rect to canvas-space)
+            const scale = scaleRef.current
+            const panX = canvasXRef.current
+            const panY = canvasYRef.current
+            const mL = (left - panX) / scale
+            const mT = (top - panY) / scale
+            const mR = mL + width / scale
+            const mB = mT + height / scale
+
+            selectedIdsRef.current.clear()
+            const pos = positionsRef.current
+            for (const id of panelIdsRef.current) {
+              const r = pos[id]
+              if (!r) continue
+              if (r.x + r.w > mL && r.x < mR && r.y + r.h > mT && r.y < mB) {
+                selectedIdsRef.current.add(id)
+              }
+            }
+            setSelectedIds(new Set(selectedIdsRef.current))
+          }
+        }
+
+        function onMarqueeUp(): void {
+          document.removeEventListener('mousemove', onMarqueeMove)
+          document.removeEventListener('mouseup', onMarqueeUp)
+          if (marqueeEl) {
+            marqueeEl.remove()
+            setSelectedIds(new Set(selectedIdsRef.current))
+          }
+        }
+
+        document.addEventListener('mousemove', onMarqueeMove)
+        document.addEventListener('mouseup', onMarqueeUp)
+      }
+    }
+
+    // --- Click: clear selection on empty canvas (suppressed after marquee) ---
+    function handleClick(e: MouseEvent): void {
+      if (marqueeDidDrag) {
+        marqueeDidDrag = false
+        return
+      }
+      if (!(e.target as HTMLElement).closest('.floating-card, .edge-dot')) {
+        selectedIdsRef.current.clear()
+        setSelectedIds(new Set())
+        setContextMenu(null)
+      }
+    }
+
+    // --- Double-click: create new terminal at cursor position ---
+    function handleDblClick(e: MouseEvent): void {
+      if (performance.now() - lastPanEndTime < 500) return
+      if ((e.target as HTMLElement).closest('.floating-card')) return
+
+      const vpRect = viewport.getBoundingClientRect()
+      const scale = scaleRef.current
+      const canvasX = (e.clientX - vpRect.left - canvasXRef.current) / scale
+      const canvasY = (e.clientY - vpRect.top - canvasYRef.current) / scale
+
+      handleAddPanelAtRef.current(canvasX, canvasY)
+    }
+
+    // --- Right-click context menu ---
+    function handleContextMenu(e: MouseEvent): void {
       e.preventDefault()
-      isPanning = true
-      viewport.classList.add('panning')
-      document.body.classList.add('canvas-interacting')
-
-      const startMX = e.clientX
-      const startMY = e.clientY
-      const startPanX = canvasXRef.current
-      const startPanY = canvasYRef.current
-
-      function onMove(ev: MouseEvent): void {
-        canvasXRef.current = startPanX + (ev.clientX - startMX)
-        canvasYRef.current = startPanY + (ev.clientY - startMY)
-        updateCanvas()
+      const card = (e.target as HTMLElement).closest('[data-card-id]') as HTMLElement | null
+      if (card && card.dataset.cardId) {
+        setContextMenu({ x: e.clientX, y: e.clientY, type: 'card', cardId: card.dataset.cardId })
+      } else {
+        setContextMenu({ x: e.clientX, y: e.clientY, type: 'canvas' })
       }
-
-      function onUp(): void {
-        isPanning = false
-        viewport.classList.remove('panning')
-        document.body.classList.remove('canvas-interacting')
-        if (!spaceHeld) viewport.classList.remove('space-held')
-        document.removeEventListener('mousemove', onMove)
-        document.removeEventListener('mouseup', onUp)
-        scheduleViewportSave()
-      }
-
-      document.addEventListener('mousemove', onMove)
-      document.addEventListener('mouseup', onUp)
     }
 
     // --- Edge indicator click (event delegation) ---
@@ -493,6 +679,31 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       }
 
       if ((e.target as HTMLElement).closest('.floating-card')) return
+
+      // Escape: clear selection and context menu
+      if (e.key === 'Escape') {
+        selectedIdsRef.current.clear()
+        setSelectedIds(new Set())
+        setContextMenu(null)
+        return
+      }
+
+      // Delete/Backspace: remove selected cards
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedIdsRef.current.size === 0) return
+        if (
+          selectedIdsRef.current.size > 1 &&
+          !window.confirm(`Close ${selectedIdsRef.current.size} terminals?`)
+        ) {
+          return
+        }
+        for (const id of selectedIdsRef.current) {
+          handleClosePanelRef.current(id)
+        }
+        selectedIdsRef.current.clear()
+        setSelectedIds(new Set())
+        return
+      }
 
       if (e.key === '0' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
         // Reset zoom to 100%, centered
@@ -527,6 +738,9 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     // Attach listeners
     viewport.addEventListener('wheel', handleWheel, { passive: false })
     viewport.addEventListener('mousedown', handleMouseDown)
+    viewport.addEventListener('click', handleClick)
+    viewport.addEventListener('dblclick', handleDblClick)
+    viewport.addEventListener('contextmenu', handleContextMenu)
     viewport.addEventListener('auxclick', handleAuxClick)
     edgeContainer.addEventListener('click', handleEdgeClick)
     window.addEventListener('keydown', handleKeyDown)
@@ -541,6 +755,9 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     return () => {
       viewport.removeEventListener('wheel', handleWheel)
       viewport.removeEventListener('mousedown', handleMouseDown)
+      viewport.removeEventListener('click', handleClick)
+      viewport.removeEventListener('dblclick', handleDblClick)
+      viewport.removeEventListener('contextmenu', handleContextMenu)
       viewport.removeEventListener('auxclick', handleAuxClick)
       edgeContainer.removeEventListener('click', handleEdgeClick)
       window.removeEventListener('keydown', handleKeyDown)
@@ -548,7 +765,9 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       ro.disconnect()
       clearTimeout(zoomTimer)
       clearTimeout(viewportSaveTimer)
+      clearTimeout(snapBackTimer)
       if (panAnimRaf) cancelAnimationFrame(panAnimRaf)
+      if (snapBackRaf) cancelAnimationFrame(snapBackRaf)
       for (const timer of dotFadeOuts.values()) clearTimeout(timer)
       for (const dot of dotMap.values()) dot.remove()
       dotMap.clear()
@@ -611,6 +830,56 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     }
   }
 
+  // --- Selection helpers ---
+  function commitSelection(): void {
+    setSelectedIds(new Set(selectedIdsRef.current))
+  }
+
+  function clearSelection(): void {
+    selectedIdsRef.current.clear()
+    setSelectedIds(new Set())
+  }
+
+  function handleCardSelect(id: string, shiftKey: boolean): void {
+    if (shiftKey) {
+      if (selectedIdsRef.current.has(id)) {
+        selectedIdsRef.current.delete(id)
+      } else {
+        selectedIdsRef.current.add(id)
+      }
+    } else {
+      selectedIdsRef.current.clear()
+      selectedIdsRef.current.add(id)
+    }
+    commitSelection()
+  }
+
+  // --- Group drag helpers ---
+  function getGroupDragContext(
+    draggedId: string
+  ): Array<{ id: string; x: number; y: number }> | null {
+    if (selectedIdsRef.current.size <= 1 || !selectedIdsRef.current.has(draggedId)) return null
+    const peers: Array<{ id: string; x: number; y: number }> = []
+    for (const id of selectedIdsRef.current) {
+      if (id === draggedId) continue
+      const pos = positionsRef.current[id]
+      if (pos) peers.push({ id, x: pos.x, y: pos.y })
+    }
+    return peers.length > 0 ? peers : null
+  }
+
+  function handleGroupMove(moves: Array<{ id: string; x: number; y: number }>): void {
+    setPositions((prev) => {
+      const next = { ...prev }
+      for (const m of moves) {
+        if (next[m.id]) next[m.id] = { ...next[m.id], x: m.x, y: m.y }
+      }
+      positionsRef.current = next
+      triggerSave(panelIdsRef.current, next)
+      return next
+    })
+  }
+
   // --- Card lifecycle ---
   function handleAddPanel(): void {
     const newId = crypto.randomUUID()
@@ -631,6 +900,32 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
+
+    setPanelIds((prev) => {
+      const next = [...prev, newId]
+      panelIdsRef.current = next
+      return next
+    })
+    setPositions((prev) => {
+      const next = { ...prev, [newId]: newRect }
+      positionsRef.current = next
+      triggerSave([...panelIdsRef.current], next)
+      return next
+    })
+  }
+
+  function handleAddPanelAt(x: number, y: number): void {
+    const newId = crypto.randomUUID()
+    addPanel(newId)
+
+    const newZ = ++topZRef.current
+    const newRect: CardRect = {
+      x: snapToGrid(x - DEFAULT_W / 2),
+      y: snapToGrid(y - DEFAULT_H / 2),
+      w: DEFAULT_W,
+      h: DEFAULT_H,
+      z: newZ
+    }
 
     setPanelIds((prev) => {
       const next = [...prev, newId]
@@ -674,6 +969,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     })
   }
 
+  // Keep refs updated for access from the main effect
+  handleAddPanelAtRef.current = handleAddPanelAt
+  handleClosePanelRef.current = handleClosePanel
+
   function handleMove(id: string, x: number, y: number): void {
     setPositions((prev) => {
       const next = { ...prev, [id]: { ...prev[id], x, y } }
@@ -686,6 +985,21 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   function handleResize(id: string, w: number, h: number): void {
     setPositions((prev) => {
       const next = { ...prev, [id]: { ...prev[id], w, h } }
+      positionsRef.current = next
+      triggerSave(panelIdsRef.current, next)
+      return next
+    })
+  }
+
+  function handleResizeWithMove(
+    id: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ): void {
+    setPositions((prev) => {
+      const next = { ...prev, [id]: { ...prev[id], x, y, w, h } }
       positionsRef.current = next
       triggerSave(panelIdsRef.current, next)
       return next
@@ -746,10 +1060,15 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
                 cwd={folderPath ?? '.'}
                 rect={rect}
                 zoomRef={scaleRef}
+                selected={selectedIds.has(id)}
+                onSelect={handleCardSelect}
                 onMove={handleMove}
                 onResize={handleResize}
+                onResizeWithMove={handleResizeWithMove}
                 onBringToFront={handleBringToFront}
                 onClose={handleClosePanel}
+                onGroupDragContext={getGroupDragContext}
+                onGroupMove={handleGroupMove}
               />
             )
           })}
@@ -764,12 +1083,26 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
                 <div className="terminal-canvas-empty-ghost-body" />
               </div>
               <p className="terminal-canvas-empty-text">
-                Click <strong>+ New terminal</strong> to get started
+                Click <strong>+ New terminal</strong> or double-click the canvas to get started
               </p>
             </div>
           </div>
         )}
       </div>
+      {contextMenu && (
+        <CanvasContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          type={contextMenu.type}
+          cardId={contextMenu.cardId}
+          onNewTerminal={() => {
+            clearSelection()
+            handleAddPanel()
+          }}
+          onCloseTerminal={handleClosePanel}
+          onDismiss={() => setContextMenu(null)}
+        />
+      )}
     </div>
   )
 }
