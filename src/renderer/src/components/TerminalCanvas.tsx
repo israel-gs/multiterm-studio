@@ -149,9 +149,6 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   const canvasYRef = useRef(savedLayout?.viewport?.panY ?? 0)
   const scaleRef = useRef(savedLayout?.viewport?.zoom ?? 1)
 
-  const [zoomDisplay, setZoomDisplay] = useState(
-    Math.round((savedLayout?.viewport?.zoom ?? 1) * 100)
-  )
 
   // DOM refs
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -374,7 +371,6 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       clearTimeout(zoomTimer)
       zoomTimer = setTimeout(() => {
         zoomIndicator.classList.remove('visible')
-        setZoomDisplay(pct)
       }, 1500)
     }
 
@@ -1019,32 +1015,6 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
   return (
     <div className="terminal-canvas">
-      <div className="terminal-canvas-toolbar">
-        <button onClick={handleAddPanel} className="terminal-canvas-add-btn">
-          + New terminal
-        </button>
-        <span className="terminal-canvas-toolbar-spacer" />
-        {zoomDisplay !== 100 && (
-          <button
-            className="terminal-canvas-zoom-reset"
-            onClick={() => {
-              const vp = viewportRef.current
-              if (!vp) return
-              const prev = scaleRef.current
-              scaleRef.current = 1
-              const vw = vp.clientWidth
-              const vh = vp.clientHeight
-              const ratio = 1 / prev - 1
-              canvasXRef.current -= (vw / 2 - canvasXRef.current) * ratio
-              canvasYRef.current -= (vh / 2 - canvasYRef.current) * ratio
-              updateCanvasRef.current()
-              setZoomDisplay(100)
-            }}
-          >
-            {zoomDisplay}%
-          </button>
-        )}
-      </div>
       <div ref={viewportRef} className="terminal-canvas-viewport">
         <canvas ref={gridCanvasRef} className="terminal-canvas-grid" />
         <div
@@ -1085,7 +1055,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
                 <div className="terminal-canvas-empty-ghost-body" />
               </div>
               <p className="terminal-canvas-empty-text">
-                Click <strong>+ New terminal</strong> or double-click the canvas to get started
+                Double-click the canvas or right-click for <strong>New terminal</strong>
               </p>
             </div>
           </div>
