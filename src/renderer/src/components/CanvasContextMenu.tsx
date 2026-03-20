@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { PANEL_COLORS } from '../tokens'
 
 interface CanvasContextMenuProps {
   x: number
@@ -8,6 +9,7 @@ interface CanvasContextMenuProps {
   cardId?: string
   onNewTerminal: () => void
   onCloseTerminal?: (id: string) => void
+  onChangeColor?: (id: string, color: string) => void
   onDismiss: () => void
 }
 
@@ -18,6 +20,7 @@ export function CanvasContextMenu({
   cardId,
   onNewTerminal,
   onCloseTerminal,
+  onChangeColor,
   onDismiss
 }: CanvasContextMenuProps): React.JSX.Element {
   const menuRef = useRef<HTMLDivElement>(null)
@@ -63,16 +66,46 @@ export function CanvasContextMenu({
         </button>
       )}
       {type === 'card' && cardId && (
-        <button
-          className="canvas-context-menu-item canvas-context-menu-item--danger"
-          role="menuitem"
-          onClick={() => {
-            onCloseTerminal?.(cardId)
-            onDismiss()
-          }}
-        >
-          Close terminal
-        </button>
+        <>
+          <button
+            className="canvas-context-menu-item"
+            role="menuitem"
+            onClick={() => {
+              document.dispatchEvent(
+                new CustomEvent('panel:rename', { detail: { id: cardId } })
+              )
+              onDismiss()
+            }}
+          >
+            Rename
+          </button>
+          <div className="canvas-context-menu-divider" />
+          <div className="canvas-context-menu-colors">
+            {PANEL_COLORS.map((hex) => (
+              <button
+                key={hex}
+                className="color-context-option"
+                style={{ background: hex }}
+                onClick={() => {
+                  onChangeColor?.(cardId, hex)
+                  onDismiss()
+                }}
+                aria-label={`Set color to ${hex}`}
+              />
+            ))}
+          </div>
+          <div className="canvas-context-menu-divider" />
+          <button
+            className="canvas-context-menu-item canvas-context-menu-item--danger"
+            role="menuitem"
+            onClick={() => {
+              onCloseTerminal?.(cardId)
+              onDismiss()
+            }}
+          >
+            Close terminal
+          </button>
+        </>
       )}
     </div>,
     document.body

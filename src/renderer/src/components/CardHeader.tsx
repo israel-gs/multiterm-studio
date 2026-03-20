@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { usePanelStore } from '../store/panelStore'
-import { PANEL_COLORS, colors } from '../tokens'
+import { colors } from '../tokens'
 
 interface Props {
   sessionId: string
@@ -26,118 +26,69 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
       attention: false
     }
   const setTitle = usePanelStore((s) => s.setTitle)
-  const setColor = usePanelStore((s) => s.setColor)
 
   const [editing, setEditing] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 })
-  const menuRef = useRef<HTMLDivElement>(null)
 
   const fgColor = isLightColor(panel.color) ? '#000000' : '#ffffff'
 
-  // Close menu on outside click or Escape; auto-focus first option
+  // Listen for rename request from context menu
   useEffect(() => {
-    if (!menuOpen) return
-    const first = menuRef.current?.querySelector<HTMLElement>('button')
-    first?.focus()
-    const handleClick = (e: MouseEvent): void => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
+    function onRename(e: Event): void {
+      if ((e as CustomEvent).detail?.id === sessionId) setEditing(true)
     }
-    const handleKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [menuOpen])
-
-  const handleContextMenu = (e: React.MouseEvent): void => {
-    e.preventDefault()
-    setMenuPos({ x: e.clientX, y: e.clientY })
-    setMenuOpen(true)
-  }
+    document.addEventListener('panel:rename', onRename)
+    return () => document.removeEventListener('panel:rename', onRename)
+  }, [sessionId])
 
   return (
-    <>
-      <div
-        className="panel-header"
-        style={{ background: panel.color }}
-        onContextMenu={handleContextMenu}
-      >
-        {/* Attention badge */}
-        {panel.attention && (
-          <span className="attention-badge-inline" role="status" aria-label="Attention needed" />
-        )}
-
-        {/* Title or input */}
-        {editing ? (
-          <input
-            className="panel-header-input"
-            style={{ color: fgColor, borderBottomColor: fgColor }}
-            autoFocus
-            aria-label="Panel title"
-            defaultValue={panel.title}
-            onBlur={(e) => {
-              setTitle(sessionId, e.target.value)
-              setEditing(false)
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.currentTarget.blur()
-              }
-            }}
-          />
-        ) : (
-          <span
-            className="panel-header-title"
-            style={{ color: fgColor }}
-            title="Double-click to rename"
-            onDoubleClick={() => setEditing(true)}
-          >
-            {panel.title}
-          </span>
-        )}
-
-        {/* Close button */}
-        <button
-          className="panel-header-btn"
-          style={{ color: fgColor }}
-          title="Close panel"
-          onClick={onClose}
-          aria-label="Close panel"
-        >
-          ×
-        </button>
-      </div>
-
-      {/* Color context menu */}
-      {menuOpen && (
-        <div
-          ref={menuRef}
-          className="color-context-menu"
-          role="menu"
-          aria-label="Panel colors"
-          style={{ left: menuPos.x, top: menuPos.y }}
-        >
-          {PANEL_COLORS.map((hex) => (
-            <button
-              key={hex}
-              className="color-context-option"
-              style={{ background: hex }}
-              onClick={() => {
-                setColor(sessionId, hex)
-                setMenuOpen(false)
-              }}
-              aria-label={`Set color to ${hex}`}
-            />
-          ))}
-        </div>
+    <div
+      className="panel-header"
+      style={{ background: panel.color }}
+    >
+      {/* Attention badge */}
+      {panel.attention && (
+        <span className="attention-badge-inline" role="status" aria-label="Attention needed" />
       )}
-    </>
+
+      {/* Title or input */}
+      {editing ? (
+        <input
+          className="panel-header-input"
+          style={{ color: fgColor, borderBottomColor: fgColor }}
+          autoFocus
+          aria-label="Panel title"
+          defaultValue={panel.title}
+          onBlur={(e) => {
+            setTitle(sessionId, e.target.value)
+            setEditing(false)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.currentTarget.blur()
+            }
+          }}
+        />
+      ) : (
+        <span
+          className="panel-header-title"
+          style={{ color: fgColor }}
+          title="Double-click to rename"
+          onDoubleClick={() => setEditing(true)}
+        >
+          {panel.title}
+        </span>
+      )}
+
+      {/* Close button */}
+      <button
+        className="panel-header-btn"
+        style={{ color: fgColor }}
+        title="Close panel"
+        onClick={onClose}
+        aria-label="Close panel"
+      >
+        ×
+      </button>
+    </div>
   )
 }

@@ -103,22 +103,22 @@ describe('CardHeader', () => {
     expect(header.style.background).toBe('rgb(244, 71, 71)')
   })
 
-  it('right-click opens color context menu, clicking option changes color', () => {
+  it('panel:rename custom event enters edit mode', () => {
     render(<CardHeader sessionId={TEST_SESSION_ID} onClose={mockOnClose} />)
 
-    const header = document.querySelector('.panel-header') as HTMLElement
+    // Should not be in edit mode initially
+    expect(screen.queryByRole('textbox')).toBeNull()
+
+    // Dispatch the custom event that CanvasContextMenu fires
     act(() => {
-      fireEvent.contextMenu(header)
+      document.dispatchEvent(
+        new CustomEvent('panel:rename', { detail: { id: TEST_SESSION_ID } })
+      )
     })
 
-    // Context menu should appear with color options
-    const greenOption = screen.getByLabelText('Set color to #6a9955')
-    act(() => {
-      fireEvent.click(greenOption)
-    })
-
-    const stored = usePanelStore.getState().panels[TEST_SESSION_ID]
-    expect(stored.color).toBe('#6a9955')
+    // Should now be in edit mode
+    const input = screen.queryByRole('textbox')
+    expect(input).toBeTruthy()
   })
 
   it('renders attention-badge-inline when panel.attention is true', () => {

@@ -1100,6 +1100,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
             handleAddPanel()
           }}
           onCloseTerminal={handleClosePanel}
+          onChangeColor={(id, color) => usePanelStore.getState().setColor(id, color)}
           onDismiss={() => setContextMenu(null)}
         />
       )}
