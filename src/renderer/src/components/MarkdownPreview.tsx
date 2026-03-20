@@ -51,35 +51,51 @@ function MermaidBlock({ chart }: { chart: string }): React.JSX.Element {
 
 interface MarkdownPreviewProps {
   content: string
+  basePath: string
 }
 
-const components: Components = {
-  code({ className, children, ...props }) {
-    const match = /language-(\w+)/.exec(className || '')
-    const lang = match?.[1]
+function resolveUrl(src: string | undefined, basePath: string): string | undefined {
+  if (!src) return src
+  // Already absolute URL (http, https, data, file)
+  if (/^(https?:|data:|file:|blob:)/.test(src)) return src
+  // Absolute filesystem path
+  if (src.startsWith('/')) return `file://${src}`
+  // Relative path — resolve against basePath
+  return `file://${basePath}/${src}`
+}
 
-    if (lang === 'mermaid') {
-      return <MermaidBlock chart={String(children).replace(/\n$/, '')} />
+function buildComponents(basePath: string): Components {
+  return {
+    code({ className, children, ...props }) {
+      const match = /language-(\w+)/.exec(className || '')
+      const lang = match?.[1]
+
+      if (lang === 'mermaid') {
+        return <MermaidBlock chart={String(children).replace(/\n$/, '')} />
+      }
+
+      if (!className) {
+        return <code className="md-preview-inline-code" {...props}>{children}</code>
+      }
+
+      return (
+        <code className={`md-preview-code-block ${className ?? ''}`} {...props}>
+          {children}
+        </code>
+      )
+    },
+    pre({ children }) {
+      return <pre className="md-preview-pre">{children}</pre>
+    },
+    img({ src, alt, ...props }) {
+      return <img src={resolveUrl(src, basePath)} alt={alt} {...props} />
     }
-
-    // Inline code
-    if (!className) {
-      return <code className="md-preview-inline-code" {...props}>{children}</code>
-    }
-
-    // Block code
-    return (
-      <code className={`md-preview-code-block ${className ?? ''}`} {...props}>
-        {children}
-      </code>
-    )
-  },
-  pre({ children }) {
-    return <pre className="md-preview-pre">{children}</pre>
   }
 }
 
-export function MarkdownPreview({ content }: MarkdownPreviewProps): React.JSX.Element {
+export function MarkdownPreview({ content, basePath }: MarkdownPreviewProps): React.JSX.Element {
+  const components = buildComponents(basePath)
+
   return (
     <div className="md-preview">
       <div className="md-preview-content">

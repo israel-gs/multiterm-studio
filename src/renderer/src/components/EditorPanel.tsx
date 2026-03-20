@@ -179,7 +179,7 @@ export function EditorPanel({ sessionId, filePath }: EditorPanelProps): React.JS
       />
       {/* Markdown preview overlay */}
       {isMarkdown && previewMode && (
-        <MarkdownPreview content={previewContent} />
+        <MarkdownPreview content={previewContent} basePath={filePath.substring(0, filePath.lastIndexOf('/'))} />
       )}
     </div>
   )
