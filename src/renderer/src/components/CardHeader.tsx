@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { usePanelStore } from '../store/panelStore'
-
-const PRESET_COLORS = ['#569cd6', '#6a9955', '#f44747', '#d7ba7d', '#c678dd', '#4ec9b0']
+import { PANEL_COLORS, colors } from '../tokens'
 
 interface Props {
   sessionId: string
@@ -23,7 +22,7 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
   const panel =
     usePanelStore((s) => s.panels[sessionId]) ?? {
       title: 'Terminal',
-      color: '#569cd6',
+      color: colors.blue,
       attention: false
     }
   const setTitle = usePanelStore((s) => s.setTitle)
@@ -36,16 +35,25 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
 
   const fgColor = isLightColor(panel.color) ? '#000000' : '#ffffff'
 
-  // Close menu on outside click
+  // Close menu on outside click or Escape; auto-focus first option
   useEffect(() => {
     if (!menuOpen) return
+    const first = menuRef.current?.querySelector<HTMLElement>('button')
+    first?.focus()
     const handleClick = (e: MouseEvent): void => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false)
       }
     }
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
   }, [menuOpen])
 
   const handleContextMenu = (e: React.MouseEvent): void => {
@@ -63,7 +71,7 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
       >
         {/* Attention badge */}
         {panel.attention && (
-          <span className="attention-badge-inline" aria-label="Attention needed" />
+          <span className="attention-badge-inline" role="status" aria-label="Attention needed" />
         )}
 
         {/* Title or input */}
@@ -72,6 +80,7 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
             className="panel-header-input"
             style={{ color: fgColor, borderBottomColor: fgColor }}
             autoFocus
+            aria-label="Panel title"
             defaultValue={panel.title}
             onBlur={(e) => {
               setTitle(sessionId, e.target.value)
@@ -87,6 +96,7 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
           <span
             className="panel-header-title"
             style={{ color: fgColor }}
+            title="Double-click to rename"
             onDoubleClick={() => setEditing(true)}
           >
             {panel.title}
@@ -110,9 +120,11 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
         <div
           ref={menuRef}
           className="color-context-menu"
+          role="menu"
+          aria-label="Panel colors"
           style={{ left: menuPos.x, top: menuPos.y }}
         >
-          {PRESET_COLORS.map((hex) => (
+          {PANEL_COLORS.map((hex) => (
             <button
               key={hex}
               className="color-context-option"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import React from 'react'
 import { TerminalCanvas } from './components/TerminalCanvas'
 import type { SavedLayoutShape } from './components/TerminalCanvas'
@@ -16,6 +16,12 @@ function App(): React.JSX.Element {
   const [savedLayout, setSavedLayout] = useState<SavedLayoutShape | null>(null)
   // layoutLoaded: true once we've attempted a load (prevents flash of default panel before restore)
   const [layoutLoaded, setLayoutLoaded] = useState(false)
+
+  // Sidebar resize/collapse state
+  const [sidebarWidth, setSidebarWidth] = useState(300)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const prevWidthRef = useRef(300)
+  const toggleSidebarRef = useRef(() => {})
 
   // Trigger native folder picker on first launch when no folder is set
   useEffect(() => {
@@ -43,6 +49,72 @@ function App(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Sync sidebar width to CSS custom property (drives .enhanced-sidebar width)
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      '--sidebar-width',
+      `${sidebarCollapsed ? 0 : sidebarWidth}px`
+    )
+  }, [sidebarWidth, sidebarCollapsed])
+
+  // Toggle sidebar collapse
+  function toggleSidebar(): void {
+    if (sidebarCollapsed) {
+      setSidebarCollapsed(false)
+      setSidebarWidth(prevWidthRef.current)
+    } else {
+      prevWidthRef.current = sidebarWidth
+      setSidebarCollapsed(true)
+    }
+  }
+  toggleSidebarRef.current = toggleSidebar
+
+  // Cmd/Ctrl+B to toggle sidebar
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent): void {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+        if (!(e.target as HTMLElement).closest('.floating-card')) {
+          e.preventDefault()
+          toggleSidebarRef.current()
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Sidebar drag-to-resize
+  function handleSidebarResizeStart(e: React.MouseEvent): void {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = sidebarCollapsed ? 0 : sidebarWidth
+
+    document.body.classList.add('sidebar-resizing')
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    function onMove(ev: MouseEvent): void {
+      const w = Math.max(160, Math.min(600, startW + ev.clientX - startX))
+      document.documentElement.style.setProperty('--sidebar-width', `${w}px`)
+    }
+
+    function onUp(ev: MouseEvent): void {
+      document.body.classList.remove('sidebar-resizing')
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+
+      const finalW = Math.max(160, Math.min(600, startW + ev.clientX - startX))
+      setSidebarWidth(finalW)
+      if (sidebarCollapsed) setSidebarCollapsed(false)
+    }
+
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
   async function handlePickFolder(): Promise<void> {
     const selected = await window.electronAPI.folderOpen()
     if (selected) {
@@ -67,7 +139,7 @@ function App(): React.JSX.Element {
           gap: 12
         }}
       >
-        <div style={{ color: 'var(--fg-secondary)', fontSize: 14 }}>
+        <div style={{ color: 'var(--fg-secondary)', fontSize: 'var(--text-lg)' }}>
           No folder selected
         </div>
         <button
@@ -79,7 +151,7 @@ function App(): React.JSX.Element {
             border: '1px solid var(--fg-secondary)',
             borderRadius: '4px',
             cursor: 'pointer',
-            fontSize: '14px'
+            fontSize: 'var(--text-lg)'
           }}
         >
           Pick a folder
@@ -88,7 +160,7 @@ function App(): React.JSX.Element {
     )
   }
 
-  // Only render TerminalGrid once we've attempted to load the saved layout
+  // Only render TerminalCanvas once we've attempted to load the saved layout
   // to prevent a flash of a default single panel before restoration
   if (!layoutLoaded) {
     return (
@@ -112,9 +184,17 @@ function App(): React.JSX.Element {
       }}
     >
       <EnhancedSidebar folderPath={folderPath} />
-      <div style={{ flex: 1, minWidth: 0, height: '100vh' }}>
+      <div
+        className="sidebar-resize-handle"
+        onMouseDown={handleSidebarResizeStart}
+        onDoubleClick={toggleSidebar}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
+      />
+      <main style={{ flex: 1, minWidth: 0, height: '100vh' }}>
         <TerminalCanvas savedLayout={savedLayout} />
-      </div>
+      </main>
     </div>
   )
 }

@@ -28,8 +28,8 @@ function FolderIcon({ open }: { open: boolean }): React.JSX.Element {
   if (open) {
     return (
       <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <path d="M1.5 4C1.5 3.17 2.17 2.5 3 2.5h3.17l1.5 1.5H13c.83 0 1.5.67 1.5 1.5v1H3.5L1.5 12V4z" fill="#e8a87c" />
-        <path d="M2.5 6.5h12l-2 7h-10l2-7z" fill="#dcb67a" fillOpacity="0.7" />
+        <path d="M1.5 4C1.5 3.17 2.17 2.5 3 2.5h3.17l1.5 1.5H13c.83 0 1.5.67 1.5 1.5v1H3.5L1.5 12V4z" fill="var(--color-folder)" />
+        <path d="M2.5 6.5h12l-2 7h-10l2-7z" fill="var(--color-folder-open)" fillOpacity="0.7" />
       </svg>
     )
   }
@@ -37,7 +37,7 @@ function FolderIcon({ open }: { open: boolean }): React.JSX.Element {
     <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
       <path
         d="M1.5 4C1.5 3.17 2.17 2.5 3 2.5h3.17l1.5 1.5H13c.83 0 1.5.67 1.5 1.5v7c0 .83-.67 1.5-1.5 1.5H3c-.83 0-1.5-.67-1.5-1.5V4z"
-        fill="#e8a87c"
+        fill="var(--color-folder)"
       />
     </svg>
   )
@@ -50,8 +50,8 @@ function getFileIcon(name: string): React.JSX.Element {
   if (['ts', 'tsx', 'js', 'jsx', 'py', 'rb', 'go', 'rs', 'c', 'cpp', 'h', 'java', 'swift', 'kt'].includes(ext)) {
     return (
       <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="#569cd6" strokeWidth="1.2" fill="none" />
-        <path d="M5.5 6.5L4 8l1.5 1.5M10.5 6.5L12 8l10.5 1.5" stroke="#569cd6" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="var(--color-blue)" strokeWidth="1.2" fill="none" />
+        <path d="M5.5 6.5L4 8l1.5 1.5M10.5 6.5L12 8l10.5 1.5" stroke="var(--color-blue)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     )
   }
@@ -60,8 +60,8 @@ function getFileIcon(name: string): React.JSX.Element {
   if (['json', 'yaml', 'yml', 'toml', 'xml', 'ini', 'env', 'conf', 'config'].includes(ext)) {
     return (
       <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="#6a9955" strokeWidth="1.2" fill="none" />
-        <path d="M5 5.5h6M5 8h4M5 10.5h5" stroke="#6a9955" strokeWidth="1" strokeLinecap="round" />
+        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="var(--color-green)" strokeWidth="1.2" fill="none" />
+        <path d="M5 5.5h6M5 8h4M5 10.5h5" stroke="var(--color-green)" strokeWidth="1" strokeLinecap="round" />
       </svg>
     )
   }
@@ -70,8 +70,8 @@ function getFileIcon(name: string): React.JSX.Element {
   if (['md', 'mdx', 'txt', 'rst', 'doc', 'docx', 'pdf'].includes(ext)) {
     return (
       <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="#d7ba7d" strokeWidth="1.2" fill="none" />
-        <path d="M5 5h6M5 7.5h6M5 10h3" stroke="#d7ba7d" strokeWidth="1" strokeLinecap="round" />
+        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="var(--color-yellow)" strokeWidth="1.2" fill="none" />
+        <path d="M5 5h6M5 7.5h6M5 10h3" stroke="var(--color-yellow)" strokeWidth="1" strokeLinecap="round" />
       </svg>
     )
   }
@@ -80,8 +80,8 @@ function getFileIcon(name: string): React.JSX.Element {
   if (['css', 'scss', 'sass', 'less', 'styl'].includes(ext)) {
     return (
       <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="#c678dd" strokeWidth="1.2" fill="none" />
-        <path d="M6 5.5c-1 0-1.5.5-1.5 1s.5 1 1.5 1 1.5.5 1.5 1-.5 1-1.5 1" stroke="#c678dd" strokeWidth="1.2" strokeLinecap="round" />
+        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="var(--color-purple)" strokeWidth="1.2" fill="none" />
+        <path d="M6 5.5c-1 0-1.5.5-1.5 1s.5 1 1.5 1 1.5.5 1.5 1-.5 1-1.5 1" stroke="var(--color-purple)" strokeWidth="1.2" strokeLinecap="round" />
       </svg>
     )
   }
@@ -90,9 +90,9 @@ function getFileIcon(name: string): React.JSX.Element {
   if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp'].includes(ext)) {
     return (
       <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="#4ec9b0" strokeWidth="1.2" fill="none" />
-        <circle cx="6" cy="5.5" r="1.5" stroke="#4ec9b0" strokeWidth="1" fill="none" />
-        <path d="M3 11l3-3 2 2 2-2 3 3" stroke="#4ec9b0" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="var(--color-cyan)" strokeWidth="1.2" fill="none" />
+        <circle cx="6" cy="5.5" r="1.5" stroke="var(--color-cyan)" strokeWidth="1" fill="none" />
+        <path d="M3 11l3-3 2 2 2-2 3 3" stroke="var(--color-cyan)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     )
   }
@@ -196,7 +196,16 @@ const FileTreeNode = React.memo(function FileTreeNode({
   return (
     <div>
       <div
+        role="treeitem"
+        tabIndex={0}
+        aria-expanded={isDir ? expanded : undefined}
         onClick={() => void handleToggle()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            void handleToggle()
+          }
+        }}
         className={`file-tree-node${isHidden ? ' file-tree-node--hidden' : ''}`}
         style={{ paddingLeft: depth * 12 + 4 }}
       >
@@ -229,7 +238,7 @@ const FileTreeNode = React.memo(function FileTreeNode({
         )}
       </div>
       {expanded && displayChildren !== null && (
-        <div>
+        <div role="group">
           {displayChildren.map((child) => (
             <FileTreeNode
               key={`${path}/${child.name}`}
@@ -277,7 +286,7 @@ export function FileTree({
   }, [entries, searchQuery, sortOrder])
 
   return (
-    <div style={{ padding: '4px 0' }}>
+    <div role="tree" aria-label="File tree" style={{ padding: '4px 0' }}>
       {displayEntries === null ? (
         <div className="file-tree-status">
           <SpinnerIcon />

@@ -23,38 +23,56 @@ export function CanvasContextMenu({
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    // Auto-focus first menu item on open
+    const first = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')
+    first?.focus()
+
     const handleClick = (e: MouseEvent): void => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onDismiss()
       }
     }
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onDismiss()
+    }
     document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
   }, [onDismiss])
 
   return createPortal(
-    <div ref={menuRef} className="canvas-context-menu" style={{ left: x, top: y }}>
+    <div
+      ref={menuRef}
+      className="canvas-context-menu"
+      role="menu"
+      style={{ left: x, top: y }}
+    >
       {type === 'canvas' && (
-        <div
+        <button
           className="canvas-context-menu-item"
+          role="menuitem"
           onClick={() => {
             onNewTerminal()
             onDismiss()
           }}
         >
           New terminal
-        </div>
+        </button>
       )}
       {type === 'card' && cardId && (
-        <div
+        <button
           className="canvas-context-menu-item canvas-context-menu-item--danger"
+          role="menuitem"
           onClick={() => {
             onCloseTerminal?.(cardId)
             onDismiss()
           }}
         >
           Close terminal
-        </div>
+        </button>
       )}
     </div>,
     document.body

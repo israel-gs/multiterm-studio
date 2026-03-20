@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
+import { colors, fonts } from '../tokens'
 
 interface Props {
   sessionId: string
@@ -10,25 +11,25 @@ interface Props {
 }
 
 const darkTheme = {
-  background: '#1c1c1c',
-  foreground: '#d4d4d4',
-  cursor: '#d4d4d4',
-  selectionBackground: '#264f78',
+  background: colors.bgCard,
+  foreground: colors.fgPrimary,
+  cursor: colors.fgPrimary,
+  selectionBackground: colors.selection,
   black: '#1a1a1a',
-  red: '#f44747',
-  green: '#6a9955',
-  yellow: '#d7ba7d',
-  blue: '#569cd6',
-  magenta: '#c678dd',
-  cyan: '#4ec9b0',
-  white: '#d4d4d4',
-  brightBlack: '#808080',
-  brightRed: '#f44747',
-  brightGreen: '#6a9955',
-  brightYellow: '#d7ba7d',
-  brightBlue: '#569cd6',
-  brightMagenta: '#c678dd',
-  brightCyan: '#4ec9b0',
+  red: colors.red,
+  green: colors.green,
+  yellow: colors.yellow,
+  blue: colors.blue,
+  magenta: colors.purple,
+  cyan: colors.cyan,
+  white: colors.fgPrimary,
+  brightBlack: colors.fgSecondary,
+  brightRed: colors.red,
+  brightGreen: colors.green,
+  brightYellow: colors.yellow,
+  brightBlue: colors.blue,
+  brightMagenta: colors.purple,
+  brightCyan: colors.cyan,
   brightWhite: '#ffffff'
 }
 
@@ -41,7 +42,7 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
     const term = new Terminal({
       scrollback: 10000,
       fontSize: 14,
-      fontFamily: '"JetBrains Mono", "Fira Code", Menlo, monospace',
+      fontFamily: fonts.mono,
       theme: darkTheme,
       cursorBlink: true,
       cursorStyle: 'block',
@@ -84,7 +85,7 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
       unsubscribe()
       observer.disconnect()
       // NOTE: ptyKill is intentionally NOT called here.
-      // PTY lifecycle is managed by TerminalGrid's handleClosePanel
+      // PTY lifecycle is managed by TerminalCanvas's handleClosePanel
       // to avoid double-kill when a panel is closed.
       term.dispose()
     }
