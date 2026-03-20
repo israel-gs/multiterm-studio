@@ -156,6 +156,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   const tileLayerRef = useRef<HTMLDivElement>(null)
   const edgeIndicatorsRef = useRef<HTMLDivElement>(null)
   const zoomIndicatorRef = useRef<HTMLDivElement>(null)
+  const minimapCanvasRef = useRef<HTMLCanvasElement>(null)
+  const minimapTransformRef = useRef<{
+    minX: number; minY: number; mScale: number; offsetX: number; offsetY: number
+  } | null>(null)
 
   // Edge dot tracking (component-level so handleClosePanel can clean up)
   const edgeDotMapRef = useRef(new Map<string, HTMLDivElement>())
@@ -353,12 +357,167 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       }
     }
 
-    // --- Core update: tile-layer transform + grid + edge indicators ---
+    // --- Minimap ---
+    const minimapCanvas = minimapCanvasRef.current
+    const MM_W = 160
+    const MM_H = 100
+
+    function drawMinimap(): void {
+      if (!minimapCanvas) return
+      const ids = panelIdsRef.current
+      const pos = positionsRef.current
+
+      if (ids.length === 0) {
+        minimapCanvas.style.opacity = '0'
+        return
+      }
+      minimapCanvas.style.opacity = '1'
+
+      const dpr = window.devicePixelRatio || 1
+      minimapCanvas.width = MM_W * dpr
+      minimapCanvas.height = MM_H * dpr
+      minimapCanvas.style.width = `${MM_W}px`
+      minimapCanvas.style.height = `${MM_H}px`
+
+      const mctx = minimapCanvas.getContext('2d')!
+      mctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
+      const scale = scaleRef.current
+      const panX = canvasXRef.current
+      const panY = canvasYRef.current
+      const vpW = viewport.clientWidth
+      const vpH = viewport.clientHeight
+
+      // Viewport rect in world coords
+      const vpWX = -panX / scale
+      const vpWY = -panY / scale
+      const vpWW = vpW / scale
+      const vpWH = vpH / scale
+
+      // Compute world bounds (all cards + viewport)
+      let minX = vpWX, minY = vpWY, maxX = vpWX + vpWW, maxY = vpWY + vpWH
+      for (const id of ids) {
+        const r = pos[id]
+        if (!r) continue
+        minX = Math.min(minX, r.x)
+        minY = Math.min(minY, r.y)
+        maxX = Math.max(maxX, r.x + r.w)
+        maxY = Math.max(maxY, r.y + r.h)
+      }
+
+      const pad = 80
+      minX -= pad; minY -= pad; maxX += pad; maxY += pad
+      const worldW = maxX - minX
+      const worldH = maxY - minY
+
+      const inset = 8
+      const availW = MM_W - inset * 2
+      const availH = MM_H - inset * 2
+      const mScale = Math.min(availW / worldW, availH / worldH)
+      const offsetX = inset + (availW - worldW * mScale) / 2
+      const offsetY = inset + (availH - worldH * mScale) / 2
+
+      // Store transform for click-to-pan
+      minimapTransformRef.current = { minX, minY, mScale, offsetX, offsetY }
+
+      // Background
+      mctx.clearRect(0, 0, MM_W, MM_H)
+      mctx.fillStyle = 'rgba(0, 0, 0, 0.55)'
+      mctx.beginPath()
+      mctx.roundRect(0, 0, MM_W, MM_H, 6)
+      mctx.fill()
+
+      // Border
+      mctx.strokeStyle = 'rgba(255, 255, 255, 0.06)'
+      mctx.lineWidth = 1
+      mctx.beginPath()
+      mctx.roundRect(0.5, 0.5, MM_W - 1, MM_H - 1, 6)
+      mctx.stroke()
+
+      // Draw cards
+      const panels = usePanelStore.getState().panels
+      for (const id of ids) {
+        const r = pos[id]
+        if (!r) continue
+        const cx = offsetX + (r.x - minX) * mScale
+        const cy = offsetY + (r.y - minY) * mScale
+        const cw = r.w * mScale
+        const ch = r.h * mScale
+
+        const color = panels[id]?.color ?? '#1c1c1c'
+        const isDark = color === '#1c1c1c'
+        mctx.fillStyle = isDark ? '#2a2a2a' : color
+        mctx.globalAlpha = isDark ? 0.9 : 0.7
+        mctx.fillRect(cx, cy, cw, ch)
+
+        mctx.globalAlpha = 0.15
+        mctx.strokeStyle = '#fff'
+        mctx.lineWidth = 0.5
+        mctx.strokeRect(cx, cy, cw, ch)
+      }
+
+      mctx.globalAlpha = 1
+
+      // Viewport rect
+      const vx = offsetX + (vpWX - minX) * mScale
+      const vy = offsetY + (vpWY - minY) * mScale
+      const vw = vpWW * mScale
+      const vh = vpWH * mScale
+
+      mctx.fillStyle = 'rgba(255, 255, 255, 0.04)'
+      mctx.fillRect(vx, vy, vw, vh)
+      mctx.strokeStyle = 'rgba(255, 255, 255, 0.45)'
+      mctx.lineWidth = 1
+      mctx.strokeRect(vx, vy, vw, vh)
+    }
+
+    // --- Minimap click-to-pan ---
+    function handleMinimapMouseDown(e: MouseEvent): void {
+      if (!minimapCanvas) return
+      e.stopPropagation()
+      e.preventDefault()
+      const rect = minimapCanvas.getBoundingClientRect()
+      const t = minimapTransformRef.current
+      if (!t) return
+
+      function panToMinimap(clientX: number, clientY: number): void {
+        const mx = clientX - rect.left
+        const my = clientY - rect.top
+        const worldX = (mx - t!.offsetX) / t!.mScale + t!.minX
+        const worldY = (my - t!.offsetY) / t!.mScale + t!.minY
+        const vpW = viewport.clientWidth
+        const vpH = viewport.clientHeight
+        const scale = scaleRef.current
+        canvasXRef.current = vpW / 2 - worldX * scale
+        canvasYRef.current = vpH / 2 - worldY * scale
+        updateCanvas()
+      }
+
+      panToMinimap(e.clientX, e.clientY)
+
+      function onMove(ev: MouseEvent): void {
+        panToMinimap(ev.clientX, ev.clientY)
+      }
+      function onUp(): void {
+        document.removeEventListener('mousemove', onMove)
+        document.removeEventListener('mouseup', onUp)
+        scheduleViewportSave()
+      }
+      document.addEventListener('mousemove', onMove)
+      document.addEventListener('mouseup', onUp)
+    }
+
+    if (minimapCanvas) {
+      minimapCanvas.addEventListener('mousedown', handleMinimapMouseDown)
+    }
+
+    // --- Core update: tile-layer transform + grid + edge indicators + minimap ---
     function updateCanvas(): void {
       tileLayer.style.transform =
         `translate(${canvasXRef.current}px,${canvasYRef.current}px) scale(${scaleRef.current})`
       drawGrid()
       updateEdgeIndicators()
+      drawMinimap()
     }
 
     updateCanvasRef.current = updateCanvas
@@ -758,6 +917,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       viewport.removeEventListener('contextmenu', handleContextMenu)
       viewport.removeEventListener('auxclick', handleAuxClick)
       edgeContainer.removeEventListener('click', handleEdgeClick)
+      if (minimapCanvas) minimapCanvas.removeEventListener('mousedown', handleMinimapMouseDown)
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       ro.disconnect()
@@ -1047,6 +1207,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         </div>
         <div ref={edgeIndicatorsRef} className="terminal-canvas-edge-indicators" />
         <div ref={zoomIndicatorRef} className="terminal-canvas-zoom-indicator" />
+        <canvas ref={minimapCanvasRef} className="terminal-canvas-minimap" />
         {panelIds.length === 0 && (
           <div className="terminal-canvas-empty-overlay">
             <div className="terminal-canvas-empty">
