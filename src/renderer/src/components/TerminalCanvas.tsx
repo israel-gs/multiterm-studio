@@ -128,6 +128,7 @@ function computeInitialState(
 export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.Element {
   const addPanel = usePanelStore((s) => s.addPanel)
   const removePanel = usePanelStore((s) => s.removePanel)
+  const panels = usePanelStore((s) => s.panels)
   const folderPath = useProjectStore((s) => s.folderPath)
 
   const initialIdRef = useRef<string>(crypto.randomUUID())
@@ -1249,7 +1250,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
           {panelIds.map((id) => {
             const rect = positions[id]
             if (!rect) return null
-            const panelMeta = usePanelStore.getState().panels[id]
+            const pm = panels[id]
             return (
               <FloatingCard
                 key={id}
@@ -1258,8 +1259,8 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
                 rect={rect}
                 zoomRef={scaleRef}
                 selected={selectedIds.has(id)}
-                type={panelMeta?.type ?? 'terminal'}
-                filePath={panelMeta?.filePath}
+                type={pm?.type ?? 'terminal'}
+                filePath={pm?.filePath}
                 onSelect={handleCardSelect}
                 onMove={handleMove}
                 onResize={handleResize}

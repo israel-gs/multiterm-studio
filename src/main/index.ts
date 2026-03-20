@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerPtyHandlers } from './ptyManager'
@@ -6,6 +6,12 @@ import { registerFolderHandlers } from './folderManager'
 import { registerFileHandlers } from './fileManager'
 import { saveLayout, saveLayoutSync, loadLayout, ensureGitignore } from './layoutManager'
 import type { LayoutSnapshot } from './layoutManager'
+
+// Register custom protocol for serving local files (images in markdown preview, etc.)
+// Must be called before app.whenReady()
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'local-resource', privileges: { supportFetchAPI: true, bypassCSP: true } }
+])
 
 // Cache the most-recent save data so before-quit can do a synchronous flush
 let lastSaveData: { folderPath: string; layout: LayoutSnapshot } | null = null
@@ -72,6 +78,12 @@ app.on('before-quit', () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  // Handle local-resource:// protocol — serves local files for markdown preview images
+  protocol.handle('local-resource', (req) => {
+    const filePath = decodeURIComponent(new URL(req.url).pathname)
+    return net.fetch(`file://${filePath}`)
+  })
+
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 

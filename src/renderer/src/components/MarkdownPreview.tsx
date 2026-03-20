@@ -56,12 +56,12 @@ interface MarkdownPreviewProps {
 
 function resolveUrl(src: string | undefined, basePath: string): string | undefined {
   if (!src) return src
-  // Already absolute URL (http, https, data, file)
-  if (/^(https?:|data:|file:|blob:)/.test(src)) return src
+  // Already absolute URL — leave as-is
+  if (/^(https?:|data:|file:|blob:|local-resource:)/.test(src)) return src
   // Absolute filesystem path
-  if (src.startsWith('/')) return `file://${src}`
+  if (src.startsWith('/')) return `local-resource://${src}`
   // Relative path — resolve against basePath
-  return `file://${basePath}/${src}`
+  return `local-resource://${basePath}/${src}`
 }
 
 function buildComponents(basePath: string): Components {
