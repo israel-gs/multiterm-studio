@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 import mermaid from 'mermaid'
 import type { Components } from 'react-markdown'
 
@@ -82,7 +83,7 @@ export function MarkdownPreview({ content }: MarkdownPreviewProps): React.JSX.El
   return (
     <div className="md-preview">
       <div className="md-preview-content">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={components}>
           {content}
         </ReactMarkdown>
       </div>
