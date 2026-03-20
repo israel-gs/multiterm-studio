@@ -1,6 +1,10 @@
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import monacoEditorPlugin from 'vite-plugin-monaco-editor'
+
+const monacoPlugin = (monacoEditorPlugin as unknown as { default: typeof monacoEditorPlugin })
+  .default || monacoEditorPlugin
 
 export default defineConfig({
   main: {
@@ -23,6 +27,11 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src')
       }
     },
-    plugins: [react()]
+    plugins: [
+      react(),
+      monacoPlugin({
+        languageWorkers: ['editorWorkerService', 'typescript', 'json', 'css', 'html']
+      })
+    ]
   }
 })

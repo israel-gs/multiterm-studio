@@ -58,5 +58,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('layout:save', folderPath, layout),
 
   layoutLoad: (folderPath: string): Promise<unknown> =>
-    ipcRenderer.invoke('layout:load', folderPath)
+    ipcRenderer.invoke('layout:load', folderPath),
+
+  // File read/write — for editor tiles
+  fileRead: (filePath: string): Promise<string> =>
+    ipcRenderer.invoke('file:read', filePath),
+
+  fileWrite: (filePath: string, content: string): Promise<void> =>
+    ipcRenderer.invoke('file:write', filePath, content)
 })

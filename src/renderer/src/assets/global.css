@@ -979,6 +979,239 @@ body.sidebar-resizing .enhanced-sidebar {
   color: var(--fg-secondary);
 }
 
+/* ===== Monaco Editor ===== */
+
+.monaco-editor {
+  border-radius: 0 0 var(--card-radius) var(--card-radius);
+}
+
+/* ===== Editor State Indicators ===== */
+
+.editor-dirty-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-yellow);
+  flex-shrink: 0;
+}
+
+.editor-status-badge {
+  font-size: var(--text-2xs);
+  opacity: 0.5;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.panel-header-preview-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== Markdown Preview ===== */
+
+.md-preview {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  background: var(--bg-card);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
+}
+
+.md-preview::-webkit-scrollbar {
+  width: 6px;
+}
+
+.md-preview::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.md-preview::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 3px;
+}
+
+.md-preview-content {
+  padding: 16px 20px;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.7;
+  color: var(--fg-primary);
+}
+
+/* Headings */
+.md-preview-content h1,
+.md-preview-content h2,
+.md-preview-content h3,
+.md-preview-content h4,
+.md-preview-content h5,
+.md-preview-content h6 {
+  color: var(--fg-primary);
+  font-weight: var(--weight-semibold);
+  margin: 1.4em 0 0.6em;
+  line-height: var(--leading-tight);
+}
+
+.md-preview-content h1 { font-size: 1.5em; }
+.md-preview-content h2 { font-size: 1.25em; }
+.md-preview-content h3 { font-size: 1.1em; }
+
+.md-preview-content h1:first-child,
+.md-preview-content h2:first-child,
+.md-preview-content h3:first-child {
+  margin-top: 0;
+}
+
+.md-preview-content h2 {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Paragraphs & inline */
+.md-preview-content p {
+  margin: 0.6em 0;
+}
+
+.md-preview-content strong {
+  font-weight: var(--weight-semibold);
+  color: var(--fg-primary);
+}
+
+.md-preview-content em {
+  font-style: italic;
+}
+
+.md-preview-content a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.md-preview-content a:hover {
+  text-decoration: underline;
+}
+
+/* Lists */
+.md-preview-content ul,
+.md-preview-content ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.md-preview-content ul {
+  list-style: disc;
+}
+
+.md-preview-content ol {
+  list-style: decimal;
+}
+
+.md-preview-content li {
+  margin: 0.25em 0;
+}
+
+.md-preview-content li > input[type="checkbox"] {
+  margin-right: 6px;
+}
+
+/* Blockquote */
+.md-preview-content blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 0.8em 0;
+  padding: 4px 12px;
+  color: var(--fg-secondary);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0 4px 4px 0;
+}
+
+/* Horizontal rule */
+.md-preview-content hr {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 1.2em 0;
+}
+
+/* Images */
+.md-preview-content img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+/* Tables */
+.md-preview-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8em 0;
+  font-size: var(--text-sm);
+}
+
+.md-preview-content th,
+.md-preview-content td {
+  border: 1px solid var(--border-subtle);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.md-preview-content th {
+  background: var(--bg-header);
+  font-weight: var(--weight-semibold);
+}
+
+.md-preview-content tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Inline code */
+.md-preview-inline-code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 5px;
+  border-radius: 3px;
+  color: var(--color-cyan);
+}
+
+/* Code blocks */
+.md-preview-pre {
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 0.8em 0;
+  overflow-x: auto;
+}
+
+.md-preview-code-block {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--fg-primary);
+}
+
+/* Mermaid diagram */
+.md-preview-mermaid {
+  margin: 0.8em 0;
+  display: flex;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.md-preview-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.md-preview-mermaid-error {
+  color: var(--color-red);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
 /* ===== Focus Indicators ===== */
 
 :focus-visible {

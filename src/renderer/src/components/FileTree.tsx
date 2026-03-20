@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import React from 'react'
+import { useProjectStore } from '../store/projectStore'
 
 interface TreeEntry {
   name: string
@@ -172,9 +173,13 @@ const FileTreeNode = React.memo(function FileTreeNode({
   const [expanded, setExpanded] = useState(false)
   const [children, setChildren] = useState<TreeEntry[] | null>(null)
   const [loading, setLoading] = useState(false)
+  const openFileInEditor = useProjectStore((s) => s.openFileInEditor)
 
   const handleToggle = useCallback(async (): Promise<void> => {
-    if (!isDir) return
+    if (!isDir) {
+      openFileInEditor(path)
+      return
+    }
 
     if (!expanded && children === null) {
       setLoading(true)
@@ -184,7 +189,7 @@ const FileTreeNode = React.memo(function FileTreeNode({
     }
 
     setExpanded((prev) => !prev)
-  }, [isDir, expanded, children, path])
+  }, [isDir, expanded, children, path, openFileInEditor])
 
   const displayChildren = useMemo(() => {
     if (!children) return null

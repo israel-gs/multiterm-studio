@@ -11,7 +11,7 @@ export interface SavedLayoutShape {
   version: number
   panelIds?: string[]
   tree?: unknown
-  panels: Array<{ id: string; title: string; color: string }>
+  panels: Array<{ id: string; title: string; color: string; type?: 'terminal' | 'editor'; filePath?: string }>
   positions?: Record<string, CardRect>
   viewport?: { panX: number; panY: number; zoom: number }
 }
@@ -25,6 +25,7 @@ interface ContextMenuState {
   y: number
   type: 'canvas' | 'card'
   cardId?: string
+  cardType?: 'terminal' | 'editor'
 }
 
 const DEFAULT_W = 480
@@ -76,7 +77,9 @@ function buildLayoutSnapshot(
     .map((id) => ({
       id,
       title: allPanels[id].title,
-      color: allPanels[id].color
+      color: allPanels[id].color,
+      type: allPanels[id].type,
+      filePath: allPanels[id].filePath
     }))
   return { version: 3, panelIds, panels, positions: normalizeZIndices(positions), viewport }
 }
@@ -805,7 +808,8 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       e.preventDefault()
       const card = (e.target as HTMLElement).closest('[data-card-id]') as HTMLElement | null
       if (card && card.dataset.cardId) {
-        setContextMenu({ x: e.clientX, y: e.clientY, type: 'card', cardId: card.dataset.cardId })
+        const pm = usePanelStore.getState().panels[card.dataset.cardId]
+        setContextMenu({ x: e.clientX, y: e.clientY, type: 'card', cardId: card.dataset.cardId, cardType: pm?.type ?? 'terminal' })
       } else {
         setContextMenu({ x: e.clientX, y: e.clientY, type: 'canvas' })
       }
@@ -943,7 +947,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   useEffect(() => {
     if (savedLayout != null && savedLayout.panels.length > 0) {
       for (const p of savedLayout.panels) {
-        addPanel(p.id, p.title, p.color)
+        addPanel(p.id, p.title, p.color, p.type ?? 'terminal', p.filePath)
       }
     } else {
       addPanel(initialIdRef.current)
@@ -971,6 +975,63 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
           }
           return
         }
+      }
+    })
+    return unsubscribe
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // --- Open file in editor tile ---
+  function handleOpenFile(filePath: string): void {
+    // Check if file is already open -> bring to front
+    const allPanels = usePanelStore.getState().panels
+    for (const id of panelIdsRef.current) {
+      const pm = allPanels[id]
+      if (pm && pm.type === 'editor' && pm.filePath === filePath) {
+        handleBringToFront(id)
+        return
+      }
+    }
+
+    // Create new editor panel
+    const newId = crypto.randomUUID()
+    const fileName = filePath.split('/').pop() ?? 'Untitled'
+    addPanel(newId, fileName, undefined, 'editor', filePath)
+
+    // Position at viewport center
+    const viewport = viewportRef.current
+    const scale = scaleRef.current
+    let x = 40
+    let y = 40
+    if (viewport) {
+      const vw = viewport.clientWidth
+      const vh = viewport.clientHeight
+      x = snapToGrid((vw / 2 - canvasXRef.current) / scale - DEFAULT_W / 2)
+      y = snapToGrid((vh / 2 - canvasYRef.current) / scale - DEFAULT_H / 2)
+    }
+
+    const newZ = ++topZRef.current
+    const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
+
+    setPanelIds((prev) => {
+      const next = [...prev, newId]
+      panelIdsRef.current = next
+      return next
+    })
+    setPositions((prev) => {
+      const next = { ...prev, [newId]: newRect }
+      positionsRef.current = next
+      triggerSave([...panelIdsRef.current], next)
+      return next
+    })
+  }
+
+  // Subscribe to pendingFileOpen from projectStore
+  useEffect(() => {
+    const unsubscribe = useProjectStore.subscribe((state, prev) => {
+      if (state.pendingFileOpen && state.pendingFileOpen !== prev.pendingFileOpen) {
+        handleOpenFile(state.pendingFileOpen)
+        useProjectStore.getState().clearPendingFileOpen()
       }
     })
     return unsubscribe
@@ -1099,7 +1160,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   }
 
   function handleClosePanel(id: string): void {
-    window.electronAPI.ptyKill(id)
+    const panelMeta = usePanelStore.getState().panels[id]
+    if (!panelMeta || panelMeta.type !== 'editor') {
+      window.electronAPI.ptyKill(id)
+    }
     removePanel(id)
 
     // Clean up edge dot
@@ -1185,6 +1249,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
           {panelIds.map((id) => {
             const rect = positions[id]
             if (!rect) return null
+            const panelMeta = usePanelStore.getState().panels[id]
             return (
               <FloatingCard
                 key={id}
@@ -1193,6 +1258,8 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
                 rect={rect}
                 zoomRef={scaleRef}
                 selected={selectedIds.has(id)}
+                type={panelMeta?.type ?? 'terminal'}
+                filePath={panelMeta?.filePath}
                 onSelect={handleCardSelect}
                 onMove={handleMove}
                 onResize={handleResize}
@@ -1235,6 +1302,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
           y={contextMenu.y}
           type={contextMenu.type}
           cardId={contextMenu.cardId}
+          cardType={contextMenu.cardType}
           onNewTerminal={() => {
             clearSelection()
             handleAddPanel()

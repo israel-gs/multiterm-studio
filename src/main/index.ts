@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerPtyHandlers } from './ptyManager'
 import { registerFolderHandlers } from './folderManager'
+import { registerFileHandlers } from './fileManager'
 import { saveLayout, saveLayoutSync, loadLayout, ensureGitignore } from './layoutManager'
 import type { LayoutSnapshot } from './layoutManager'
 
@@ -37,6 +38,8 @@ function createWindow(): void {
   registerPtyHandlers(win)
   // Register folder IPC handlers for project context panel (Phase 03)
   registerFolderHandlers(win)
+  // Register file read/write IPC handlers for editor tiles
+  registerFileHandlers(win)
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.

@@ -13,5 +13,7 @@ interface Window {
     onPanelFocus: (callback: (id: string) => void) => () => void
     layoutSave: (folderPath: string, layout: unknown) => Promise<void>
     layoutLoad: (folderPath: string) => Promise<unknown>
+    fileRead: (filePath: string) => Promise<string>
+    fileWrite: (filePath: string, content: string) => Promise<void>
   }
 }

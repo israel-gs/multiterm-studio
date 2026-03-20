@@ -6,6 +6,8 @@ export interface PanelEntry {
   id: string
   title: string
   color: string
+  type?: 'terminal' | 'editor'
+  filePath?: string
 }
 
 export interface CardRect {

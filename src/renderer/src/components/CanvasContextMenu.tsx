@@ -6,6 +6,7 @@ interface CanvasContextMenuProps {
   y: number
   type: 'canvas' | 'card'
   cardId?: string
+  cardType?: 'terminal' | 'editor'
   onNewTerminal: () => void
   onRenameTerminal?: (id: string) => void
   onChangeColor?: (id: string) => void
@@ -18,6 +19,7 @@ export function CanvasContextMenu({
   y,
   type,
   cardId,
+  cardType,
   onNewTerminal,
   onRenameTerminal,
   onChangeColor,
@@ -96,7 +98,7 @@ export function CanvasContextMenu({
               onDismiss()
             }}
           >
-            Close terminal
+            {cardType === 'editor' ? 'Close editor' : 'Close terminal'}
           </button>
         </>
       )}
