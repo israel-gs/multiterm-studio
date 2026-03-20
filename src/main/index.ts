@@ -11,6 +11,9 @@ import type { LayoutSnapshot } from './layoutManager'
 import { startRpcServer } from './rpcServer'
 import { injectHooks, removeHooks } from './hookInjector'
 
+// Set app name early — used by macOS menu bar
+app.setName('Multiterm Studio')
+
 // Register custom protocol for serving local files (images in markdown preview, etc.)
 // Must be called before app.whenReady()
 protocol.registerSchemesAsPrivileged([
@@ -28,6 +31,8 @@ function createWindow(): void {
     backgroundColor: '#1a1a1a',
     show: false,
     autoHideMenuBar: true,
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 12, y: 12 },
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -110,8 +115,7 @@ app.whenReady().then(() => {
     return net.fetch(`file://${filePath}`)
   })
 
-  // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.multiterm.studio')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.

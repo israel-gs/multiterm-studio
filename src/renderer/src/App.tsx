@@ -160,10 +160,23 @@ function App(): React.JSX.Element {
 
   if (folderPath === null) {
     return (
-      <WelcomeScreen
-        onSelectProject={(path) => void openProject(path)}
-        onPickFolder={() => void handlePickFolder()}
-      />
+      <>
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 38,
+            WebkitAppRegion: 'drag',
+            zIndex: 9999
+          } as React.CSSProperties}
+        />
+        <WelcomeScreen
+          onSelectProject={(path) => void openProject(path)}
+          onPickFolder={() => void handlePickFolder()}
+        />
+      </>
     )
   }
 
@@ -176,6 +189,19 @@ function App(): React.JSX.Element {
         background: 'var(--bg-canvas)'
       }}
     >
+      {/* Window drag region — allows moving the window with hiddenInset titlebar */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 38,
+          WebkitAppRegion: 'drag',
+          zIndex: 9999,
+          pointerEvents: 'auto'
+        } as React.CSSProperties}
+      />
       {!sidebarCollapsed && (
         <>
           <EnhancedSidebar

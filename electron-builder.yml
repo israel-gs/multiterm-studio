@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: multiterm-studio-temp3
+appId: com.multiterm.studio
+productName: Multiterm Studio
 directories:
   buildResources: build
 files:
@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: multiterm-studio-temp3
+  executableName: multiterm-studio
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

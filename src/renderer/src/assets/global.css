@@ -695,6 +695,7 @@ body.canvas-interacting .floating-card-inner {
   width: var(--sidebar-width);
   flex-shrink: 0;
   background: var(--bg-card);
+  padding-top: 38px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -764,8 +765,8 @@ body.sidebar-resizing .enhanced-sidebar {
 /* Floating toggle when sidebar is collapsed */
 main > .sidebar-toggle-btn {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 48px;
+  left: 10px;
   z-index: 1001;
   background: var(--bg-card);
   box-shadow: var(--card-shadow);
