@@ -95,5 +95,73 @@ contextBridge.exposeInMainWorld('electronAPI', {
     folderPath: string,
     branch: string
   ): Promise<{ ok: boolean; error?: string }> =>
-    ipcRenderer.invoke('git:checkout', folderPath, branch)
+    ipcRenderer.invoke('git:checkout', folderPath, branch),
+
+  // Agent spawning push channel (PreToolUse:Agent → create panel per agent)
+  onAgentSpawning: (
+    callback: (data: {
+      agentName: string
+      toolUseId: string
+      subagentsDir: string
+      cwd: string
+    }) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: { agentName: string; toolUseId: string; subagentsDir: string; cwd: string }
+    ): void => callback(data)
+    ipcRenderer.on('agent:spawning', listener)
+    return () => ipcRenderer.removeListener('agent:spawning', listener)
+  },
+
+  // Agent session push channels (SessionStart/End → session tracking)
+  onAgentSessionStarted: (
+    callback: (data: { sessionId: string; ptySessionId: string | null; cwd: string }) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: { sessionId: string; ptySessionId: string | null; cwd: string }
+    ): void => callback(data)
+    ipcRenderer.on('agent:session-started', listener)
+    return () => ipcRenderer.removeListener('agent:session-started', listener)
+  },
+
+  onAgentFileTouched: (
+    callback: (data: {
+      sessionId: string
+      ptySessionId: string | null
+      filePath: string
+      touchType: 'read' | 'write'
+    }) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: {
+        sessionId: string
+        ptySessionId: string | null
+        filePath: string
+        touchType: 'read' | 'write'
+      }
+    ): void => callback(data)
+    ipcRenderer.on('agent:file-touched', listener)
+    return () => ipcRenderer.removeListener('agent:file-touched', listener)
+  },
+
+  onAgentSessionEnded: (
+    callback: (data: { sessionId: string; ptySessionId: string | null }) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: { sessionId: string; ptySessionId: string | null }
+    ): void => callback(data)
+    ipcRenderer.on('agent:session-ended', listener)
+    return () => ipcRenderer.removeListener('agent:session-ended', listener)
+  },
+
+  // Hook injection for Claude Code integration
+  hooksInject: (folderPath: string): Promise<void> =>
+    ipcRenderer.invoke('hooks:inject', folderPath),
+
+  hooksRemove: (folderPath: string): Promise<void> =>
+    ipcRenderer.invoke('hooks:remove', folderPath)
 })

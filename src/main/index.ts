@@ -8,6 +8,8 @@ import { registerGitHandlers } from './gitManager'
 import { registerRecentProjectsHandlers } from './recentProjectsManager'
 import { saveLayout, saveLayoutSync, loadLayout, ensureGitignore } from './layoutManager'
 import type { LayoutSnapshot } from './layoutManager'
+import { startRpcServer } from './rpcServer'
+import { injectHooks, removeHooks } from './hookInjector'
 
 // Register custom protocol for serving local files (images in markdown preview, etc.)
 // Must be called before app.whenReady()
@@ -17,6 +19,7 @@ protocol.registerSchemesAsPrivileged([
 
 // Cache the most-recent save data so before-quit can do a synchronous flush
 let lastSaveData: { folderPath: string; layout: LayoutSnapshot } | null = null
+let rpcCleanup: (() => void) | null = null
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -53,6 +56,19 @@ function createWindow(): void {
   // Register recent projects IPC handlers
   registerRecentProjectsHandlers()
 
+  // Start RPC server for Claude Code hook notifications
+  startRpcServer(win).then(({ cleanup }) => {
+    rpcCleanup = cleanup
+  })
+
+  // Hooks IPC handlers
+  ipcMain.handle('hooks:inject', async (_event, folderPath: string) => {
+    await injectHooks(folderPath)
+  })
+  ipcMain.handle('hooks:remove', async (_event, folderPath: string) => {
+    await removeHooks(folderPath)
+  })
+
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -77,6 +93,10 @@ ipcMain.handle('layout:load', async (_event, folderPath: string) => {
 app.on('before-quit', () => {
   if (lastSaveData !== null) {
     saveLayoutSync(lastSaveData.folderPath, lastSaveData.layout)
+  }
+  if (rpcCleanup) {
+    rpcCleanup()
+    rpcCleanup = null
   }
 })
 

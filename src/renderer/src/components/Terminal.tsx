@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import { colors, fonts } from '../tokens'
+import { usePanelStore } from '../store/panelStore'
 
 interface Props {
   sessionId: string
@@ -62,6 +63,15 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
 
     // Create PTY session in main process
     window.electronAPI.ptyCreate(sessionId, cwd)
+
+    // Write initial command if configured (e.g. agent viewer script)
+    const meta = usePanelStore.getState().panels[sessionId]
+    if (meta?.initialCommand) {
+      const cmd = meta.initialCommand
+      setTimeout(() => {
+        window.electronAPI.ptyWrite(sessionId, cmd + '\n')
+      }, 500)
+    }
 
     // Renderer → Main: keyboard input
     term.onData((data) => {

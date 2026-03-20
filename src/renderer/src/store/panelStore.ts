@@ -9,11 +9,13 @@ export interface PanelMeta {
   filePath?: string
   dirty: boolean
   previewMode: boolean
+  initialCommand?: string
+  agentActive: boolean
 }
 
 export interface PanelStore {
   panels: Record<string, PanelMeta>
-  addPanel: (id: string, title?: string, color?: string, type?: 'terminal' | 'editor', filePath?: string) => void
+  addPanel: (id: string, title?: string, color?: string, type?: 'terminal' | 'editor', filePath?: string, initialCommand?: string) => void
   removePanel: (id: string) => void
   setTitle: (id: string, title: string) => void
   setColor: (id: string, color: string) => void
@@ -22,12 +24,13 @@ export interface PanelStore {
   setDirty: (id: string) => void
   clearDirty: (id: string) => void
   togglePreview: (id: string) => void
+  setAgentActive: (id: string, active: boolean) => void
 }
 
 export const usePanelStore = create<PanelStore>((set) => ({
   panels: {},
 
-  addPanel: (id, title, color, type, filePath) =>
+  addPanel: (id, title, color, type, filePath, initialCommand) =>
     set((s) => ({
       panels: {
         ...s.panels,
@@ -38,7 +41,9 @@ export const usePanelStore = create<PanelStore>((set) => ({
           type: type ?? 'terminal',
           filePath,
           dirty: false,
-          previewMode: false
+          previewMode: false,
+          initialCommand,
+          agentActive: false
         }
       }
     })),
@@ -88,5 +93,11 @@ export const usePanelStore = create<PanelStore>((set) => ({
     set((s) => {
       if (!s.panels[id]) return s
       return { panels: { ...s.panels, [id]: { ...s.panels[id], previewMode: !s.panels[id].previewMode } } }
+    }),
+
+  setAgentActive: (id, active) =>
+    set((s) => {
+      if (!s.panels[id]) return s
+      return { panels: { ...s.panels, [id]: { ...s.panels[id], agentActive: active } } }
     })
 }))

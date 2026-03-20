@@ -32,5 +32,29 @@ interface Window {
       folderPath: string,
       branch: string
     ) => Promise<{ ok: boolean; error?: string }>
+    onAgentSpawning: (
+      callback: (data: {
+        agentName: string
+        toolUseId: string
+        subagentsDir: string
+        cwd: string
+      }) => void
+    ) => () => void
+    onAgentSessionStarted: (
+      callback: (data: { sessionId: string; ptySessionId: string | null; cwd: string }) => void
+    ) => () => void
+    onAgentFileTouched: (
+      callback: (data: {
+        sessionId: string
+        ptySessionId: string | null
+        filePath: string
+        touchType: 'read' | 'write'
+      }) => void
+    ) => () => void
+    onAgentSessionEnded: (
+      callback: (data: { sessionId: string; ptySessionId: string | null }) => void
+    ) => () => void
+    hooksInject: (folderPath: string) => Promise<void>
+    hooksRemove: (folderPath: string) => Promise<void>
   }
 }

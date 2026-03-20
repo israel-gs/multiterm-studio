@@ -683,6 +683,11 @@ body.canvas-interacting .floating-card-inner {
   }
 }
 
+@keyframes pulse-agent {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 
 /* ===== Enhanced Sidebar ===== */
 

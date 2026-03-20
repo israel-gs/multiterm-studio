@@ -5,7 +5,9 @@ import { CanvasContextMenu } from './CanvasContextMenu'
 import { PanelModal } from './PanelModal'
 import { usePanelStore } from '../store/panelStore'
 import { useProjectStore } from '../store/projectStore'
+import type { AgentSpawnRequest } from '../store/projectStore'
 import { scheduleSave } from '../utils/layoutPersistence'
+import { colors } from '../tokens'
 
 export interface SavedLayoutShape {
   version: number
@@ -982,6 +984,52 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // --- Spawn agent terminal (viewer that tails agent transcript) ---
+  function handleSpawnAgentTerminal(req: AgentSpawnRequest): void {
+    const dedupTag = `#${req.toolUseId}`
+    const allPanels = usePanelStore.getState().panels
+    for (const id of panelIdsRef.current) {
+      if (allPanels[id]?.initialCommand?.includes(dedupTag)) return
+    }
+
+    const newId = crypto.randomUUID()
+    const title = `@${req.agentName}`
+    const viewerCmd = `node -e "` +
+      `const fs=require('fs'),path=require('path'),dir='${req.subagentsDir.replace(/'/g, "\\'")}';` +
+      `const ex=new Set();try{fs.readdirSync(dir).forEach(f=>{if(f.startsWith('agent-')&&f.endsWith('.jsonl'))ex.add(f)})}catch{}` +
+      `process.stdout.write('\\\\x1b[35m\\\\x1b[1m● @${req.agentName.replace(/'/g, "\\'")}\\\\x1b[0m — waiting...\\\\n');` +
+      `let claimed=false,pos=0;` +
+      `setInterval(()=>{if(claimed)return;try{fs.readdirSync(dir).forEach(f=>{if(!claimed&&f.startsWith('agent-')&&f.endsWith('.jsonl')&&!ex.has(f)){claimed=true;ex.add(f);` +
+      `process.stdout.write('\\\\x1b[2K\\\\x1b[1A\\\\x1b[2K\\\\x1b[35m\\\\x1b[1m● @${req.agentName.replace(/'/g, "\\'")}\\\\x1b[0m — running\\\\n\\\\n');` +
+      `const fp=path.join(dir,f);setInterval(()=>{try{const s=fs.statSync(fp).size;if(s<=pos)return;const b=Buffer.alloc(s-pos),fd=fs.openSync(fp,'r');fs.readSync(fd,b,0,b.length,pos);fs.closeSync(fd);pos=s;` +
+      `b.toString().split('\\\\n').forEach(l=>{if(!l.trim())return;try{const d=JSON.parse(l);` +
+      `if(d.type==='assistant'&&d.message&&d.message.content){d.message.content.forEach(c=>{` +
+      `if(c.type==='text')process.stdout.write(c.text+'\\\\n');` +
+      `if(c.type==='tool_use')process.stdout.write('\\\\x1b[36m  ▸ '+c.name+(c.input&&c.input.file_path?' '+c.input.file_path:c.input&&c.input.command?' $ '+c.input.command.split('\\\\n')[0]:'')+'\\\\x1b[0m\\\\n')})}` +
+      `if(d.type==='result'){process.stdout.write('\\\\n\\\\x1b[32m✓ Done\\\\x1b[0m\\\\n')}}catch{}})}catch{}},200)}})` +
+      `}catch{}},200)` +
+      `" ${dedupTag}`
+    addPanel(newId, title, colors.purple, 'terminal', undefined, viewerCmd)
+
+    // Position to the right of rightmost panel
+    let x = 40, y = 40
+    for (const id of panelIdsRef.current) {
+      const pos = positionsRef.current[id]
+      if (pos) { const r = pos.x + pos.w + 40; if (r > x) { x = r; y = pos.y } }
+    }
+    x = snapToGrid(x); y = snapToGrid(y)
+    const newZ = ++topZRef.current
+    const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
+
+    setPanelIds(prev => { const next = [...prev, newId]; panelIdsRef.current = next; return next })
+    setPositions(prev => {
+      const next = { ...prev, [newId]: newRect }
+      positionsRef.current = next
+      triggerSave([...panelIdsRef.current], next)
+      return next
+    })
+  }
+
   // --- Open file in editor tile ---
   function handleOpenFile(filePath: string): void {
     // Check if file is already open -> bring to front
@@ -1033,6 +1081,18 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       if (state.pendingFileOpen && state.pendingFileOpen !== prev.pendingFileOpen) {
         handleOpenFile(state.pendingFileOpen)
         useProjectStore.getState().clearPendingFileOpen()
+      }
+    })
+    return unsubscribe
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Subscribe to pendingAgentSpawn from projectStore
+  useEffect(() => {
+    const unsubscribe = useProjectStore.subscribe((state, prev) => {
+      if (state.pendingAgentSpawn && state.pendingAgentSpawn !== prev.pendingAgentSpawn) {
+        handleSpawnAgentTerminal(state.pendingAgentSpawn)
+        useProjectStore.getState().clearPendingAgentSpawn()
       }
     })
     return unsubscribe

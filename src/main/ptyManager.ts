@@ -3,10 +3,14 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { homedir } from 'os'
 import { existsSync } from 'fs'
 import { resolve } from 'path'
+import { execFileSync } from 'child_process'
 import { handleAttentionEvent } from './attentionService'
+
+const TMUX_SOCKET = 'multiterm'
 
 interface PtySession {
   process: pty.IPty
+  tmuxName: string
 }
 
 const sessions = new Map<string, PtySession>()
@@ -17,20 +21,43 @@ export const attentionCooldown = new Map<string, number>()
 // Cooldown window: 5 seconds between attention events per session
 export const ATTENTION_COOLDOWN_MS = 5_000
 
-/**
- * Conservative attention pattern — matches high-confidence interactive prompts only.
- * Designed to minimize false positives on normal terminal output.
- *
- * Patterns:
- *   - (y/N), (Y/n), (y/n), (Y/N)  — yes/no confirmation prompts
- *   - [Y/n], [y/N], [y/n], [Y/N]  — bracket-style yes/no
- *   - Do you want                  — explicit "Do you want..." phrasing
- *   - password:                    — password input request (case-insensitive)
- *   - press enter to continue      — "press enter" instruction (case-insensitive)
- *   - confirm?                     — direct confirmation question (case-insensitive)
- */
 export const ATTENTION_PATTERN =
   /\([yYnN]\/[yYnN]\)|\[[yYnN]\/[yYnN]\]|Do you want|password:|press enter to continue|confirm\?/i
+
+// Check if tmux is available at startup
+let tmuxAvailable = false
+try {
+  execFileSync('tmux', ['-V'], { encoding: 'utf-8', stdio: 'pipe' })
+  tmuxAvailable = true
+} catch {
+  // tmux not installed — fall back to raw shells
+}
+
+function tmuxExec(...args: string[]): string {
+  return execFileSync('tmux', ['-L', TMUX_SOCKET, ...args], {
+    encoding: 'utf-8',
+    stdio: 'pipe'
+  }).trim()
+}
+
+function tmuxSessionName(id: string): string {
+  return `mts-${id.replace(/-/g, '').slice(0, 16)}`
+}
+
+/** Split a tmux pane in the terminal identified by ptySessionId */
+export function splitAgentPane(
+  ptySessionId: string,
+  viewerCmd: string
+): boolean {
+  if (!tmuxAvailable) return false
+  const name = tmuxSessionName(ptySessionId)
+  try {
+    tmuxExec('split-window', '-t', name, '-h', '-l', '50%', viewerCmd)
+    return true
+  } catch {
+    return false
+  }
+}
 
 export function registerPtyHandlers(win: BrowserWindow): void {
   const { webContents } = win
@@ -39,47 +66,69 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     const shell =
       process.env.SHELL || (process.platform === 'win32' ? 'cmd.exe' : '/bin/bash')
 
-    // Resolve cwd to absolute path, fall back to home directory
     const resolvedCwd = resolve(cwd)
     const safeCwd = existsSync(resolvedCwd) ? resolvedCwd : homedir()
+    const tmuxName = tmuxSessionName(id)
 
-    const ptyProcess = pty.spawn(shell, [], {
-      name: 'xterm-256color',
-      cols: 80,
-      rows: 24,
-      cwd: safeCwd,
-      env: {
-        ...process.env,
-        PROMPT_EOL_MARK: '',
-        COLORTERM: 'truecolor',
-        LANG: process.env.LANG || 'en_US.UTF-8',
-        TERM_PROGRAM: 'multiterm-studio'
-      }
-    })
+    let ptyProcess: pty.IPty
+
+    if (tmuxAvailable) {
+      // Create detached tmux session
+      tmuxExec(
+        'new-session', '-d', '-s', tmuxName,
+        '-c', safeCwd,
+        '-x', '80', '-y', '24'
+      )
+      // Set env vars on the tmux session (inherited by all panes)
+      tmuxExec('set-environment', '-t', tmuxName, 'MULTITERM_PTY_SESSION_ID', id)
+      tmuxExec('set-environment', '-t', tmuxName, 'SHELL', shell)
+      tmuxExec('set-environment', '-t', tmuxName, 'TERM_PROGRAM', 'multiterm-studio')
+
+      // Attach to tmux session via node-pty
+      ptyProcess = pty.spawn('tmux', ['-L', TMUX_SOCKET, '-u', 'attach-session', '-t', tmuxName], {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+        cwd: safeCwd,
+        env: {
+          ...process.env,
+          TERM: 'xterm-256color'
+        }
+      })
+    } else {
+      // Fallback: raw shell (no tmux)
+      ptyProcess = pty.spawn(shell, [], {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+        cwd: safeCwd,
+        env: {
+          ...process.env,
+          PROMPT_EOL_MARK: '',
+          COLORTERM: 'truecolor',
+          LANG: process.env.LANG || 'en_US.UTF-8',
+          TERM_PROGRAM: 'multiterm-studio',
+          MULTITERM_PTY_SESSION_ID: id
+        }
+      })
+    }
 
     ptyProcess.onData((data: string) => {
-      // Always forward PTY data to renderer
       webContents.send(`pty:data:${id}`, data)
 
-      // Attention detection: check if output matches an interactive prompt pattern
       if (ATTENTION_PATTERN.test(data)) {
         const now = Date.now()
         const lastFired = attentionCooldown.get(id) ?? 0
-
         if (now - lastFired >= ATTENTION_COOLDOWN_MS) {
           attentionCooldown.set(id, now)
           const snippet = data.slice(0, 120).trim()
           webContents.send('pty:attention', { id, snippet })
-
-          // Fire native notification if the app is backgrounded
-          // Panel title is not available in ptyManager; we use a generic title here.
-          // The renderer can display the actual title via the panel:focus IPC flow.
           handleAttentionEvent(win, id, 'Terminal', snippet)
         }
       }
     })
 
-    sessions.set(id, { process: ptyProcess })
+    sessions.set(id, { process: ptyProcess, tmuxName })
   })
 
   ipcMain.handle('pty:write', (_event, id: string, data: string) => {
@@ -91,12 +140,26 @@ export function registerPtyHandlers(win: BrowserWindow): void {
   ipcMain.handle('pty:resize', (_event, id: string, cols: number, rows: number) => {
     const session = sessions.get(id)
     if (!session) return
+    if (tmuxAvailable) {
+      try {
+        tmuxExec('resize-window', '-t', session.tmuxName, '-x', String(cols), '-y', String(rows))
+      } catch {
+        // ignore
+      }
+    }
     session.process.resize(cols, rows)
   })
 
   ipcMain.handle('pty:kill', (_event, id: string) => {
     const session = sessions.get(id)
     if (!session) return
+    if (tmuxAvailable) {
+      try {
+        tmuxExec('kill-session', '-t', session.tmuxName)
+      } catch {
+        // ignore
+      }
+    }
     session.process.kill()
     sessions.delete(id)
     attentionCooldown.delete(id)

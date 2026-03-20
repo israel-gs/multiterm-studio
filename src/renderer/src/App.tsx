@@ -13,6 +13,9 @@ function App(): React.JSX.Element {
   const setAttention = usePanelStore((s) => s.setAttention)
   const clearAttention = usePanelStore((s) => s.clearAttention)
 
+  // Track previous project path to remove hooks on project switch
+  const prevFolderRef = useRef<string | null>(null)
+
   // Use a ref for savedLayout so it's available synchronously when TerminalCanvas mounts.
   // TerminalCanvas reads savedLayout only on its first render via a ref — React state would
   // be too late because Zustand's setFolderPath triggers a synchronous re-render before
@@ -28,23 +31,56 @@ function App(): React.JSX.Element {
   // Open a project by path: load layout, track in recent, set as current
   const openProject = useCallback(
     async (path: string) => {
+      // Remove hooks from previous project
+      if (prevFolderRef.current && prevFolderRef.current !== path) {
+        void window.electronAPI.hooksRemove(prevFolderRef.current)
+      }
       const layout = await window.electronAPI.layoutLoad(path)
       // Set ref BEFORE triggering re-render so TerminalCanvas reads the correct layout on mount
       savedLayoutRef.current = (layout as SavedLayoutShape) ?? null
       setFolderPath(path)
+      prevFolderRef.current = path
       // Track in recent projects (non-blocking)
       void window.electronAPI.projectsAdd(path)
+      // Inject Claude Code hooks for agent auto-spawn
+      void window.electronAPI.hooksInject(path)
     },
     [setFolderPath]
   )
 
   // Wire attention events: main process -> panelStore badge
+  // Wire agent session events: RPC server -> panelStore agentActive indicator
   useEffect(() => {
     const unsubAttention = window.electronAPI.onAttention((data) => setAttention(data.id))
     const unsubPanelFocus = window.electronAPI.onPanelFocus((id) => clearAttention(id))
+    const unsubAgentSpawning = window.electronAPI.onAgentSpawning((data) => {
+      useProjectStore.getState().spawnAgentTerminal({
+        agentName: data.agentName,
+        toolUseId: data.toolUseId,
+        subagentsDir: data.subagentsDir,
+        cwd: data.cwd
+      })
+    })
+    const unsubSessionStarted = window.electronAPI.onAgentSessionStarted((data) => {
+      if (data.ptySessionId) {
+        usePanelStore.getState().setAgentActive(data.ptySessionId, true)
+      }
+    })
+    const unsubSessionEnded = window.electronAPI.onAgentSessionEnded((data) => {
+      if (data.ptySessionId) {
+        usePanelStore.getState().setAgentActive(data.ptySessionId, false)
+      }
+    })
+    const unsubFileTouched = window.electronAPI.onAgentFileTouched(() => {
+      // Future: show file activity indicators
+    })
     return () => {
       unsubAttention()
       unsubPanelFocus()
+      unsubAgentSpawning()
+      unsubSessionStarted()
+      unsubSessionEnded()
+      unsubFileTouched()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

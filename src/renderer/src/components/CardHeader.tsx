@@ -47,7 +47,8 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
       attention: false,
       type: 'terminal' as const,
       dirty: false,
-      previewMode: false
+      previewMode: false,
+      agentActive: false
     }
   const togglePreview = usePanelStore((s) => s.togglePreview)
 
@@ -59,6 +60,23 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
     <div className="panel-header" style={{ background: panel.color }}>
       {panel.attention && (
         <span className="attention-badge-inline" role="status" aria-label="Attention needed" />
+      )}
+
+      {panel.agentActive && (
+        <span
+          className="agent-active-dot"
+          role="status"
+          aria-label="Claude agent active"
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: '#c678dd',
+            flexShrink: 0,
+            boxShadow: '0 0 6px #c678dd88',
+            animation: 'pulse-agent 2s ease-in-out infinite'
+          }}
+        />
       )}
 
       {isEditor && panel.dirty && (

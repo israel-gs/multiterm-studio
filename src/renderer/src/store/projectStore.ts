@@ -1,11 +1,21 @@
 import { create } from 'zustand'
 
+export interface AgentSpawnRequest {
+  agentName: string
+  toolUseId: string
+  subagentsDir: string
+  cwd: string
+}
+
 export interface ProjectStore {
   folderPath: string | null
   setFolderPath: (path: string) => void
   pendingFileOpen: string | null
   openFileInEditor: (filePath: string) => void
   clearPendingFileOpen: () => void
+  pendingAgentSpawn: AgentSpawnRequest | null
+  spawnAgentTerminal: (req: AgentSpawnRequest) => void
+  clearPendingAgentSpawn: () => void
 }
 
 export const useProjectStore = create<ProjectStore>((set) => ({
@@ -13,5 +23,8 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   setFolderPath: (path) => set({ folderPath: path }),
   pendingFileOpen: null,
   openFileInEditor: (filePath) => set({ pendingFileOpen: filePath }),
-  clearPendingFileOpen: () => set({ pendingFileOpen: null })
+  clearPendingFileOpen: () => set({ pendingFileOpen: null }),
+  pendingAgentSpawn: null,
+  spawnAgentTerminal: (req) => set({ pendingAgentSpawn: req }),
+  clearPendingAgentSpawn: () => set({ pendingAgentSpawn: null })
 }))
