@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { FileTree } from './FileTree'
+import { GitBranchSection } from './GitBranchSection'
 import { useProjectStore } from '../store/projectStore'
 
 interface EnhancedSidebarProps {
@@ -42,6 +43,9 @@ export function EnhancedSidebar({ folderPath }: EnhancedSidebarProps): React.JSX
         </div>
         <span className="sidebar-project-chevron" aria-hidden="true">&#8250;</span>
       </button>
+
+      {/* Git branch switcher */}
+      <GitBranchSection folderPath={folderPath} />
 
       {/* Search bar */}
       <div className="sidebar-search">

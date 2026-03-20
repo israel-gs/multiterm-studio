@@ -782,6 +782,119 @@ body.sidebar-resizing .enhanced-sidebar {
   flex-shrink: 0;
 }
 
+/* ===== Git Branch Section ===== */
+
+.sidebar-git-section {
+  position: relative;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sidebar-git-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--text-sm);
+}
+
+.sidebar-git-toggle:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sidebar-git-icon {
+  flex-shrink: 0;
+}
+
+.sidebar-git-branch-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-primary);
+  font-weight: var(--weight-medium);
+}
+
+.sidebar-git-branch-name--detached {
+  color: var(--color-yellow);
+}
+
+.sidebar-git-chevron {
+  flex-shrink: 0;
+  transition: transform 150ms ease;
+}
+
+.sidebar-git-chevron--open {
+  transform: rotate(180deg);
+}
+
+.sidebar-git-error {
+  padding: 4px 12px 6px;
+  font-size: var(--text-xs);
+  color: var(--color-red);
+}
+
+.sidebar-git-dropdown {
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
+}
+
+.sidebar-git-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-git-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-git-dropdown::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 3px;
+}
+
+.sidebar-git-branch-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 12px;
+  background: none;
+  border: none;
+  color: var(--fg-primary);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-git-branch-item:hover {
+  background: var(--hover-bg);
+}
+
+.sidebar-git-branch-item--current {
+  color: var(--accent);
+}
+
+.sidebar-git-current-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.sidebar-git-branch-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sidebar-search {
   display: flex;
   align-items: center;
@@ -1265,6 +1378,10 @@ body.sidebar-resizing .enhanced-sidebar {
   }
 
   .sidebar-resize-handle {
+    transition: none;
+  }
+
+  .sidebar-git-chevron {
     transition: none;
   }
 }

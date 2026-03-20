@@ -15,5 +15,13 @@ interface Window {
     layoutLoad: (folderPath: string) => Promise<unknown>
     fileRead: (filePath: string) => Promise<string>
     fileWrite: (filePath: string, content: string) => Promise<void>
+    gitIsRepo: (folderPath: string) => Promise<boolean>
+    gitBranches: (
+      folderPath: string
+    ) => Promise<{ current: string; branches: string[]; detached: boolean }>
+    gitCheckout: (
+      folderPath: string,
+      branch: string
+    ) => Promise<{ ok: boolean; error?: string }>
   }
 }
