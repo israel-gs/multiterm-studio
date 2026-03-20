@@ -67,6 +67,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fileWrite: (filePath: string, content: string): Promise<void> =>
     ipcRenderer.invoke('file:write', filePath, content),
 
+  // Recent projects
+  projectsRecent: (): Promise<
+    Array<{ path: string; name: string; lastOpened: number; openCount: number }>
+  > => ipcRenderer.invoke('projects:recent'),
+
+  projectsAdd: (
+    folderPath: string
+  ): Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number }>> =>
+    ipcRenderer.invoke('projects:add', folderPath),
+
+  projectsRemove: (
+    folderPath: string
+  ): Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number }>> =>
+    ipcRenderer.invoke('projects:remove', folderPath),
+
   // Git operations — branch switching
   gitIsRepo: (folderPath: string): Promise<boolean> =>
     ipcRenderer.invoke('git:is-repo', folderPath),

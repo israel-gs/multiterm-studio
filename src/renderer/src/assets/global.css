@@ -726,60 +726,177 @@ body.sidebar-resizing .enhanced-sidebar {
   background: var(--accent);
 }
 
+.sidebar-top-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 10px 0;
+  z-index: 100;
+  position: relative;
+}
+
+/* Toggle button — shared style for both sidebar-open and sidebar-collapsed states */
+.sidebar-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.sidebar-toggle-btn:hover {
+  color: var(--fg-primary);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Floating toggle when sidebar is collapsed */
+main > .sidebar-toggle-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1001;
+  background: var(--bg-card);
+  box-shadow: var(--card-shadow);
+}
+
 .sidebar-project-selector {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px;
-  width: 100%;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--border-subtle);
-  color: inherit;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--fg-secondary);
+  font-size: var(--text-sm);
   text-align: left;
   cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
 }
 
 .sidebar-project-selector:hover {
-  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
-.sidebar-project-selector:active {
-  background: var(--hover-bg);
+.sidebar-project-selector--open {
+  border-color: var(--border-subtle);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
-.sidebar-project-icon {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-}
-
-.sidebar-project-info {
+.sidebar-project-label {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.sidebar-project-name {
-  font-size: var(--text-base);
-  font-weight: var(--weight-semibold);
+.sidebar-project-label strong {
   color: var(--fg-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: var(--weight-semibold);
 }
 
-.sidebar-project-path {
-  font-size: var(--text-xs);
-  color: var(--fg-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sidebar-project-chevron {
-  color: var(--fg-secondary);
-  font-size: 1rem;
+.sidebar-project-chevron-icon {
   flex-shrink: 0;
+  color: var(--fg-secondary);
+  transition: transform 150ms ease;
+}
+
+.sidebar-project-chevron-icon--open {
+  transform: rotate(180deg);
+}
+
+.sidebar-project-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 99;
+}
+
+.sidebar-project-dropdown {
+  position: absolute;
+  z-index: 100;
+  top: calc(100% - 1px);
+  left: 44px;
+  right: 10px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  padding: 4px 0;
+  max-height: 240px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
+}
+
+.sidebar-project-dropdown::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebar-project-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-project-dropdown::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 3px;
+}
+
+.sidebar-project-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: calc(100% - 8px);
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  color: var(--fg-primary);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 4px;
+  margin: 0 4px;
+}
+
+.sidebar-project-dropdown-item:hover {
+  background: var(--hover-bg-strong);
+}
+
+.sidebar-project-dropdown-path {
+  color: var(--fg-secondary);
+}
+
+.sidebar-project-dropdown-item strong {
+  font-weight: var(--weight-semibold);
+}
+
+.sidebar-project-dropdown-item--add {
+  color: var(--fg-secondary);
+  gap: 6px;
+  margin-top: 2px;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0 0 4px 4px;
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.sidebar-project-dropdown-item--add:hover {
+  color: var(--fg-primary);
 }
 
 /* ===== Git Branch Section ===== */
@@ -1325,6 +1442,164 @@ body.sidebar-resizing .enhanced-sidebar {
   font-style: italic;
 }
 
+/* ===== Welcome Screen ===== */
+
+.welcome-screen {
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg-canvas);
+  display: flex;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 60px 40px;
+}
+
+.welcome-content {
+  width: 100%;
+  max-width: 900px;
+}
+
+.welcome-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  margin-bottom: 32px;
+}
+
+.welcome-search:focus-within {
+  border-color: var(--accent);
+}
+
+.welcome-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--fg-primary);
+  font-size: var(--text-base);
+  outline: none;
+  padding: 2px 0;
+}
+
+.welcome-search-input::placeholder {
+  color: var(--fg-secondary);
+}
+
+.welcome-search-input:focus-visible {
+  outline: none;
+}
+
+.welcome-search-clear {
+  background: none;
+  border: none;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.welcome-search-clear:hover {
+  color: var(--fg-primary);
+}
+
+.welcome-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.welcome-header-label {
+  font-size: var(--text-xs);
+  color: var(--fg-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--weight-medium);
+}
+
+.welcome-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.welcome-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  min-height: 120px;
+}
+
+.welcome-card:hover {
+  border-color: var(--border-subtle);
+  box-shadow: var(--card-shadow);
+}
+
+.welcome-card--add {
+  border-style: dashed;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.welcome-card--add:hover {
+  border-color: var(--fg-secondary);
+}
+
+.welcome-card-icon {
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.welcome-card-name {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--fg-primary);
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.welcome-card-path {
+  font-size: var(--text-xs);
+  color: var(--fg-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  margin-bottom: auto;
+}
+
+.welcome-card-meta {
+  font-size: var(--text-2xs);
+  color: var(--fg-secondary);
+  margin-top: 12px;
+}
+
+.welcome-card-dot {
+  margin: 0 4px;
+}
+
+.welcome-empty {
+  color: var(--fg-secondary);
+  font-size: var(--text-base);
+  padding: 32px 0;
+  text-align: center;
+}
+
 /* ===== Focus Indicators ===== */
 
 :focus-visible {
@@ -1337,8 +1612,10 @@ body.sidebar-resizing .enhanced-sidebar {
   outline: none;
 }
 
-.sidebar-search-input:focus-visible {
-  outline: none; /* parent :focus-within handles this */
+.sidebar-search-input:focus-visible,
+.sidebar-project-selector:focus-visible,
+.sidebar-toggle-btn:focus-visible {
+  outline: none;
 }
 
 /* ===== Reduced Motion ===== */
@@ -1382,6 +1659,16 @@ body.sidebar-resizing .enhanced-sidebar {
   }
 
   .sidebar-git-chevron {
+    transition: none;
+  }
+
+  .sidebar-project-chevron-icon,
+  .sidebar-project-selector,
+  .sidebar-toggle-btn {
+    transition: none;
+  }
+
+  .welcome-card {
     transition: none;
   }
 }

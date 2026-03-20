@@ -15,6 +15,15 @@ interface Window {
     layoutLoad: (folderPath: string) => Promise<unknown>
     fileRead: (filePath: string) => Promise<string>
     fileWrite: (filePath: string, content: string) => Promise<void>
+    projectsRecent: () => Promise<
+      Array<{ path: string; name: string; lastOpened: number; openCount: number }>
+    >
+    projectsAdd: (
+      folderPath: string
+    ) => Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number }>>
+    projectsRemove: (
+      folderPath: string
+    ) => Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number }>>
     gitIsRepo: (folderPath: string) => Promise<boolean>
     gitBranches: (
       folderPath: string

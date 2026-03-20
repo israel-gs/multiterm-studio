@@ -5,6 +5,7 @@ import { registerPtyHandlers } from './ptyManager'
 import { registerFolderHandlers } from './folderManager'
 import { registerFileHandlers } from './fileManager'
 import { registerGitHandlers } from './gitManager'
+import { registerRecentProjectsHandlers } from './recentProjectsManager'
 import { saveLayout, saveLayoutSync, loadLayout, ensureGitignore } from './layoutManager'
 import type { LayoutSnapshot } from './layoutManager'
 
@@ -49,6 +50,8 @@ function createWindow(): void {
   registerFileHandlers(win)
   // Register git IPC handlers for branch switching
   registerGitHandlers()
+  // Register recent projects IPC handlers
+  registerRecentProjectsHandlers()
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.

@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import React from 'react'
 import { TerminalCanvas } from './components/TerminalCanvas'
 import type { SavedLayoutShape } from './components/TerminalCanvas'
 import { EnhancedSidebar } from './components/EnhancedSidebar'
+import { WelcomeScreen } from './components/WelcomeScreen'
 import { useProjectStore } from './store/projectStore'
 import { usePanelStore } from './store/panelStore'
 
@@ -12,10 +13,11 @@ function App(): React.JSX.Element {
   const setAttention = usePanelStore((s) => s.setAttention)
   const clearAttention = usePanelStore((s) => s.clearAttention)
 
-  // savedLayout: null = fresh start, loaded object = restore from file
-  const [savedLayout, setSavedLayout] = useState<SavedLayoutShape | null>(null)
-  // layoutLoaded: true once we've attempted a load (prevents flash of default panel before restore)
-  const [layoutLoaded, setLayoutLoaded] = useState(false)
+  // Use a ref for savedLayout so it's available synchronously when TerminalCanvas mounts.
+  // TerminalCanvas reads savedLayout only on its first render via a ref — React state would
+  // be too late because Zustand's setFolderPath triggers a synchronous re-render before
+  // React flushes its batched state updates.
+  const savedLayoutRef = useRef<SavedLayoutShape | null>(null)
 
   // Sidebar resize/collapse state
   const [sidebarWidth, setSidebarWidth] = useState(300)
@@ -23,20 +25,18 @@ function App(): React.JSX.Element {
   const prevWidthRef = useRef(300)
   const toggleSidebarRef = useRef(() => {})
 
-  // Trigger native folder picker on first launch when no folder is set
-  useEffect(() => {
-    if (folderPath !== null) return
-    window.electronAPI.folderOpen().then(async (selected) => {
-      if (selected) {
-        const layout = await window.electronAPI.layoutLoad(selected)
-        setSavedLayout((layout as SavedLayoutShape) ?? null)
-        setFolderPath(selected)
-      }
-      // Whether or not user selected a folder, mark layout as loaded
-      setLayoutLoaded(true)
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Open a project by path: load layout, track in recent, set as current
+  const openProject = useCallback(
+    async (path: string) => {
+      const layout = await window.electronAPI.layoutLoad(path)
+      // Set ref BEFORE triggering re-render so TerminalCanvas reads the correct layout on mount
+      savedLayoutRef.current = (layout as SavedLayoutShape) ?? null
+      setFolderPath(path)
+      // Track in recent projects (non-blocking)
+      void window.electronAPI.projectsAdd(path)
+    },
+    [setFolderPath]
+  )
 
   // Wire attention events: main process -> panelStore badge
   useEffect(() => {
@@ -115,61 +115,18 @@ function App(): React.JSX.Element {
     document.addEventListener('mouseup', onUp)
   }
 
-  async function handlePickFolder(): Promise<void> {
+  const handlePickFolder = useCallback(async () => {
     const selected = await window.electronAPI.folderOpen()
     if (selected) {
-      const layout = await window.electronAPI.layoutLoad(selected)
-      setSavedLayout((layout as SavedLayoutShape) ?? null)
-      setFolderPath(selected)
-      setLayoutLoaded(true)
+      await openProject(selected)
     }
-  }
+  }, [openProject])
 
   if (folderPath === null) {
     return (
-      <div
-        style={{
-          width: '100vw',
-          height: '100vh',
-          background: 'var(--bg-canvas)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 12
-        }}
-      >
-        <div style={{ color: 'var(--fg-secondary)', fontSize: 'var(--text-lg)' }}>
-          No folder selected
-        </div>
-        <button
-          onClick={handlePickFolder}
-          style={{
-            padding: '8px 16px',
-            background: 'var(--bg-header)',
-            color: 'var(--fg-primary)',
-            border: '1px solid var(--fg-secondary)',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: 'var(--text-lg)'
-          }}
-        >
-          Pick a folder
-        </button>
-      </div>
-    )
-  }
-
-  // Only render TerminalCanvas once we've attempted to load the saved layout
-  // to prevent a flash of a default single panel before restoration
-  if (!layoutLoaded) {
-    return (
-      <div
-        style={{
-          width: '100vw',
-          height: '100vh',
-          background: 'var(--bg-canvas)'
-        }}
+      <WelcomeScreen
+        onSelectProject={(path) => void openProject(path)}
+        onPickFolder={() => void handlePickFolder()}
       />
     )
   }
@@ -183,17 +140,37 @@ function App(): React.JSX.Element {
         background: 'var(--bg-canvas)'
       }}
     >
-      <EnhancedSidebar folderPath={folderPath} />
-      <div
-        className="sidebar-resize-handle"
-        onMouseDown={handleSidebarResizeStart}
-        onDoubleClick={toggleSidebar}
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize sidebar"
-      />
-      <main style={{ flex: 1, minWidth: 0, height: '100vh' }}>
-        <TerminalCanvas savedLayout={savedLayout} />
+      {!sidebarCollapsed && (
+        <>
+          <EnhancedSidebar
+            folderPath={folderPath}
+            onSwitchProject={(path) => void openProject(path)}
+            onToggleSidebar={toggleSidebar}
+          />
+          <div
+            className="sidebar-resize-handle"
+            onMouseDown={handleSidebarResizeStart}
+            onDoubleClick={toggleSidebar}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sidebar"
+          />
+        </>
+      )}
+      <main style={{ flex: 1, minWidth: 0, height: '100vh', position: 'relative' }}>
+        {sidebarCollapsed && (
+          <button
+            className="sidebar-toggle-btn"
+            onClick={toggleSidebar}
+            aria-label="Show sidebar"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <rect x="1" y="2" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.2" />
+              <line x1="5.5" y1="2" x2="5.5" y2="14" stroke="currentColor" strokeWidth="1.2" />
+            </svg>
+          </button>
+        )}
+        <TerminalCanvas key={folderPath} savedLayout={savedLayoutRef.current} />
       </main>
     </div>
   )

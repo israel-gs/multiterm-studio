@@ -48,7 +48,13 @@ export function registerPtyHandlers(win: BrowserWindow): void {
       cols: 80,
       rows: 24,
       cwd: safeCwd,
-      env: { ...process.env, PROMPT_EOL_MARK: '' }
+      env: {
+        ...process.env,
+        PROMPT_EOL_MARK: '',
+        COLORTERM: 'truecolor',
+        LANG: process.env.LANG || 'en_US.UTF-8',
+        TERM_PROGRAM: 'multiterm-studio'
+      }
     })
 
     ptyProcess.onData((data: string) => {
