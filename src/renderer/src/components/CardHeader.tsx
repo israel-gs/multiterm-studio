@@ -20,7 +20,7 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
   const panel =
     usePanelStore((s) => s.panels[sessionId]) ?? {
       title: 'Terminal',
-      color: colors.blue,
+      color: colors.bgCard,
       attention: false
     }
 

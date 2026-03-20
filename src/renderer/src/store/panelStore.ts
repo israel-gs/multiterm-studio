@@ -24,7 +24,7 @@ export const usePanelStore = create<PanelStore>((set) => ({
     set((s) => ({
       panels: {
         ...s.panels,
-        [id]: { title: title ?? 'Terminal', color: color ?? colors.blue, attention: false }
+        [id]: { title: title ?? 'Terminal', color: color ?? colors.bgCard, attention: false }
       }
     })),
 

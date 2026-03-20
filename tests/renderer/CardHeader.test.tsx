@@ -20,7 +20,7 @@ describe('CardHeader', () => {
     mockOnClose = vi.fn()
     // Reset zustand store between tests
     usePanelStore.setState({ panels: {} })
-    // Add a test panel with defaults (title='Terminal', color='#569cd6')
+    // Add a test panel with defaults (title='Terminal', color='#1c1c1c')
     usePanelStore.getState().addPanel(TEST_SESSION_ID)
   })
 

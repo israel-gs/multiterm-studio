@@ -12,10 +12,10 @@ describe('panelStore', () => {
     expect(panels).toEqual({})
   })
 
-  it('addPanel adds entry with default title "Terminal" and default color "#569cd6"', () => {
+  it('addPanel adds entry with default title "Terminal" and default color "#1c1c1c"', () => {
     usePanelStore.getState().addPanel('panel-1')
     const panels = usePanelStore.getState().panels
-    expect(panels['panel-1']).toEqual({ title: 'Terminal', color: '#569cd6', attention: false })
+    expect(panels['panel-1']).toEqual({ title: 'Terminal', color: '#1c1c1c', attention: false })
   })
 
   it('removePanel removes entry for existing id', () => {
@@ -81,9 +81,9 @@ describe('panelStore', () => {
     expect(panel).toEqual({ title: 'My Build', color: '#f44747', attention: false })
   })
 
-  it('addPanel without optional parameters still uses "Terminal" and "#569cd6" defaults', () => {
+  it('addPanel without optional parameters still uses "Terminal" and "#1c1c1c" defaults', () => {
     usePanelStore.getState().addPanel('panel-default')
     const panel = usePanelStore.getState().panels['panel-default']
-    expect(panel).toEqual({ title: 'Terminal', color: '#569cd6', attention: false })
+    expect(panel).toEqual({ title: 'Terminal', color: '#1c1c1c', attention: false })
   })
 })
