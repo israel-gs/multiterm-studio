@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { PANEL_COLORS } from '../tokens'
 
 interface CanvasContextMenuProps {
   x: number
@@ -8,8 +7,9 @@ interface CanvasContextMenuProps {
   type: 'canvas' | 'card'
   cardId?: string
   onNewTerminal: () => void
+  onRenameTerminal?: (id: string) => void
+  onChangeColor?: (id: string) => void
   onCloseTerminal?: (id: string) => void
-  onChangeColor?: (id: string, color: string) => void
   onDismiss: () => void
 }
 
@@ -19,14 +19,14 @@ export function CanvasContextMenu({
   type,
   cardId,
   onNewTerminal,
-  onCloseTerminal,
+  onRenameTerminal,
   onChangeColor,
+  onCloseTerminal,
   onDismiss
 }: CanvasContextMenuProps): React.JSX.Element {
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Auto-focus first menu item on open
     const first = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')
     first?.focus()
 
@@ -71,29 +71,22 @@ export function CanvasContextMenu({
             className="canvas-context-menu-item"
             role="menuitem"
             onClick={() => {
-              document.dispatchEvent(
-                new CustomEvent('panel:rename', { detail: { id: cardId } })
-              )
+              onRenameTerminal?.(cardId)
               onDismiss()
             }}
           >
             Rename
           </button>
-          <div className="canvas-context-menu-divider" />
-          <div className="canvas-context-menu-colors">
-            {PANEL_COLORS.map((hex) => (
-              <button
-                key={hex}
-                className="color-context-option"
-                style={{ background: hex }}
-                onClick={() => {
-                  onChangeColor?.(cardId, hex)
-                  onDismiss()
-                }}
-                aria-label={`Set color to ${hex}`}
-              />
-            ))}
-          </div>
+          <button
+            className="canvas-context-menu-item"
+            role="menuitem"
+            onClick={() => {
+              onChangeColor?.(cardId)
+              onDismiss()
+            }}
+          >
+            Change color
+          </button>
           <div className="canvas-context-menu-divider" />
           <button
             className="canvas-context-menu-item canvas-context-menu-item--danger"

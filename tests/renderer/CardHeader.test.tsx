@@ -42,83 +42,12 @@ describe('CardHeader', () => {
     expect(screen.getByText('My Shell')).toBeTruthy()
   })
 
-  it('double-click title enters edit mode', () => {
-    render(<CardHeader sessionId={TEST_SESSION_ID} onClose={mockOnClose} />)
-
-    const titleSpan = screen.getByText('Terminal')
-    act(() => {
-      fireEvent.dblClick(titleSpan)
-    })
-
-    const input = screen.queryByRole('textbox')
-    expect(input).toBeTruthy()
-    expect((input as HTMLInputElement).value).toBe('Terminal')
-  })
-
-  it('blur saves title to store', () => {
-    render(<CardHeader sessionId={TEST_SESSION_ID} onClose={mockOnClose} />)
-
-    // Enter edit mode
-    const titleSpan = screen.getByText('Terminal')
-    act(() => {
-      fireEvent.dblClick(titleSpan)
-    })
-
-    const input = screen.getByRole('textbox') as HTMLInputElement
-    act(() => {
-      fireEvent.change(input, { target: { value: 'New Title' } })
-      fireEvent.blur(input)
-    })
-
-    // Input should be gone
-    expect(screen.queryByRole('textbox')).toBeNull()
-    // Store should have updated title
-    const stored = usePanelStore.getState().panels[TEST_SESSION_ID]
-    expect(stored.title).toBe('New Title')
-  })
-
-  it('Enter key triggers blur/save', () => {
-    render(<CardHeader sessionId={TEST_SESSION_ID} onClose={mockOnClose} />)
-
-    // Enter edit mode
-    const titleSpan = screen.getByText('Terminal')
-    act(() => {
-      fireEvent.dblClick(titleSpan)
-    })
-
-    const input = screen.getByRole('textbox')
-    act(() => {
-      fireEvent.keyDown(input, { key: 'Enter' })
-    })
-
-    // Edit mode should exit (input gone)
-    expect(screen.queryByRole('textbox')).toBeNull()
-  })
-
   it('header background reflects panel color', () => {
     usePanelStore.getState().setColor(TEST_SESSION_ID, '#f44747')
     render(<CardHeader sessionId={TEST_SESSION_ID} onClose={mockOnClose} />)
 
     const header = document.querySelector('.panel-header') as HTMLElement
     expect(header.style.background).toBe('rgb(244, 71, 71)')
-  })
-
-  it('panel:rename custom event enters edit mode', () => {
-    render(<CardHeader sessionId={TEST_SESSION_ID} onClose={mockOnClose} />)
-
-    // Should not be in edit mode initially
-    expect(screen.queryByRole('textbox')).toBeNull()
-
-    // Dispatch the custom event that CanvasContextMenu fires
-    act(() => {
-      document.dispatchEvent(
-        new CustomEvent('panel:rename', { detail: { id: TEST_SESSION_ID } })
-      )
-    })
-
-    // Should now be in edit mode
-    const input = screen.queryByRole('textbox')
-    expect(input).toBeTruthy()
   })
 
   it('renders attention-badge-inline when panel.attention is true', () => {

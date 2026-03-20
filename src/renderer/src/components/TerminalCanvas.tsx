@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { FloatingCard } from './FloatingCard'
 import type { CardRect } from './FloatingCard'
 import { CanvasContextMenu } from './CanvasContextMenu'
+import { PanelModal } from './PanelModal'
 import { usePanelStore } from '../store/panelStore'
 import { useProjectStore } from '../store/projectStore'
 import { scheduleSave } from '../utils/layoutPersistence'
@@ -172,6 +173,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [modal, setModal] = useState<{ type: 'rename' | 'color'; cardId: string } | null>(null)
 
   // Refs for accessing component-level functions from the main effect
   const handleAddPanelAtRef = useRef<(x: number, y: number) => void>(() => { })
@@ -1089,6 +1091,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
           </div>
         )}
       </div>
+      {modal && (
+        <PanelModal
+          type={modal.type}
+          cardId={modal.cardId}
+          onDismiss={() => setModal(null)}
+        />
+      )}
       {contextMenu && (
         <CanvasContextMenu
           x={contextMenu.x}
@@ -1099,8 +1108,9 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
             clearSelection()
             handleAddPanel()
           }}
+          onRenameTerminal={(id) => setModal({ type: 'rename', cardId: id })}
+          onChangeColor={(id) => setModal({ type: 'color', cardId: id })}
           onCloseTerminal={handleClosePanel}
-          onChangeColor={(id, color) => usePanelStore.getState().setColor(id, color)}
           onDismiss={() => setContextMenu(null)}
         />
       )}
