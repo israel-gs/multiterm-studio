@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { FloatingCard } from './FloatingCard'
 import type { CardRect } from './FloatingCard'
-import { CanvasContextMenu } from './CanvasContextMenu'
 import { PanelModal } from './PanelModal'
 import { usePanelStore } from '../store/panelStore'
 import { useProjectStore } from '../store/projectStore'
@@ -22,13 +21,6 @@ interface TerminalCanvasProps {
   savedLayout?: SavedLayoutShape | null
 }
 
-interface ContextMenuState {
-  x: number
-  y: number
-  type: 'canvas' | 'card'
-  cardId?: string
-  cardType?: 'terminal' | 'editor'
-}
 
 const DEFAULT_W = 480
 const DEFAULT_H = 320
@@ -179,10 +171,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   // Context menu state
-  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [modal, setModal] = useState<{ type: 'rename' | 'color'; cardId: string } | null>(null)
 
   // Refs for accessing component-level functions from the main effect
+  const handleAddPanelRef = useRef<() => void>(() => { })
   const handleAddPanelAtRef = useRef<(x: number, y: number) => void>(() => { })
   const handleClosePanelRef = useRef<(id: string) => void>(() => { })
 
@@ -797,7 +789,6 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       if (!(e.target as HTMLElement).closest('.floating-card, .edge-dot')) {
         selectedIdsRef.current.clear()
         setSelectedIds(new Set())
-        setContextMenu(null)
       }
     }
 
@@ -814,15 +805,34 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       handleAddPanelAtRef.current(canvasX, canvasY)
     }
 
-    // --- Right-click context menu ---
+    // --- Right-click context menu (native) ---
     function handleContextMenu(e: MouseEvent): void {
       e.preventDefault()
       const card = (e.target as HTMLElement).closest('[data-card-id]') as HTMLElement | null
+
       if (card && card.dataset.cardId) {
-        const pm = usePanelStore.getState().panels[card.dataset.cardId]
-        setContextMenu({ x: e.clientX, y: e.clientY, type: 'card', cardId: card.dataset.cardId, cardType: pm?.type ?? 'terminal' })
+        const cardId = card.dataset.cardId
+        const pm = usePanelStore.getState().panels[cardId]
+        const closeLabel = pm?.type === 'editor' ? 'Close editor' : 'Close terminal'
+        window.electronAPI.contextMenuShow([
+          { id: 'rename', label: 'Rename' },
+          { id: 'color', label: 'Change color' },
+          { id: 'separator' },
+          { id: 'close', label: closeLabel }
+        ]).then((selected) => {
+          if (selected === 'rename') setModal({ type: 'rename', cardId })
+          else if (selected === 'color') setModal({ type: 'color', cardId })
+          else if (selected === 'close') handleClosePanelRef.current(cardId)
+        })
       } else {
-        setContextMenu({ x: e.clientX, y: e.clientY, type: 'canvas' })
+        window.electronAPI.contextMenuShow([
+          { id: 'new-terminal', label: 'New terminal' }
+        ]).then((selected) => {
+          if (selected === 'new-terminal') {
+            clearSelection()
+            handleAddPanelRef.current()
+          }
+        })
       }
     }
 
@@ -856,7 +866,6 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       if (e.key === 'Escape') {
         selectedIdsRef.current.clear()
         setSelectedIds(new Set())
-        setContextMenu(null)
         return
       }
 
@@ -1327,6 +1336,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   }
 
   // Keep refs updated for access from the main effect
+  handleAddPanelRef.current = handleAddPanel
   handleAddPanelAtRef.current = handleAddPanelAt
   handleClosePanelRef.current = handleClosePanel
 
@@ -1429,23 +1439,6 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
           type={modal.type}
           cardId={modal.cardId}
           onDismiss={() => setModal(null)}
-        />
-      )}
-      {contextMenu && (
-        <CanvasContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          type={contextMenu.type}
-          cardId={contextMenu.cardId}
-          cardType={contextMenu.cardType}
-          onNewTerminal={() => {
-            clearSelection()
-            handleAddPanel()
-          }}
-          onRenameTerminal={(id) => setModal({ type: 'rename', cardId: id })}
-          onChangeColor={(id) => setModal({ type: 'color', cardId: id })}
-          onCloseTerminal={handleClosePanel}
-          onDismiss={() => setContextMenu(null)}
         />
       )}
     </div>
