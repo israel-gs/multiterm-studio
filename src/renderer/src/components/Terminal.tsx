@@ -107,7 +107,12 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
     }
 
     // Renderer → Main: keyboard input
+    // Filter out DA1/DA2/XTVERSION responses that xterm.js generates in reply
+    // to tmux terminal queries. The IPC roundtrip delay causes these to arrive
+    // after tmux exits its query state, so tmux forwards them to the shell as text.
+    const DA_RESPONSE = /^\x1b\[\??[\d;]*c$|^\x1b\[>[\d;]*c$|^\x1bP>[|].*\x1b\\$/
     term.onData((data) => {
+      if (DA_RESPONSE.test(data)) return
       window.electronAPI.ptyWrite(sessionId, data)
     })
 

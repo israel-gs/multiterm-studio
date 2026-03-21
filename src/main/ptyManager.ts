@@ -178,8 +178,9 @@ export function registerPtyHandlers(win: BrowserWindow): void {
       sessions.delete(id)
     }
 
-    // Create tmux session if it doesn't already exist.
+    // Create or reconnect to tmux session
     let sessionExists = false
+    let scrollback = ''
     try {
       tmuxExec('has-session', '-t', tmuxName)
       sessionExists = true
@@ -187,7 +188,24 @@ export function registerPtyHandlers(win: BrowserWindow): void {
       // doesn't exist
     }
 
-    if (!sessionExists) {
+    if (sessionExists) {
+      // Recover scrollback (plain text, no escape sequences)
+      try {
+        const raw = tmuxExec('capture-pane', '-t', tmuxName, '-p', '-S', '-10000')
+        const lines = raw.split('\n')
+        let end = lines.length
+        while (end > 0 && lines[end - 1].trim() === '') end--
+        if (end > 0) scrollback = lines.slice(0, end).join('\r\n') + '\r\n'
+      } catch {
+        // ignore
+      }
+      // Resize to match current terminal size
+      try {
+        tmuxExec('resize-window', '-t', tmuxName, '-x', '80', '-y', '24')
+      } catch {
+        // ignore
+      }
+    } else {
       tmuxExec(
         'new-session', '-d', '-s', tmuxName,
         '-c', safeCwd,
@@ -200,7 +218,7 @@ export function registerPtyHandlers(win: BrowserWindow): void {
       writeSessionMeta(id, { shell, cwd: safeCwd, createdAt: new Date().toISOString() })
     }
 
-    // Attach to tmux session via node-pty (identical to original)
+    // Attach to tmux session via node-pty
     const ptyProcess = pty.spawn('tmux', ['-L', TMUX_SOCKET, '-u', 'attach-session', '-t', tmuxName], {
       name: 'xterm-256color',
       cols: 80,
@@ -211,6 +229,11 @@ export function registerPtyHandlers(win: BrowserWindow): void {
         TERM: 'xterm-256color'
       }
     })
+
+    // Send recovered scrollback before live data
+    if (scrollback) {
+      webContents.send(`pty:scrollback:${id}`, scrollback)
+    }
 
     ptyProcess.onData((data: string) => {
       webContents.send(`pty:data:${id}`, data)
