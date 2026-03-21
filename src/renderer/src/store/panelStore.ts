@@ -5,7 +5,8 @@ export interface PanelMeta {
   title: string
   color: string
   attention: boolean
-  type: 'terminal' | 'editor'
+  type: 'terminal' | 'editor' | 'note'
+  noteContent?: string
   filePath?: string
   dirty: boolean
   previewMode: boolean
@@ -15,7 +16,7 @@ export interface PanelMeta {
 
 export interface PanelStore {
   panels: Record<string, PanelMeta>
-  addPanel: (id: string, title?: string, color?: string, type?: 'terminal' | 'editor', filePath?: string, initialCommand?: string) => void
+  addPanel: (id: string, title?: string, color?: string, type?: 'terminal' | 'editor' | 'note', filePath?: string, initialCommand?: string) => void
   removePanel: (id: string) => void
   setTitle: (id: string, title: string) => void
   setColor: (id: string, color: string) => void
@@ -25,6 +26,7 @@ export interface PanelStore {
   clearDirty: (id: string) => void
   togglePreview: (id: string) => void
   setAgentActive: (id: string, active: boolean) => void
+  setNoteContent: (id: string, content: string) => void
   pendingFocus: string | null
   requestFocus: (id: string) => void
   clearPendingFocus: () => void
@@ -38,7 +40,7 @@ export const usePanelStore = create<PanelStore>((set) => ({
       panels: {
         ...s.panels,
         [id]: {
-          title: title ?? (type === 'editor' && filePath ? filePath.split('/').pop()! : 'Terminal'),
+          title: title ?? (type === 'editor' && filePath ? filePath.split('/').pop()! : type === 'note' ? 'Note' : 'Terminal'),
           color: color ?? colors.bgCard,
           attention: false,
           type: type ?? 'terminal',
@@ -102,6 +104,12 @@ export const usePanelStore = create<PanelStore>((set) => ({
     set((s) => {
       if (!s.panels[id]) return s
       return { panels: { ...s.panels, [id]: { ...s.panels[id], agentActive: active } } }
+    }),
+
+  setNoteContent: (id, content) =>
+    set((s) => {
+      if (!s.panels[id]) return s
+      return { panels: { ...s.panels, [id]: { ...s.panels[id], noteContent: content } } }
     }),
 
   pendingFocus: null,

@@ -12,7 +12,7 @@ export interface SavedLayoutShape {
   version: number
   panelIds?: string[]
   tree?: unknown
-  panels: Array<{ id: string; title: string; color: string; type?: 'terminal' | 'editor'; filePath?: string }>
+  panels: Array<{ id: string; title: string; color: string; type?: 'terminal' | 'editor' | 'note'; filePath?: string; noteContent?: string }>
   positions?: Record<string, CardRect>
   viewport?: { panX: number; panY: number; zoom: number }
 }
@@ -24,6 +24,8 @@ interface TerminalCanvasProps {
 
 const DEFAULT_W = 480
 const DEFAULT_H = 320
+const NOTE_W = 280
+const NOTE_H = 220
 const CASCADE_OFFSET = 30
 const MIN_ZOOM = 0.15
 const MAX_ZOOM = 3.0
@@ -73,7 +75,8 @@ function buildLayoutSnapshot(
       title: allPanels[id].title,
       color: allPanels[id].color,
       type: allPanels[id].type,
-      filePath: allPanels[id].filePath
+      filePath: allPanels[id].filePath,
+      noteContent: allPanels[id].noteContent
     }))
   return { version: 3, panelIds, panels, positions: normalizeZIndices(positions), viewport }
 }
@@ -176,6 +179,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   // Refs for accessing component-level functions from the main effect
   const handleAddPanelRef = useRef<() => void>(() => { })
   const handleAddPanelAtRef = useRef<(x: number, y: number) => void>(() => { })
+  const handleAddNoteRef = useRef<() => void>(() => { })
   const handleClosePanelRef = useRef<(id: string) => void>(() => { })
 
   // Keep refs in sync
@@ -813,7 +817,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       if (card && card.dataset.cardId) {
         const cardId = card.dataset.cardId
         const pm = usePanelStore.getState().panels[cardId]
-        const closeLabel = pm?.type === 'editor' ? 'Close editor' : 'Close terminal'
+        const closeLabel = pm?.type === 'editor' ? 'Close editor' : pm?.type === 'note' ? 'Close note' : 'Close terminal'
         window.electronAPI.contextMenuShow([
           { id: 'rename', label: 'Rename' },
           { id: 'color', label: 'Change color' },
@@ -826,11 +830,15 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         })
       } else {
         window.electronAPI.contextMenuShow([
-          { id: 'new-terminal', label: 'New terminal' }
+          { id: 'new-terminal', label: 'New terminal' },
+          { id: 'new-note', label: 'New note' }
         ]).then((selected) => {
           if (selected === 'new-terminal') {
             clearSelection()
             handleAddPanelRef.current()
+          } else if (selected === 'new-note') {
+            clearSelection()
+            handleAddNoteRef.current()
           }
         })
       }
@@ -968,6 +976,9 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     if (savedLayout != null && savedLayout.panels.length > 0) {
       for (const p of savedLayout.panels) {
         addPanel(p.id, p.title, p.color, p.type ?? 'terminal', p.filePath)
+        if (p.type === 'note' && p.noteContent) {
+          usePanelStore.getState().setNoteContent(p.id, p.noteContent)
+        }
       }
     } else {
       addPanel(initialIdRef.current)
@@ -982,7 +993,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       for (const id of Object.keys(state.panels)) {
         const cur = state.panels[id]
         const prevPanel = prev.panels[id]
-        if (prevPanel && (cur.title !== prevPanel.title || cur.color !== prevPanel.color)) {
+        if (prevPanel && (cur.title !== prevPanel.title || cur.color !== prevPanel.color || cur.noteContent !== prevPanel.noteContent)) {
           if (folderPathRef.current) {
             scheduleSave(
               folderPathRef.current,
@@ -1303,9 +1314,41 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     })
   }
 
+  function handleAddNote(): void {
+    const newId = crypto.randomUUID()
+    addPanel(newId, 'Note', colors.yellow, 'note')
+
+    const viewport = viewportRef.current
+    const scale = scaleRef.current
+    let x = 40
+    let y = 40
+
+    if (viewport) {
+      const vw = viewport.clientWidth
+      const vh = viewport.clientHeight
+      x = snapToGrid((vw / 2 - canvasXRef.current) / scale - NOTE_W / 2)
+      y = snapToGrid((vh / 2 - canvasYRef.current) / scale - NOTE_H / 2)
+    }
+
+    const newZ = ++topZRef.current
+    const newRect: CardRect = { x, y, w: NOTE_W, h: NOTE_H, z: newZ }
+
+    setPanelIds((prev) => {
+      const next = [...prev, newId]
+      panelIdsRef.current = next
+      return next
+    })
+    setPositions((prev) => {
+      const next = { ...prev, [newId]: newRect }
+      positionsRef.current = next
+      triggerSave([...panelIdsRef.current], next)
+      return next
+    })
+  }
+
   function handleClosePanel(id: string): void {
     const panelMeta = usePanelStore.getState().panels[id]
-    if (!panelMeta || panelMeta.type !== 'editor') {
+    if (!panelMeta || (panelMeta.type !== 'editor' && panelMeta.type !== 'note')) {
       window.electronAPI.ptyKill(id)
     }
     removePanel(id)
@@ -1338,6 +1381,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   // Keep refs updated for access from the main effect
   handleAddPanelRef.current = handleAddPanel
   handleAddPanelAtRef.current = handleAddPanelAt
+  handleAddNoteRef.current = handleAddNote
   handleClosePanelRef.current = handleClosePanel
 
   function handleMove(id: string, x: number, y: number): void {
@@ -1428,7 +1472,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
                 <div className="terminal-canvas-empty-ghost-body" />
               </div>
               <p className="terminal-canvas-empty-text">
-                Double-click the canvas or right-click for <strong>New terminal</strong>
+                Double-click the canvas or right-click for <strong>New terminal</strong> or <strong>New note</strong>
               </p>
             </div>
           </div>

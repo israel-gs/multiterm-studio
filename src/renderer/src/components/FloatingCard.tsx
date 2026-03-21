@@ -2,6 +2,7 @@ import { useRef, useCallback, useState } from 'react'
 import { CardHeader } from './CardHeader'
 import { TerminalPanel } from './Terminal'
 import { EditorPanel } from './EditorPanel'
+import { NotePanel } from './NotePanel'
 import { usePanelStore } from '../store/panelStore'
 
 export interface CardRect {
@@ -20,7 +21,7 @@ interface Props {
   rect: CardRect
   zoomRef: React.RefObject<number>
   selected?: boolean
-  type?: 'terminal' | 'editor'
+  type?: 'terminal' | 'editor' | 'note'
   filePath?: string
   onSelect?: (id: string, shiftKey: boolean) => void
   onMove: (id: string, x: number, y: number) => void
@@ -353,6 +354,8 @@ export function FloatingCard({
         <div className="floating-card-inner">
           {type === 'editor' && filePath ? (
             <EditorPanel sessionId={sessionId} filePath={filePath} />
+          ) : type === 'note' ? (
+            <NotePanel sessionId={sessionId} />
           ) : (
             <TerminalPanel sessionId={sessionId} cwd={cwd} />
           )}
