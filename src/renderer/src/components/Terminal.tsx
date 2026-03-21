@@ -3,8 +3,9 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
-import { colors, fonts } from '../tokens'
+import { colors, lightColors, fonts } from '../tokens'
 import { usePanelStore } from '../store/panelStore'
+import { useAppearanceStore } from '../store/appearanceStore'
 
 interface Props {
   sessionId: string
@@ -34,6 +35,38 @@ const darkTheme = {
   brightWhite: '#ffffff'
 }
 
+const lightTheme = {
+  background: lightColors.bgCard,
+  foreground: lightColors.fgPrimary,
+  cursor: lightColors.fgPrimary,
+  selectionBackground: lightColors.selection,
+  black: '#000000',
+  red: '#cd3131',
+  green: '#00bc00',
+  yellow: '#949800',
+  blue: '#0451a5',
+  magenta: '#bc05bc',
+  cyan: '#0598bc',
+  white: '#555555',
+  brightBlack: lightColors.fgSecondary,
+  brightRed: '#cd3131',
+  brightGreen: '#14ce14',
+  brightYellow: '#b5ba00',
+  brightBlue: '#0451a5',
+  brightMagenta: '#bc05bc',
+  brightCyan: '#0598bc',
+  brightWhite: '#000000'
+}
+
+function resolveTheme(): typeof darkTheme {
+  const mode = useAppearanceStore.getState().mode
+  if (mode === 'light') return lightTheme
+  if (mode === 'system') {
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? lightTheme : darkTheme
+  }
+  return darkTheme
+}
+
 export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -41,10 +74,10 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
     if (!containerRef.current) return
 
     const term = new Terminal({
-      scrollback: 10000,
+      scrollback: 200000,
       fontSize: 14,
       fontFamily: fonts.mono,
-      theme: darkTheme,
+      theme: resolveTheme(),
       cursorBlink: true,
       cursorStyle: 'block',
       allowTransparency: false,
@@ -98,7 +131,13 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
     })
     observer.observe(containerRef.current)
 
+    // Live theme switching: update xterm.js theme when appearance changes
+    const unsubAppearance = useAppearanceStore.subscribe(() => {
+      term.options.theme = resolveTheme()
+    })
+
     return () => {
+      unsubAppearance()
       unsubScrollback()
       unsubscribe()
       observer.disconnect()

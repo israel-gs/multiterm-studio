@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { FileTree } from './FileTree'
 import { GitBranchSection } from './GitBranchSection'
+import { SettingsPanel } from './SettingsPanel'
 import { useProjectStore } from '../store/projectStore'
 
 interface RecentProject {
@@ -29,6 +30,7 @@ export function EnhancedSidebar({
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([])
   const folderName = folderPath.split('/').pop() ?? folderPath
   const shortPath = shortenPath(folderPath)
@@ -191,6 +193,24 @@ export function EnhancedSidebar({
       <div className="sidebar-tree-container">
         <FileTree rootPath={folderPath} searchQuery={searchQuery} sortOrder={sortOrder} />
       </div>
+
+      {/* Settings button — pinned to bottom */}
+      <div className="sidebar-settings-bar">
+        <button
+          className="sidebar-settings-btn"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Open settings"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M5.72 1.53a1.2 1.2 0 0 1 2.56 0 1.2 1.2 0 0 0 1.8.79 1.2 1.2 0 0 1 1.6 1.6 1.2 1.2 0 0 0 .79 1.8 1.2 1.2 0 0 1 0 2.56 1.2 1.2 0 0 0-.79 1.8 1.2 1.2 0 0 1-1.6 1.6 1.2 1.2 0 0 0-1.8.79 1.2 1.2 0 0 1-2.56 0 1.2 1.2 0 0 0-1.8-.79 1.2 1.2 0 0 1-1.6-1.6 1.2 1.2 0 0 0-.79-1.8 1.2 1.2 0 0 1 0-2.56 1.2 1.2 0 0 0 .79-1.8 1.2 1.2 0 0 1 1.6-1.6 1.2 1.2 0 0 0 1.8-.79Z" stroke="currentColor" strokeWidth="1.1" />
+            <circle cx="7" cy="7" r="2" stroke="currentColor" strokeWidth="1.1" />
+          </svg>
+          Settings
+        </button>
+      </div>
+
+      {/* Settings panel overlay */}
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </aside>
   )
 }

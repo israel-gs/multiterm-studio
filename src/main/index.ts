@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, Menu, protocol, net } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Menu, globalShortcut, protocol, net } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerPtyHandlers, cleanupOrphanSessions } from './ptyManager'
@@ -106,6 +106,20 @@ function createWindow(): void {
   ipcMain.handle('hooks:remove', async (_event, folderPath: string) => {
     await removeHooks(folderPath)
     stopFileWatcher()
+  })
+
+  // Native UI zoom (Cmd+= / Cmd+- / Cmd+0) and fullscreen (Shift+Cmd+F)
+  ipcMain.on('zoom:in', () => {
+    win.webContents.zoomLevel = Math.min(win.webContents.zoomLevel + 0.5, 5)
+  })
+  ipcMain.on('zoom:out', () => {
+    win.webContents.zoomLevel = Math.max(win.webContents.zoomLevel - 0.5, -3)
+  })
+  ipcMain.on('zoom:reset', () => {
+    win.webContents.zoomLevel = 0
+  })
+  ipcMain.on('fullscreen:toggle', () => {
+    win.setFullScreen(!win.isFullScreen())
   })
 
   // HMR for renderer base on electron-vite cli.

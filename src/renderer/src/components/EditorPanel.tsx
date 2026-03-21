@@ -1,7 +1,8 @@
 import { useRef, useEffect, useState } from 'react'
 import * as monaco from 'monaco-editor'
-import { colors, fonts } from '../tokens'
+import { colors, lightColors, fonts } from '../tokens'
 import { usePanelStore } from '../store/panelStore'
+import { useAppearanceStore } from '../store/appearanceStore'
 import { MarkdownPreview } from './MarkdownPreview'
 
 interface EditorPanelProps {
@@ -57,11 +58,11 @@ function isMarkdownFile(filePath: string): boolean {
   return ext === 'md' || ext === 'mdx'
 }
 
-// Define custom theme once
-let themeRegistered = false
-function ensureTheme(): void {
-  if (themeRegistered) return
-  themeRegistered = true
+// Define custom themes once
+let themesRegistered = false
+function ensureThemes(): void {
+  if (themesRegistered) return
+  themesRegistered = true
   monaco.editor.defineTheme('multiterm-dark', {
     base: 'vs-dark',
     inherit: true,
@@ -76,6 +77,29 @@ function ensureTheme(): void {
       'editorWidget.border': '#3e3e3e'
     }
   })
+  monaco.editor.defineTheme('multiterm-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [],
+    colors: {
+      'editor.background': lightColors.bgCard,
+      'editor.foreground': lightColors.fgPrimary,
+      'editor.selectionBackground': lightColors.selection,
+      'editorCursor.foreground': lightColors.fgPrimary,
+      'editorLineNumber.foreground': lightColors.fgSecondary,
+      'editorWidget.background': '#f0f0f0',
+      'editorWidget.border': '#d0d0d0'
+    }
+  })
+}
+
+function resolveMonacoTheme(): string {
+  const mode = useAppearanceStore.getState().mode
+  if (mode === 'light') return 'multiterm-light'
+  if (mode === 'system') {
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'multiterm-light' : 'multiterm-dark'
+  }
+  return 'multiterm-dark'
 }
 
 export function EditorPanel({ sessionId, filePath }: EditorPanelProps): React.JSX.Element {
@@ -104,7 +128,7 @@ export function EditorPanel({ sessionId, filePath }: EditorPanelProps): React.JS
     const container = containerRef.current
     if (!container) return
 
-    ensureTheme()
+    ensureThemes()
 
     let disposed = false
     let editor: monaco.editor.IStandaloneCodeEditor | null = null
@@ -119,7 +143,7 @@ export function EditorPanel({ sessionId, filePath }: EditorPanelProps): React.JS
       editor = monaco.editor.create(container, {
         value: content,
         language,
-        theme: 'multiterm-dark',
+        theme: resolveMonacoTheme(),
         fontFamily: fonts.mono,
         fontSize: 14,
         minimap: { enabled: false },
@@ -156,7 +180,13 @@ export function EditorPanel({ sessionId, filePath }: EditorPanelProps): React.JS
       ro.observe(container)
     })
 
+    // Live theme switching
+    const unsubAppearance = useAppearanceStore.subscribe(() => {
+      monaco.editor.setTheme(resolveMonacoTheme())
+    })
+
     return () => {
+      unsubAppearance()
       disposed = true
       contentDisposable?.dispose()
       ro?.disconnect()

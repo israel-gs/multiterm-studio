@@ -225,6 +225,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('canvas:pinch', listener)
   },
 
+  // Native zoom and fullscreen
+  zoomIn: (): void => ipcRenderer.send('zoom:in'),
+  zoomOut: (): void => ipcRenderer.send('zoom:out'),
+  zoomReset: (): void => ipcRenderer.send('zoom:reset'),
+  fullscreenToggle: (): void => ipcRenderer.send('fullscreen:toggle'),
+
   // Hook injection for Claude Code integration
   hooksInject: (folderPath: string): Promise<void> =>
     ipcRenderer.invoke('hooks:inject', folderPath),

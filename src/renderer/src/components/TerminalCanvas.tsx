@@ -244,8 +244,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       const majorOffX = ((panX % majorStep) + majorStep) % majorStep
       const majorOffY = ((panY % majorStep) + majorStep) % majorStep
 
+      // Detect light theme for grid dot colors
+      const isLight = document.documentElement.dataset.theme === 'light' ||
+        (document.documentElement.dataset.theme === 'system' &&
+          window.matchMedia('(prefers-color-scheme: light)').matches)
+
       // Minor dots
-      ctx.fillStyle = 'rgba(255,255,255,0.05)'
+      ctx.fillStyle = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)'
       const ds = Math.max(1, 1.5 * scale)
       for (let x = offX; x < w; x += step) {
         for (let y = offY; y < h; y += step) {
@@ -254,7 +259,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       }
 
       // Major dots
-      ctx.fillStyle = 'rgba(255,255,255,0.12)'
+      ctx.fillStyle = isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.12)'
       const mds = Math.max(1.5, 2.5 * scale)
       for (let x = majorOffX; x < w; x += majorStep) {
         for (let y = majorOffY; y < h; y += majorStep) {
@@ -427,14 +432,17 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       minimapTransformRef.current = { minX, minY, mScale, offsetX, offsetY }
 
       // Background
+      const mmIsLight = document.documentElement.dataset.theme === 'light' ||
+        (document.documentElement.dataset.theme === 'system' &&
+          window.matchMedia('(prefers-color-scheme: light)').matches)
       mctx.clearRect(0, 0, MM_W, MM_H)
-      mctx.fillStyle = 'rgba(0, 0, 0, 0.55)'
+      mctx.fillStyle = mmIsLight ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.55)'
       mctx.beginPath()
       mctx.roundRect(0, 0, MM_W, MM_H, 6)
       mctx.fill()
 
       // Border
-      mctx.strokeStyle = 'rgba(255, 255, 255, 0.06)'
+      mctx.strokeStyle = mmIsLight ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.06)'
       mctx.lineWidth = 1
       mctx.beginPath()
       mctx.roundRect(0.5, 0.5, MM_W - 1, MM_H - 1, 6)
@@ -470,7 +478,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       const vw = vpWW * mScale
       const vh = vpWH * mScale
 
-      mctx.fillStyle = 'rgba(255, 255, 255, 0.04)'
+      mctx.fillStyle = mmIsLight ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.04)'
       mctx.fillRect(vx, vy, vw, vh)
       mctx.strokeStyle = 'rgba(255, 255, 255, 0.45)'
       mctx.lineWidth = 1

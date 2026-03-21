@@ -52,12 +52,14 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
     }
   const togglePreview = usePanelStore((s) => s.togglePreview)
 
-  const fgColor = isLightColor(panel.color) ? '#000000' : '#ffffff'
+  const isDefaultColor = panel.color === colors.bgCard || panel.color === '#1c1c1c'
+  const headerBg = isDefaultColor ? undefined : panel.color
+  const fgColor = isDefaultColor ? 'var(--fg-primary)' : (isLightColor(panel.color) ? '#000000' : '#ffffff')
   const isEditor = panel.type === 'editor'
   const isMd = isMarkdownFile(panel.filePath)
 
   return (
-    <div className="panel-header" style={{ background: panel.color }}>
+    <div className="panel-header" style={headerBg ? { background: headerBg } : undefined}>
       {panel.attention && (
         <span className="attention-badge-inline" role="status" aria-label="Attention needed" />
       )}

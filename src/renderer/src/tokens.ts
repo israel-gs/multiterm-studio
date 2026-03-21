@@ -22,6 +22,13 @@ export const colors = {
   selection: '#264f78'
 } as const
 
+export const lightColors = {
+  bgCard: '#ffffff',
+  fgPrimary: '#1e1e1e',
+  fgSecondary: '#6e6e6e',
+  selection: '#add6ff'
+} as const
+
 /** Panel preset colors for the color picker */
 export const PANEL_COLORS = [
   colors.blue,
@@ -31,3 +38,5 @@ export const PANEL_COLORS = [
   colors.purple,
   colors.cyan
 ] as const
+
+export type AppearanceMode = 'dark' | 'light' | 'system'

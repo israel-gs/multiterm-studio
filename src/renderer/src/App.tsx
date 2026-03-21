@@ -6,6 +6,8 @@ import { EnhancedSidebar } from './components/EnhancedSidebar'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { useProjectStore } from './store/projectStore'
 import { usePanelStore } from './store/panelStore'
+import { useAppearanceStore } from './store/appearanceStore'
+import type { AppearanceMode } from './tokens'
 
 function App(): React.JSX.Element {
   const folderPath = useProjectStore((s) => s.folderPath)
@@ -117,14 +119,42 @@ function App(): React.JSX.Element {
   }
   toggleSidebarRef.current = toggleSidebar
 
-  // Cmd/Ctrl+B to toggle sidebar
+  // Global keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent): void {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+      const meta = e.metaKey || e.ctrlKey
+      // Cmd+B toggle sidebar (only when not inside a card)
+      if (meta && e.key === 'b') {
         if (!(e.target as HTMLElement).closest('.floating-card')) {
           e.preventDefault()
           toggleSidebarRef.current()
         }
+      }
+      // Cmd+= / Cmd+- / Cmd+0 — native UI zoom
+      if (meta && (e.key === '=' || e.key === '+')) {
+        e.preventDefault()
+        window.electronAPI.zoomIn()
+      }
+      if (meta && e.key === '-') {
+        e.preventDefault()
+        window.electronAPI.zoomOut()
+      }
+      if (meta && e.key === '0') {
+        e.preventDefault()
+        window.electronAPI.zoomReset()
+      }
+      // Shift+Cmd+F — fullscreen toggle
+      if (meta && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault()
+        window.electronAPI.fullscreenToggle()
+      }
+      // Shift+Cmd+T — cycle appearance: dark → light → system
+      if (meta && e.shiftKey && (e.key === 't' || e.key === 'T')) {
+        e.preventDefault()
+        const cycle: AppearanceMode[] = ['dark', 'light', 'system']
+        const current = useAppearanceStore.getState().mode
+        const next = cycle[(cycle.indexOf(current) + 1) % cycle.length]
+        useAppearanceStore.getState().setMode(next)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
