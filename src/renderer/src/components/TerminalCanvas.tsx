@@ -5,7 +5,7 @@ import { CanvasContextMenu } from './CanvasContextMenu'
 import { PanelModal } from './PanelModal'
 import { usePanelStore } from '../store/panelStore'
 import { useProjectStore } from '../store/projectStore'
-import type { AgentSpawnRequest } from '../store/projectStore'
+import type { AgentSpawnRequest, PaneCreateRequest } from '../store/projectStore'
 import { scheduleSave } from '../utils/layoutPersistence'
 import { colors } from '../tokens'
 
@@ -1029,6 +1029,60 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       return next
     })
   }
+
+  // --- Spawn interactive pane (RPC pane.split → new FloatingCard with full PTY) ---
+  function handleSpawnInteractivePane(req: PaneCreateRequest): void {
+    // Dedup: check if this sessionId already exists
+    if (panelIdsRef.current.includes(req.sessionId)) {
+      window.electronAPI.paneCreated(req.sessionId)
+      return
+    }
+
+    addPanel(req.sessionId, req.title ?? 'Terminal', colors.cyan, 'terminal')
+
+    // Position to the right of parent card if provided, else rightmost panel
+    let x = 40, y = 40
+    if (req.parentSessionId) {
+      const parentPos = positionsRef.current[req.parentSessionId]
+      if (parentPos) {
+        x = snapToGrid(parentPos.x + parentPos.w + 40)
+        y = snapToGrid(parentPos.y)
+      }
+    }
+    if (x === 40 && y === 40) {
+      for (const id of panelIdsRef.current) {
+        const pos = positionsRef.current[id]
+        if (pos) { const r = pos.x + pos.w + 40; if (r > x) { x = r; y = pos.y } }
+      }
+      x = snapToGrid(x); y = snapToGrid(y)
+    }
+
+    const newZ = ++topZRef.current
+    const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
+
+    setPanelIds(prev => { const next = [...prev, req.sessionId]; panelIdsRef.current = next; return next })
+    setPositions(prev => {
+      const next = { ...prev, [req.sessionId]: newRect }
+      positionsRef.current = next
+      triggerSave([...panelIdsRef.current], next)
+      return next
+    })
+
+    // Acknowledge creation back to main process (unblocks RPC response)
+    window.electronAPI.paneCreated(req.sessionId)
+  }
+
+  // Subscribe to pendingPaneCreate from projectStore
+  useEffect(() => {
+    const unsubscribe = useProjectStore.subscribe((state, prev) => {
+      if (state.pendingPaneCreate && state.pendingPaneCreate !== prev.pendingPaneCreate) {
+        handleSpawnInteractivePane(state.pendingPaneCreate)
+        useProjectStore.getState().clearPendingPaneCreate()
+      }
+    })
+    return unsubscribe
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // --- Open file in editor tile ---
   function handleOpenFile(filePath: string): void {

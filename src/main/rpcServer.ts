@@ -1,14 +1,16 @@
 import { createServer, connect, type Server, type Socket } from 'net'
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, ipcMain } from 'electron'
 import { existsSync, mkdirSync, writeFileSync, unlinkSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
-import { splitAgentPane } from './ptyManager'
+import { randomUUID } from 'crypto'
+import { writeToPty, listPtySessions } from './ptyManager'
 
 const DISCOVERY_DIR = join(homedir(), '.multiterm-studio')
 const DISCOVERY_FILE = join(DISCOVERY_DIR, 'socket-path')
 
-// Agent session tracking — links Claude session IDs to PTY panel IDs
+// --- Agent session tracking ---
+
 interface AgentSession {
   sessionId: string
   cwd: string
@@ -16,7 +18,42 @@ interface AgentSession {
   startedAt: number
 }
 
-const sessions = new Map<string, AgentSession>()
+const agentSessions = new Map<string, AgentSession>()
+
+// --- Per-session variables (for pane.setVar / pane.getVar) ---
+
+const sessionVars = new Map<string, Map<string, string>>()
+
+// --- Method registry ---
+
+type RpcHandler = (params: Record<string, unknown>) => unknown | Promise<unknown>
+
+interface MethodEntry {
+  handler: RpcHandler
+  description: string
+}
+
+const methods = new Map<string, MethodEntry>()
+
+function registerMethod(
+  name: string,
+  handler: RpcHandler,
+  meta?: { description: string }
+): void {
+  methods.set(name, { handler, description: meta?.description ?? '' })
+}
+
+// --- JSON-RPC helpers ---
+
+function makeErrorResponse(
+  id: number | string | null,
+  code: number,
+  message: string
+): object {
+  return { jsonrpc: '2.0', id, error: { code, message } }
+}
+
+// --- Stale socket check ---
 
 function tryRemoveStaleSocket(socketPath: string): Promise<void> {
   return new Promise((resolve) => {
@@ -40,6 +77,64 @@ function tryRemoveStaleSocket(socketPath: string): Promise<void> {
   })
 }
 
+// --- Main message handler (bidirectional) ---
+
+async function handleMessage(
+  raw: string,
+  win: BrowserWindow,
+  conn: Socket
+): Promise<void> {
+  let msg: {
+    jsonrpc?: string
+    id?: number | string
+    method?: string
+    params?: Record<string, unknown>
+  }
+  try {
+    msg = JSON.parse(raw)
+  } catch {
+    if (conn && !conn.destroyed) {
+      conn.write(JSON.stringify(makeErrorResponse(null, -32700, 'Parse error')) + '\n')
+    }
+    return
+  }
+
+  if (msg.jsonrpc !== '2.0' || !msg.method) {
+    if (msg.id != null && conn && !conn.destroyed) {
+      conn.write(
+        JSON.stringify(makeErrorResponse(msg.id ?? null, -32600, 'Invalid request')) + '\n'
+      )
+    }
+    return
+  }
+
+  const entry = methods.get(msg.method)
+  if (!entry) {
+    if (msg.id != null && conn && !conn.destroyed) {
+      conn.write(
+        JSON.stringify(
+          makeErrorResponse(msg.id, -32601, `Method not found: ${msg.method}`)
+        ) + '\n'
+      )
+    }
+    return
+  }
+
+  try {
+    const result = await entry.handler(msg.params ?? {})
+    if (msg.id != null && conn && !conn.destroyed) {
+      conn.write(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result }) + '\n')
+    }
+  } catch (err) {
+    if (msg.id != null && conn && !conn.destroyed) {
+      const message = err instanceof Error ? err.message : String(err)
+      conn.write(JSON.stringify(makeErrorResponse(msg.id, -32000, message)) + '\n')
+    }
+  }
+}
+
+// --- Server startup ---
+
 export async function startRpcServer(
   win: BrowserWindow
 ): Promise<{ socketPath: string; cleanup: () => void }> {
@@ -55,7 +150,9 @@ export async function startRpcServer(
       while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
         const line = buffer.slice(0, newlineIdx)
         buffer = buffer.slice(newlineIdx + 1)
-        handleMessage(line, win)
+        if (line.trim().length > 0) {
+          void handleMessage(line, win, conn)
+        }
       }
     })
   })
@@ -66,6 +163,154 @@ export async function startRpcServer(
     mkdirSync(DISCOVERY_DIR, { recursive: true })
   }
   writeFileSync(DISCOVERY_FILE, socketPath, 'utf-8')
+
+  // --- Register all methods ---
+
+  registerMethod('rpc.discover', () => {
+    return {
+      methods: [...methods.entries()].map(([name, entry]) => ({
+        name,
+        description: entry.description
+      }))
+    }
+  }, { description: 'List all available RPC methods' })
+
+  // --- Agent session methods ---
+
+  registerMethod('agent.spawning', (params) => {
+    const agentName = String(params.agent_name ?? 'agent')
+    const toolUseId = String(params.tool_use_id ?? '')
+    const subagentsDir = String(params.subagents_dir ?? '')
+    const cwd = String(params.cwd ?? '')
+
+    // Always create a separate FloatingCard for the agent viewer
+    win.webContents.send('agent:spawning', {
+      agentName,
+      toolUseId,
+      subagentsDir,
+      cwd
+    })
+    return { ok: true }
+  }, { description: 'Handle agent subagent spawning — creates viewer card' })
+
+  registerMethod('agent.sessionStart', (params) => {
+    const sessionId = String(params.session_id ?? '')
+    const cwd = String(params.cwd ?? '')
+    const ptySessionId = String(params.pty_session_id ?? '') || null
+
+    if (!sessionId || agentSessions.has(sessionId)) return { ok: true }
+
+    agentSessions.set(sessionId, {
+      sessionId,
+      cwd,
+      ptySessionId,
+      startedAt: Date.now()
+    })
+
+    win.webContents.send('agent:session-started', { sessionId, ptySessionId, cwd })
+    return { ok: true }
+  }, { description: 'Register a new agent session' })
+
+  registerMethod('agent.fileTouched', (params) => {
+    const sessionId = String(params.session_id ?? '')
+    const session = agentSessions.get(sessionId)
+    if (!session) return { ok: false }
+
+    const filePath = params.file_path ? String(params.file_path) : null
+    if (!filePath) return { ok: false }
+
+    const toolName = String(params.tool_name ?? '')
+    const touchType = toolName === 'Read' ? 'read' : 'write'
+
+    win.webContents.send('agent:file-touched', {
+      sessionId,
+      ptySessionId: session.ptySessionId,
+      filePath,
+      touchType
+    })
+    return { ok: true }
+  }, { description: 'Log a file read/write by an agent' })
+
+  registerMethod('agent.sessionEnd', (params) => {
+    const sessionId = String(params.session_id ?? '')
+    const session = agentSessions.get(sessionId)
+    if (!session) return { ok: true }
+
+    agentSessions.delete(sessionId)
+
+    win.webContents.send('agent:session-ended', {
+      sessionId,
+      ptySessionId: session.ptySessionId
+    })
+    return { ok: true }
+  }, { description: 'End an agent session' })
+
+  // --- Pane management methods ---
+
+  registerMethod('pane.split', (params) => {
+    const newId = randomUUID()
+    const cwd = String(params.cwd ?? '')
+    const title = params.title ? String(params.title) : undefined
+    const parentSessionId = params.session_id ? String(params.session_id) : undefined
+
+    return new Promise<{ session_id: string }>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        ipcMain.removeAllListeners(`pane:created:${newId}`)
+        reject(new Error('Pane creation timed out'))
+      }, 5_000)
+
+      ipcMain.once(`pane:created:${newId}`, () => {
+        clearTimeout(timeout)
+        resolve({ session_id: newId })
+      })
+
+      win.webContents.send('pane:create', { sessionId: newId, cwd, title, parentSessionId })
+    })
+  }, { description: 'Create a new interactive terminal pane' })
+
+  registerMethod('pane.sendText', (params) => {
+    const id = String(params.session_id ?? '')
+    const text = String(params.text ?? '')
+    return { ok: writeToPty(id, text) }
+  }, { description: 'Send text to a PTY session' })
+
+  registerMethod('pane.runCommand', (params) => {
+    const id = String(params.session_id ?? '')
+    const command = String(params.command ?? '')
+    return { ok: writeToPty(id, command + '\r') }
+  }, { description: 'Run a command in a PTY session' })
+
+  registerMethod('pane.list', () => {
+    return { sessions: listPtySessions().map((id) => ({ session_id: id })) }
+  }, { description: 'List all active PTY sessions' })
+
+  registerMethod('pane.focus', (params) => {
+    const id = String(params.session_id ?? '')
+    win.webContents.send('pane:focus', { sessionId: id })
+    return { ok: true }
+  }, { description: 'Focus a specific terminal pane' })
+
+  registerMethod('pane.setVar', (params) => {
+    const id = String(params.session_id ?? '')
+    const variable = String(params.variable ?? '')
+    const value = String(params.value ?? '')
+    if (!sessionVars.has(id)) sessionVars.set(id, new Map())
+    sessionVars.get(id)!.set(variable, value)
+    return { ok: true }
+  }, { description: 'Set a session variable' })
+
+  registerMethod('pane.getVar', (params) => {
+    const id = String(params.session_id ?? '')
+    const variable = String(params.variable ?? '')
+    const value = sessionVars.get(id)?.get(variable) ?? null
+    return { value }
+  }, { description: 'Get a session variable' })
+
+  registerMethod('ping', () => ({ pong: true }), {
+    description: 'Health check'
+  })
+
+  // --- Cleanup ---
 
   function cleanup(): void {
     server.close()
@@ -85,86 +330,4 @@ export async function startRpcServer(
   }
 
   return { socketPath, cleanup }
-}
-
-function handleMessage(raw: string, win: BrowserWindow): void {
-  let msg: { jsonrpc?: string; method?: string; params?: Record<string, unknown> }
-  try {
-    msg = JSON.parse(raw)
-  } catch {
-    return
-  }
-  if (msg.jsonrpc !== '2.0' || !msg.method || !msg.params) return
-
-  if (msg.method === 'agent.spawning') {
-    const ptySessionId = String(msg.params.pty_session_id ?? '')
-    const subagentsDir = String(msg.params.subagents_dir ?? '')
-    const viewerPath = String(msg.params.viewer_path ?? '')
-    const agentName = String(msg.params.agent_name ?? 'agent')
-
-    if (ptySessionId && subagentsDir && viewerPath) {
-      // Try to create a tmux pane within the existing terminal
-      const viewerCmd = `node "${viewerPath}" "${subagentsDir}"`
-      const created = splitAgentPane(ptySessionId, viewerCmd)
-
-      if (!created) {
-        // Fallback: notify renderer to create a separate terminal card
-        win.webContents.send('agent:spawning', {
-          agentName,
-          toolUseId: String(msg.params.tool_use_id ?? ''),
-          subagentsDir,
-          cwd: String(msg.params.cwd ?? '')
-        })
-      }
-    }
-  } else if (msg.method === 'agent.sessionStart') {
-    const sessionId = String(msg.params.session_id ?? '')
-    const cwd = String(msg.params.cwd ?? '')
-    const ptySessionId = String(msg.params.pty_session_id ?? '') || null
-
-    if (!sessionId) return
-    if (sessions.has(sessionId)) return
-
-    const session: AgentSession = {
-      sessionId,
-      cwd,
-      ptySessionId,
-      startedAt: Date.now()
-    }
-    sessions.set(sessionId, session)
-
-    win.webContents.send('agent:session-started', {
-      sessionId,
-      ptySessionId,
-      cwd
-    })
-  } else if (msg.method === 'agent.fileTouched') {
-    const sessionId = String(msg.params.session_id ?? '')
-    const session = sessions.get(sessionId)
-    if (!session) return
-
-    const filePath = msg.params.file_path ? String(msg.params.file_path) : null
-    if (!filePath) return
-
-    const toolName = String(msg.params.tool_name ?? '')
-    const touchType = toolName === 'Read' ? 'read' : 'write'
-
-    win.webContents.send('agent:file-touched', {
-      sessionId,
-      ptySessionId: session.ptySessionId,
-      filePath,
-      touchType
-    })
-  } else if (msg.method === 'agent.sessionEnd') {
-    const sessionId = String(msg.params.session_id ?? '')
-    const session = sessions.get(sessionId)
-    if (!session) return
-
-    sessions.delete(sessionId)
-
-    win.webContents.send('agent:session-ended', {
-      sessionId,
-      ptySessionId: session.ptySessionId
-    })
-  }
 }

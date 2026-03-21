@@ -66,6 +66,12 @@ function createWindow(): void {
     rpcCleanup = cleanup
   })
 
+  // Pane creation acknowledgment pass-through (renderer → RPC server)
+  ipcMain.on('pane:created', (_event, sessionId: string) => {
+    // Emit a targeted event that rpcServer's pane.split handler listens for
+    ipcMain.emit(`pane:created:${sessionId}`)
+  })
+
   // Hooks IPC handlers
   ipcMain.handle('hooks:inject', async (_event, folderPath: string) => {
     await injectHooks(folderPath)

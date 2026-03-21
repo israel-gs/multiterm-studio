@@ -7,6 +7,13 @@ export interface AgentSpawnRequest {
   cwd: string
 }
 
+export interface PaneCreateRequest {
+  sessionId: string
+  cwd: string
+  title?: string
+  parentSessionId?: string
+}
+
 export interface ProjectStore {
   folderPath: string | null
   setFolderPath: (path: string) => void
@@ -16,6 +23,9 @@ export interface ProjectStore {
   pendingAgentSpawn: AgentSpawnRequest | null
   spawnAgentTerminal: (req: AgentSpawnRequest) => void
   clearPendingAgentSpawn: () => void
+  pendingPaneCreate: PaneCreateRequest | null
+  spawnInteractivePane: (req: PaneCreateRequest) => void
+  clearPendingPaneCreate: () => void
 }
 
 export const useProjectStore = create<ProjectStore>((set) => ({
@@ -26,5 +36,8 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   clearPendingFileOpen: () => set({ pendingFileOpen: null }),
   pendingAgentSpawn: null,
   spawnAgentTerminal: (req) => set({ pendingAgentSpawn: req }),
-  clearPendingAgentSpawn: () => set({ pendingAgentSpawn: null })
+  clearPendingAgentSpawn: () => set({ pendingAgentSpawn: null }),
+  pendingPaneCreate: null,
+  spawnInteractivePane: (req) => set({ pendingPaneCreate: req }),
+  clearPendingPaneCreate: () => set({ pendingPaneCreate: null })
 }))

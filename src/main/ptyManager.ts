@@ -1,8 +1,8 @@
 import * as pty from 'node-pty'
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, app } from 'electron'
 import { homedir } from 'os'
 import { existsSync } from 'fs'
-import { resolve } from 'path'
+import { resolve, join } from 'path'
 import { execFileSync } from 'child_process'
 import { handleAttentionEvent } from './attentionService'
 
@@ -24,19 +24,35 @@ export const ATTENTION_COOLDOWN_MS = 5_000
 export const ATTENTION_PATTERN =
   /\([yYnN]\/[yYnN]\)|\[[yYnN]\/[yYnN]\]|Do you want|password:|press enter to continue|confirm\?/i
 
-// Check if tmux is available at startup
-let tmuxAvailable = false
-try {
-  execFileSync('tmux', ['-V'], { encoding: 'utf-8', stdio: 'pipe' })
-  tmuxAvailable = true
-} catch {
-  // tmux not installed — fall back to raw shells
+// --- Bundle-aware tmux helpers ---
+
+function getTmuxBin(): string {
+  if (app?.isPackaged) return join(process.resourcesPath, 'tmux')
+  return 'tmux'
+}
+
+function getTmuxConf(): string {
+  if (app?.isPackaged) return join(process.resourcesPath, 'tmux.conf')
+  return join(app?.getAppPath() ?? process.cwd(), 'resources', 'tmux.conf')
+}
+
+function getTerminfoDir(): string | undefined {
+  if (app?.isPackaged) return join(process.resourcesPath, 'terminfo')
+  return undefined
+}
+
+function tmuxEnv(): NodeJS.ProcessEnv {
+  const dir = getTerminfoDir()
+  if (!dir) return process.env
+  return { ...process.env, TERMINFO: dir }
 }
 
 function tmuxExec(...args: string[]): string {
-  return execFileSync('tmux', ['-L', TMUX_SOCKET, ...args], {
+  return execFileSync(getTmuxBin(), ['-L', TMUX_SOCKET, '-u', '-f', getTmuxConf(), ...args], {
     encoding: 'utf-8',
-    stdio: 'pipe'
+    stdio: 'pipe',
+    timeout: 5_000,
+    env: tmuxEnv()
   }).trim()
 }
 
@@ -44,19 +60,17 @@ function tmuxSessionName(id: string): string {
   return `mts-${id.replace(/-/g, '').slice(0, 16)}`
 }
 
-/** Split a tmux pane in the terminal identified by ptySessionId */
-export function splitAgentPane(
-  ptySessionId: string,
-  viewerCmd: string
-): boolean {
-  if (!tmuxAvailable) return false
-  const name = tmuxSessionName(ptySessionId)
-  try {
-    tmuxExec('split-window', '-t', name, '-h', '-l', '50%', viewerCmd)
-    return true
-  } catch {
-    return false
-  }
+// --- PTY exports for RPC server ---
+
+export function writeToPty(id: string, data: string): boolean {
+  const session = sessions.get(id)
+  if (!session) return false
+  session.process.write(data)
+  return true
+}
+
+export function listPtySessions(): string[] {
+  return Array.from(sessions.keys())
 }
 
 export function registerPtyHandlers(win: BrowserWindow): void {
@@ -70,48 +84,42 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     const safeCwd = existsSync(resolvedCwd) ? resolvedCwd : homedir()
     const tmuxName = tmuxSessionName(id)
 
-    let ptyProcess: pty.IPty
-
-    if (tmuxAvailable) {
-      // Create detached tmux session
-      tmuxExec(
-        'new-session', '-d', '-s', tmuxName,
-        '-c', safeCwd,
-        '-x', '80', '-y', '24'
-      )
-      // Set env vars on the tmux session (inherited by all panes)
-      tmuxExec('set-environment', '-t', tmuxName, 'MULTITERM_PTY_SESSION_ID', id)
-      tmuxExec('set-environment', '-t', tmuxName, 'SHELL', shell)
-      tmuxExec('set-environment', '-t', tmuxName, 'TERM_PROGRAM', 'multiterm-studio')
-
-      // Attach to tmux session via node-pty
-      ptyProcess = pty.spawn('tmux', ['-L', TMUX_SOCKET, '-u', 'attach-session', '-t', tmuxName], {
-        name: 'xterm-256color',
-        cols: 80,
-        rows: 24,
-        cwd: safeCwd,
-        env: {
-          ...process.env,
-          TERM: 'xterm-256color'
-        }
-      })
-    } else {
-      // Fallback: raw shell (no tmux)
-      ptyProcess = pty.spawn(shell, [], {
-        name: 'xterm-256color',
-        cols: 80,
-        rows: 24,
-        cwd: safeCwd,
-        env: {
-          ...process.env,
-          PROMPT_EOL_MARK: '',
-          COLORTERM: 'truecolor',
-          LANG: process.env.LANG || 'en_US.UTF-8',
-          TERM_PROGRAM: 'multiterm-studio',
-          MULTITERM_PTY_SESSION_ID: id
-        }
-      })
+    // Kill stale session if it exists (avoids corrupt scrollback on reconnect)
+    try {
+      tmuxExec('kill-session', '-t', tmuxName)
+    } catch {
+      // didn't exist — fine
     }
+
+    tmuxExec(
+      'new-session', '-d', '-s', tmuxName,
+      '-c', safeCwd,
+      '-x', '80', '-y', '24'
+    )
+    tmuxExec('set-environment', '-t', tmuxName, 'MULTITERM_PTY_SESSION_ID', id)
+    tmuxExec('set-environment', '-t', tmuxName, 'SHELL', shell)
+    tmuxExec('set-environment', '-t', tmuxName, 'TERM_PROGRAM', 'multiterm-studio')
+
+    // Build attach env — include TERMINFO for bundled terminfo
+    const attachEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      TERM: 'xterm-256color'
+    }
+    const terminfoDir = getTerminfoDir()
+    if (terminfoDir) attachEnv.TERMINFO = terminfoDir
+
+    // Attach to tmux session via node-pty
+    const ptyProcess = pty.spawn(
+      getTmuxBin(),
+      ['-L', TMUX_SOCKET, '-u', '-f', getTmuxConf(), 'attach-session', '-t', tmuxName],
+      {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+        cwd: safeCwd,
+        env: attachEnv
+      }
+    )
 
     ptyProcess.onData((data: string) => {
       webContents.send(`pty:data:${id}`, data)
@@ -140,12 +148,10 @@ export function registerPtyHandlers(win: BrowserWindow): void {
   ipcMain.handle('pty:resize', (_event, id: string, cols: number, rows: number) => {
     const session = sessions.get(id)
     if (!session) return
-    if (tmuxAvailable) {
-      try {
-        tmuxExec('resize-window', '-t', session.tmuxName, '-x', String(cols), '-y', String(rows))
-      } catch {
-        // ignore
-      }
+    try {
+      tmuxExec('resize-window', '-t', session.tmuxName, '-x', String(cols), '-y', String(rows))
+    } catch {
+      // ignore
     }
     session.process.resize(cols, rows)
   })
@@ -153,12 +159,10 @@ export function registerPtyHandlers(win: BrowserWindow): void {
   ipcMain.handle('pty:kill', (_event, id: string) => {
     const session = sessions.get(id)
     if (!session) return
-    if (tmuxAvailable) {
-      try {
-        tmuxExec('kill-session', '-t', session.tmuxName)
-      } catch {
-        // ignore
-      }
+    try {
+      tmuxExec('kill-session', '-t', session.tmuxName)
+    } catch {
+      // ignore
     }
     session.process.kill()
     sessions.delete(id)

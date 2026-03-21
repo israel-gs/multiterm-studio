@@ -158,6 +158,37 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('agent:session-ended', listener)
   },
 
+  // Pane management push channels (RPC server → renderer)
+  onPaneCreate: (
+    callback: (data: {
+      sessionId: string
+      cwd: string
+      title?: string
+      parentSessionId?: string
+    }) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: { sessionId: string; cwd: string; title?: string; parentSessionId?: string }
+    ): void => callback(data)
+    ipcRenderer.on('pane:create', listener)
+    return () => ipcRenderer.removeListener('pane:create', listener)
+  },
+
+  onPaneFocus: (callback: (data: { sessionId: string }) => void): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: { sessionId: string }
+    ): void => callback(data)
+    ipcRenderer.on('pane:focus', listener)
+    return () => ipcRenderer.removeListener('pane:focus', listener)
+  },
+
+  // Renderer → Main: acknowledge pane creation
+  paneCreated: (sessionId: string): void => {
+    ipcRenderer.send('pane:created', sessionId)
+  },
+
   // Hook injection for Claude Code integration
   hooksInject: (folderPath: string): Promise<void> =>
     ipcRenderer.invoke('hooks:inject', folderPath),
