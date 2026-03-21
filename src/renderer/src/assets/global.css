@@ -170,7 +170,7 @@ body {
 /* ===== Edge Indicators ===== */
 
 .terminal-canvas-edge-indicators {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 10000;

@@ -48,7 +48,7 @@ function tmuxEnv(): NodeJS.ProcessEnv {
 }
 
 function tmuxExec(...args: string[]): string {
-  return execFileSync(getTmuxBin(), ['-L', TMUX_SOCKET, ...args], {
+  return execFileSync(getTmuxBin(), ['-L', TMUX_SOCKET, '-f', getTmuxConf(), ...args], {
     encoding: 'utf-8',
     stdio: 'pipe',
     timeout: 5_000,
@@ -212,6 +212,7 @@ export function registerPtyHandlers(win: BrowserWindow): void {
         '-x', '80', '-y', '24'
       )
       tmuxExec('set-option', '-t', tmuxName, 'status', 'off')
+      tmuxExec('set-option', '-g', 'mouse', 'on')
       tmuxExec('set-environment', '-t', tmuxName, 'MULTITERM_PTY_SESSION_ID', id)
       tmuxExec('set-environment', '-t', tmuxName, 'SHELL', shell)
       tmuxExec('set-environment', '-t', tmuxName, 'TERM_PROGRAM', 'multiterm-studio')
@@ -219,7 +220,7 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     }
 
     // Attach to tmux session via node-pty
-    const ptyProcess = pty.spawn('tmux', ['-L', TMUX_SOCKET, '-u', 'attach-session', '-t', tmuxName], {
+    const ptyProcess = pty.spawn('tmux', ['-L', TMUX_SOCKET, '-f', getTmuxConf(), '-u', 'attach-session', '-t', tmuxName], {
       name: 'xterm-256color',
       cols: 80,
       rows: 24,
