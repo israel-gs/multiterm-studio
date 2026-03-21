@@ -26,6 +26,8 @@ export interface ProjectStore {
   pendingPaneCreate: PaneCreateRequest | null
   spawnInteractivePane: (req: PaneCreateRequest) => void
   clearPendingPaneCreate: () => void
+  fsRefreshKey: number
+  bumpFsRefresh: () => void
 }
 
 export const useProjectStore = create<ProjectStore>((set) => ({
@@ -39,5 +41,7 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   clearPendingAgentSpawn: () => set({ pendingAgentSpawn: null }),
   pendingPaneCreate: null,
   spawnInteractivePane: (req) => set({ pendingPaneCreate: req }),
-  clearPendingPaneCreate: () => set({ pendingPaneCreate: null })
+  clearPendingPaneCreate: () => set({ pendingPaneCreate: null }),
+  fsRefreshKey: 0,
+  bumpFsRefresh: () => set((s) => ({ fsRefreshKey: s.fsRefreshKey + 1 }))
 }))

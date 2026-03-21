@@ -1,7 +1,7 @@
-import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Menu, protocol, net } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { registerPtyHandlers } from './ptyManager'
+import { registerPtyHandlers, cleanupOrphanSessions } from './ptyManager'
 import { registerFolderHandlers } from './folderManager'
 import { registerFileHandlers } from './fileManager'
 import { registerGitHandlers } from './gitManager'
@@ -10,6 +10,7 @@ import { saveLayout, saveLayoutSync, loadLayout, ensureGitignore } from './layou
 import type { LayoutSnapshot } from './layoutManager'
 import { startRpcServer } from './rpcServer'
 import { injectHooks, removeHooks } from './hookInjector'
+import { startFileWatcher, stopFileWatcher } from './fileWatcher'
 
 // Set app name early — used by macOS menu bar
 app.setName('Multiterm Studio')
@@ -72,12 +73,39 @@ function createWindow(): void {
     ipcMain.emit(`pane:created:${sessionId}`)
   })
 
+  // Native context menu
+  ipcMain.handle(
+    'context-menu:show',
+    async (_event, items: Array<{ id: string; label?: string; enabled?: boolean }>) => {
+      return new Promise<string | null>((resolve) => {
+        const menu = Menu.buildFromTemplate(
+          items.map((item) => {
+            if (item.id === 'separator') return { type: 'separator' as const }
+            return {
+              label: item.label ?? item.id,
+              enabled: item.enabled ?? true,
+              click: (): void => resolve(item.id)
+            }
+          })
+        )
+        menu.popup({ window: win, callback: () => resolve(null) })
+      })
+    }
+  )
+
+  // Canvas pinch forwarding for smoother trackpad zoom
+  ipcMain.on('canvas:forward-pinch', (_event, deltaY: number) => {
+    win.webContents.send('canvas:pinch', deltaY)
+  })
+
   // Hooks IPC handlers
   ipcMain.handle('hooks:inject', async (_event, folderPath: string) => {
     await injectHooks(folderPath)
+    startFileWatcher(folderPath, win)
   })
   ipcMain.handle('hooks:remove', async (_event, folderPath: string) => {
     await removeHooks(folderPath)
+    stopFileWatcher()
   })
 
   // HMR for renderer base on electron-vite cli.
@@ -97,7 +125,13 @@ ipcMain.handle('layout:save', async (_event, folderPath: string, layout: LayoutS
 })
 
 ipcMain.handle('layout:load', async (_event, folderPath: string) => {
-  return loadLayout(folderPath)
+  const layout = await loadLayout(folderPath)
+  // Clean up orphaned tmux sessions that don't match the loaded layout
+  if (layout && typeof layout === 'object' && 'panelIds' in layout) {
+    const panelIds = (layout as { panelIds?: string[] }).panelIds ?? []
+    cleanupOrphanSessions(panelIds)
+  }
+  return layout
 })
 
 // Synchronous save on quit to capture any last-second changes
@@ -105,6 +139,7 @@ app.on('before-quit', () => {
   if (lastSaveData !== null) {
     saveLayoutSync(lastSaveData.folderPath, lastSaveData.layout)
   }
+  stopFileWatcher()
   if (rpcCleanup) {
     rpcCleanup()
     rpcCleanup = null

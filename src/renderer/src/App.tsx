@@ -74,11 +74,14 @@ function App(): React.JSX.Element {
     const unsubFileTouched = window.electronAPI.onAgentFileTouched(() => {
       // Future: show file activity indicators
     })
+    const unsubFsChanged = window.electronAPI.onFsChanged(() => {
+      useProjectStore.getState().bumpFsRefresh()
+    })
     const unsubPaneCreate = window.electronAPI.onPaneCreate((data) => {
       useProjectStore.getState().spawnInteractivePane(data)
     })
-    const unsubPaneFocus = window.electronAPI.onPaneFocus((_data) => {
-      // Handled by TerminalCanvas via store subscription
+    const unsubPaneFocus = window.electronAPI.onPaneFocus((data) => {
+      usePanelStore.getState().requestFocus(data.sessionId)
     })
     return () => {
       unsubAttention()
@@ -87,6 +90,7 @@ function App(): React.JSX.Element {
       unsubSessionStarted()
       unsubSessionEnded()
       unsubFileTouched()
+      unsubFsChanged()
       unsubPaneCreate()
       unsubPaneFocus()
     }

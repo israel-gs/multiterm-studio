@@ -277,13 +277,14 @@ export function FileTree({
   sortOrder = 'asc'
 }: FileTreeProps): React.JSX.Element {
   const [entries, setEntries] = useState<TreeEntry[] | null>(null)
+  const fsRefreshKey = useProjectStore((s) => s.fsRefreshKey)
 
   useEffect(() => {
     setEntries(null)
     window.electronAPI.folderReaddir(rootPath).then((result) => {
       setEntries(result)
     })
-  }, [rootPath])
+  }, [rootPath, fsRefreshKey])
 
   const displayEntries = useMemo(() => {
     if (!entries) return null

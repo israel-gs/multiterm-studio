@@ -1,7 +1,7 @@
 import * as pty from 'node-pty'
 import { ipcMain, BrowserWindow, app } from 'electron'
 import { homedir } from 'os'
-import { existsSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, readdirSync } from 'fs'
 import { resolve, join } from 'path'
 import { execFileSync } from 'child_process'
 import { handleAttentionEvent } from './attentionService'
@@ -48,7 +48,7 @@ function tmuxEnv(): NodeJS.ProcessEnv {
 }
 
 function tmuxExec(...args: string[]): string {
-  return execFileSync(getTmuxBin(), ['-L', TMUX_SOCKET, '-u', '-f', getTmuxConf(), ...args], {
+  return execFileSync(getTmuxBin(), ['-L', TMUX_SOCKET, ...args], {
     encoding: 'utf-8',
     stdio: 'pipe',
     timeout: 5_000,
@@ -60,6 +60,80 @@ function tmuxSessionName(id: string): string {
   return `mts-${id.replace(/-/g, '').slice(0, 16)}`
 }
 
+// --- Session metadata persistence ---
+
+const SESSION_DIR = join(homedir(), '.multiterm-studio', 'sessions')
+
+interface SessionMeta {
+  shell: string
+  cwd: string
+  createdAt: string
+}
+
+function ensureSessionDir(): void {
+  mkdirSync(SESSION_DIR, { recursive: true })
+}
+
+function writeSessionMeta(id: string, meta: SessionMeta): void {
+  ensureSessionDir()
+  writeFileSync(join(SESSION_DIR, `${id}.json`), JSON.stringify(meta))
+}
+
+function readSessionMeta(id: string): SessionMeta | null {
+  try {
+    return JSON.parse(readFileSync(join(SESSION_DIR, `${id}.json`), 'utf-8'))
+  } catch {
+    return null
+  }
+}
+
+function deleteSessionMeta(id: string): void {
+  try {
+    unlinkSync(join(SESSION_DIR, `${id}.json`))
+  } catch {
+    // ignore
+  }
+}
+
+// --- Orphan tmux session cleanup ---
+
+export function cleanupOrphanSessions(knownPanelIds: string[]): void {
+  let tmuxNames: string[]
+  try {
+    const raw = tmuxExec('list-sessions', '-F', '#{session_name}')
+    tmuxNames = raw.split('\n').filter(Boolean)
+  } catch {
+    tmuxNames = []
+  }
+
+  const knownNames = new Set(knownPanelIds.map(tmuxSessionName))
+
+  // Read metadata files to also consider known sessions
+  try {
+    const metaFiles = readdirSync(SESSION_DIR).filter((f) => f.endsWith('.json'))
+    for (const file of metaFiles) {
+      const id = file.replace('.json', '')
+      const name = tmuxSessionName(id)
+      if (!knownNames.has(name)) {
+        // Metadata exists but not in layout — delete metadata
+        deleteSessionMeta(id)
+      }
+    }
+  } catch {
+    // SESSION_DIR doesn't exist yet — fine
+  }
+
+  for (const name of tmuxNames) {
+    if (name.startsWith('mts-') && !knownNames.has(name)) {
+      try {
+        tmuxExec('kill-session', '-t', name)
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
 // --- PTY exports for RPC server ---
 
 export function writeToPty(id: string, data: string): boolean {
@@ -67,6 +141,17 @@ export function writeToPty(id: string, data: string): boolean {
   if (!session) return false
   session.process.write(data)
   return true
+}
+
+export function sendRawKeys(id: string, data: string): boolean {
+  const session = sessions.get(id)
+  if (!session) return false
+  try {
+    tmuxExec('send-keys', '-l', '-t', session.tmuxName, data)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function listPtySessions(): string[] {
@@ -84,42 +169,48 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     const safeCwd = existsSync(resolvedCwd) ? resolvedCwd : homedir()
     const tmuxName = tmuxSessionName(id)
 
-    // Kill stale session if it exists (avoids corrupt scrollback on reconnect)
+    // Kill previous PTY attach process if it exists (React StrictMode calls
+    // ptyCreate twice in dev — the first node-pty process must be killed or
+    // both will send data to the same channel, causing duplicate output).
+    const prevSession = sessions.get(id)
+    if (prevSession) {
+      prevSession.process.kill()
+      sessions.delete(id)
+    }
+
+    // Create tmux session if it doesn't already exist.
+    let sessionExists = false
     try {
-      tmuxExec('kill-session', '-t', tmuxName)
+      tmuxExec('has-session', '-t', tmuxName)
+      sessionExists = true
     } catch {
-      // didn't exist — fine
+      // doesn't exist
     }
 
-    tmuxExec(
-      'new-session', '-d', '-s', tmuxName,
-      '-c', safeCwd,
-      '-x', '80', '-y', '24'
-    )
-    tmuxExec('set-environment', '-t', tmuxName, 'MULTITERM_PTY_SESSION_ID', id)
-    tmuxExec('set-environment', '-t', tmuxName, 'SHELL', shell)
-    tmuxExec('set-environment', '-t', tmuxName, 'TERM_PROGRAM', 'multiterm-studio')
-
-    // Build attach env — include TERMINFO for bundled terminfo
-    const attachEnv: NodeJS.ProcessEnv = {
-      ...process.env,
-      TERM: 'xterm-256color'
+    if (!sessionExists) {
+      tmuxExec(
+        'new-session', '-d', '-s', tmuxName,
+        '-c', safeCwd,
+        '-x', '80', '-y', '24'
+      )
+      tmuxExec('set-option', '-t', tmuxName, 'status', 'off')
+      tmuxExec('set-environment', '-t', tmuxName, 'MULTITERM_PTY_SESSION_ID', id)
+      tmuxExec('set-environment', '-t', tmuxName, 'SHELL', shell)
+      tmuxExec('set-environment', '-t', tmuxName, 'TERM_PROGRAM', 'multiterm-studio')
+      writeSessionMeta(id, { shell, cwd: safeCwd, createdAt: new Date().toISOString() })
     }
-    const terminfoDir = getTerminfoDir()
-    if (terminfoDir) attachEnv.TERMINFO = terminfoDir
 
-    // Attach to tmux session via node-pty
-    const ptyProcess = pty.spawn(
-      getTmuxBin(),
-      ['-L', TMUX_SOCKET, '-u', '-f', getTmuxConf(), 'attach-session', '-t', tmuxName],
-      {
-        name: 'xterm-256color',
-        cols: 80,
-        rows: 24,
-        cwd: safeCwd,
-        env: attachEnv
+    // Attach to tmux session via node-pty (identical to original)
+    const ptyProcess = pty.spawn('tmux', ['-L', TMUX_SOCKET, '-u', 'attach-session', '-t', tmuxName], {
+      name: 'xterm-256color',
+      cols: 80,
+      rows: 24,
+      cwd: safeCwd,
+      env: {
+        ...process.env,
+        TERM: 'xterm-256color'
       }
-    )
+    })
 
     ptyProcess.onData((data: string) => {
       webContents.send(`pty:data:${id}`, data)
@@ -167,5 +258,6 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     session.process.kill()
     sessions.delete(id)
     attentionCooldown.delete(id)
+    deleteSessionMeta(id)
   })
 }

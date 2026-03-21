@@ -78,7 +78,14 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
       window.electronAPI.ptyWrite(sessionId, data)
     })
 
-    // Main → Renderer: PTY output — capture unsubscribe to avoid listener leak
+    // Scrollback recovery: write recovered scrollback before live data
+    let hasScrollback = false
+    const unsubScrollback = window.electronAPI.onPtyScrollback(sessionId, (data) => {
+      hasScrollback = true
+      term.write(data)
+    })
+
+    // Main → Renderer: PTY output
     const unsubscribe = window.electronAPI.onPtyData(sessionId, (data) => {
       term.write(data)
     })
@@ -92,6 +99,7 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
     observer.observe(containerRef.current)
 
     return () => {
+      unsubScrollback()
       unsubscribe()
       observer.disconnect()
       // NOTE: ptyKill is intentionally NOT called here.

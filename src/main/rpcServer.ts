@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, writeFileSync, unlinkSync, readFileSync } from '
 import { join } from 'path'
 import { homedir } from 'os'
 import { randomUUID } from 'crypto'
-import { writeToPty, listPtySessions } from './ptyManager'
+import { writeToPty, sendRawKeys, listPtySessions } from './ptyManager'
 
 const DISCOVERY_DIR = join(homedir(), '.multiterm-studio')
 const DISCOVERY_FILE = join(DISCOVERY_DIR, 'socket-path')
@@ -305,6 +305,24 @@ export async function startRpcServer(
     const value = sessionVars.get(id)?.get(variable) ?? null
     return { value }
   }, { description: 'Get a session variable' })
+
+  registerMethod('pane.sendKeys', (params) => {
+    const id = String(params.session_id ?? '')
+    const data = String(params.data ?? '')
+    return { ok: sendRawKeys(id, data) }
+  }, { description: 'Send raw keys to a PTY session via tmux' })
+
+  // --- App methods ---
+
+  registerMethod('app.notify', (params) => {
+    const { Notification } = require('electron')
+    const note = new Notification({
+      title: String(params.title ?? 'Multiterm Studio'),
+      body: String(params.body ?? '')
+    })
+    note.show()
+    return { ok: true }
+  }, { description: 'Show a native macOS notification' })
 
   registerMethod('ping', () => ({ pong: true }), {
     description: 'Health check'

@@ -36,6 +36,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener(channel, listener)
   },
 
+  // Scrollback recovery: fires once with recovered scrollback text on session reconnect
+  onPtyScrollback: (id: string, callback: (data: string) => void): (() => void) => {
+    const channel = `pty:scrollback:${id}`
+    const listener = (_event: Electron.IpcRendererEvent, data: string): void => callback(data)
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.removeListener(channel, listener)
+  },
+
   // Attention push channel: fires when PTY output matches an interactive prompt pattern
   onAttention: (callback: (data: { id: string; snippet: string }) => void): (() => void) => {
     const listener = (
@@ -187,6 +195,34 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Renderer → Main: acknowledge pane creation
   paneCreated: (sessionId: string): void => {
     ipcRenderer.send('pane:created', sessionId)
+  },
+
+  // File watcher push channel: fires when files change in the project directory
+  onFsChanged: (
+    callback: (changes: Array<{ path: string; relativePath: string; type: string }>) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      changes: Array<{ path: string; relativePath: string; type: string }>
+    ): void => callback(changes)
+    ipcRenderer.on('fs:changed', listener)
+    return () => ipcRenderer.removeListener('fs:changed', listener)
+  },
+
+  // Native context menu
+  contextMenuShow: (
+    items: Array<{ id: string; label?: string; enabled?: boolean }>
+  ): Promise<string | null> => ipcRenderer.invoke('context-menu:show', items),
+
+  // Canvas pinch forwarding
+  canvasForwardPinch: (deltaY: number): void => {
+    ipcRenderer.send('canvas:forward-pinch', deltaY)
+  },
+
+  onCanvasPinch: (callback: (deltaY: number) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, deltaY: number): void => callback(deltaY)
+    ipcRenderer.on('canvas:pinch', listener)
+    return () => ipcRenderer.removeListener('canvas:pinch', listener)
   },
 
   // Hook injection for Claude Code integration

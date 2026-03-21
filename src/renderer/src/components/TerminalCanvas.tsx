@@ -1084,6 +1084,18 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Subscribe to pendingFocus from panelStore (agent focus, RPC pane.focus)
+  useEffect(() => {
+    const unsubscribe = usePanelStore.subscribe((state, prev) => {
+      if (state.pendingFocus && state.pendingFocus !== prev.pendingFocus) {
+        handleBringToFront(state.pendingFocus)
+        usePanelStore.getState().clearPendingFocus()
+      }
+    })
+    return unsubscribe
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // --- Open file in editor tile ---
   function handleOpenFile(filePath: string): void {
     // Check if file is already open -> bring to front

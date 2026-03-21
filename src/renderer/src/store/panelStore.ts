@@ -25,6 +25,9 @@ export interface PanelStore {
   clearDirty: (id: string) => void
   togglePreview: (id: string) => void
   setAgentActive: (id: string, active: boolean) => void
+  pendingFocus: string | null
+  requestFocus: (id: string) => void
+  clearPendingFocus: () => void
 }
 
 export const usePanelStore = create<PanelStore>((set) => ({
@@ -99,5 +102,9 @@ export const usePanelStore = create<PanelStore>((set) => ({
     set((s) => {
       if (!s.panels[id]) return s
       return { panels: { ...s.panels, [id]: { ...s.panels[id], agentActive: active } } }
-    })
+    }),
+
+  pendingFocus: null,
+  requestFocus: (id) => set({ pendingFocus: id }),
+  clearPendingFocus: () => set({ pendingFocus: null })
 }))
