@@ -88,6 +88,7 @@ export function FloatingCard({
       if (e.button !== 0) return
       e.preventDefault()
       e.stopPropagation()
+      onBringToFront(sessionId)
 
       const startX = e.clientX
       const startY = e.clientY
@@ -180,7 +181,7 @@ export function FloatingCard({
       document.addEventListener('mousemove', onMouseMove)
       document.addEventListener('mouseup', onMouseUp)
     },
-    [sessionId, rect.x, rect.y, zoomRef, onMove, onFocusCard, onGroupDragContext, onGroupMove]
+    [sessionId, rect.x, rect.y, zoomRef, onMove, onFocusCard, onBringToFront, onGroupDragContext, onGroupMove]
   )
 
   // --- DRAG: accounts for canvas zoom, snaps to grid, supports group drag ---
