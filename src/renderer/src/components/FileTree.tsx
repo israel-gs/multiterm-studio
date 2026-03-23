@@ -133,11 +133,22 @@ function formatDate(ms: number): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function sortEntries(entries: TreeEntry[], order: 'asc' | 'desc'): TreeEntry[] {
+export type SortMode = 'alpha-asc' | 'alpha-desc' | 'modified-desc' | 'modified-asc'
+
+function sortEntries(entries: TreeEntry[], order: SortMode): TreeEntry[] {
   return [...entries].sort((a, b) => {
+    // Folders always come first
     if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
+
+    if (order === 'modified-desc' || order === 'modified-asc') {
+      const aTime = a.modifiedAt ?? 0
+      const bTime = b.modifiedAt ?? 0
+      const cmp = aTime - bTime
+      return order === 'modified-desc' ? -cmp : cmp
+    }
+
     const cmp = a.name.localeCompare(b.name)
-    return order === 'asc' ? cmp : -cmp
+    return order === 'alpha-asc' ? cmp : -cmp
   })
 }
 
@@ -157,7 +168,7 @@ interface FileTreeNodeProps {
   itemCount?: number
   modifiedAt?: number
   searchQuery: string
-  sortOrder: 'asc' | 'desc'
+  sortOrder: SortMode
 }
 
 const FileTreeNode = React.memo(function FileTreeNode({
@@ -173,7 +184,10 @@ const FileTreeNode = React.memo(function FileTreeNode({
   const [expanded, setExpanded] = useState(false)
   const [children, setChildren] = useState<TreeEntry[] | null>(null)
   const [loading, setLoading] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState(name)
   const openFileInEditor = useProjectStore((s) => s.openFileInEditor)
+  const bumpFsRefresh = useProjectStore((s) => s.bumpFsRefresh)
 
   const handleToggle = useCallback(async (): Promise<void> => {
     if (!isDir) {
@@ -191,6 +205,114 @@ const FileTreeNode = React.memo(function FileTreeNode({
     setExpanded((prev) => !prev)
   }, [isDir, expanded, children, path, openFileInEditor])
 
+  // Context menu handler
+  const handleContextMenu = useCallback(async (e: React.MouseEvent): Promise<void> => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const menuItems = isDir
+      ? [
+          { id: 'new-file', label: 'New File' },
+          { id: 'new-folder', label: 'New Folder' },
+          { id: 'separator', label: '' },
+          { id: 'rename', label: 'Rename' },
+          { id: 'delete', label: 'Delete' },
+          { id: 'separator', label: '' },
+          { id: 'copy-path', label: 'Copy Path' }
+        ]
+      : [
+          { id: 'rename', label: 'Rename' },
+          { id: 'delete', label: 'Delete' },
+          { id: 'separator', label: '' },
+          { id: 'copy-path', label: 'Copy Path' }
+        ]
+
+    const action = await window.electronAPI.contextMenuShow(menuItems)
+    if (!action) return
+
+    switch (action) {
+      case 'rename':
+        setRenameValue(name)
+        setRenaming(true)
+        break
+      case 'delete':
+        try {
+          await window.electronAPI.fileTrash(path)
+          bumpFsRefresh()
+        } catch (err) {
+          console.error('Trash failed:', err)
+        }
+        break
+      case 'copy-path':
+        await navigator.clipboard.writeText(path)
+        break
+      case 'new-file':
+        try {
+          await window.electronAPI.fileCreate(`${path}/Untitled.md`)
+          if (!expanded) {
+            setLoading(true)
+            const entries = await window.electronAPI.folderReaddir(path)
+            setChildren(entries)
+            setLoading(false)
+            setExpanded(true)
+          }
+          bumpFsRefresh()
+        } catch (err) {
+          console.error('Create file failed:', err)
+        }
+        break
+      case 'new-folder':
+        try {
+          await window.electronAPI.folderCreate(`${path}/New Folder`)
+          if (!expanded) {
+            setLoading(true)
+            const entries = await window.electronAPI.folderReaddir(path)
+            setChildren(entries)
+            setLoading(false)
+            setExpanded(true)
+          }
+          bumpFsRefresh()
+        } catch (err) {
+          console.error('Create folder failed:', err)
+        }
+        break
+    }
+  }, [isDir, path, name, expanded, bumpFsRefresh])
+
+  // Drag start handler (files and folders)
+  const handleDragStart = useCallback((e: React.DragEvent): void => {
+    e.dataTransfer.setData('application/x-multiterm-file', JSON.stringify({ path, name, isDir }))
+    e.dataTransfer.effectAllowed = 'copyMove'
+  }, [path, name, isDir])
+
+  // Drag over handler (folders only — they accept drops)
+  const handleDragOver = useCallback((e: React.DragEvent): void => {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    e.currentTarget.classList.add('file-tree-node--drop-target')
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent): void => {
+    e.currentTarget.classList.remove('file-tree-node--drop-target')
+  }, [])
+
+  const handleDrop = useCallback(async (e: React.DragEvent): Promise<void> => {
+    e.preventDefault()
+    e.stopPropagation()
+    e.currentTarget.classList.remove('file-tree-node--drop-target')
+    const raw = e.dataTransfer.getData('application/x-multiterm-file')
+    if (!raw) return
+    const data = JSON.parse(raw) as { path: string; name: string; isDir: boolean }
+    if (data.path === path) return // don't drop on self
+    try {
+      await window.electronAPI.fileMove(data.path, path)
+      bumpFsRefresh()
+    } catch (err) {
+      console.error('Move failed:', err)
+    }
+  }, [path, bumpFsRefresh])
+
   const displayChildren = useMemo(() => {
     if (!children) return null
     return sortEntries(filterEntries(children, searchQuery), sortOrder)
@@ -204,11 +326,20 @@ const FileTreeNode = React.memo(function FileTreeNode({
         role="treeitem"
         tabIndex={0}
         aria-expanded={isDir ? expanded : undefined}
+        draggable
+        onDragStart={handleDragStart}
+        {...(isDir ? { onDragOver: handleDragOver, onDragLeave: handleDragLeave, onDrop: (e: React.DragEvent) => void handleDrop(e) } : {})}
         onClick={() => void handleToggle()}
+        onContextMenu={(e) => void handleContextMenu(e)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             void handleToggle()
+          }
+          if (e.key === 'F2') {
+            e.preventDefault()
+            setRenameValue(name)
+            setRenaming(true)
           }
         }}
         className={`file-tree-node${isHidden ? ' file-tree-node--hidden' : ''}`}
@@ -224,10 +355,38 @@ const FileTreeNode = React.memo(function FileTreeNode({
         {/* Icon */}
         {isDir ? <FolderIcon open={expanded} /> : getFileIcon(name)}
 
-        {/* Name */}
-        <span className="file-tree-name" data-entry-name>
-          {name}
-        </span>
+        {/* Name or inline rename input */}
+        {renaming ? (
+          <input
+            className="file-tree-rename-input"
+            autoFocus
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={async (e) => {
+              e.stopPropagation()
+              if (e.key === 'Enter' && renameValue.trim()) {
+                try {
+                  await window.electronAPI.fileRename(path, renameValue.trim())
+                  setRenaming(false)
+                  bumpFsRefresh()
+                } catch (err) {
+                  console.error('Rename failed:', err)
+                }
+              }
+              if (e.key === 'Escape') {
+                setRenaming(false)
+                setRenameValue(name)
+              }
+            }}
+            onBlur={() => { setRenaming(false); setRenameValue(name) }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="file-tree-name" data-entry-name>
+            {name}
+          </span>
+        )}
 
         {/* Loading spinner */}
         {loading && <SpinnerIcon />}
@@ -268,13 +427,13 @@ const FileTreeNode = React.memo(function FileTreeNode({
 interface FileTreeProps {
   rootPath: string
   searchQuery?: string
-  sortOrder?: 'asc' | 'desc'
+  sortOrder?: SortMode
 }
 
 export function FileTree({
   rootPath,
   searchQuery = '',
-  sortOrder = 'asc'
+  sortOrder = 'alpha-asc'
 }: FileTreeProps): React.JSX.Element {
   const [entries, setEntries] = useState<TreeEntry[] | null>(null)
   const fsRefreshKey = useProjectStore((s) => s.fsRefreshKey)

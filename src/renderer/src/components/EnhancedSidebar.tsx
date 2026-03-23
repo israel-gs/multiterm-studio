@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FileTree } from './FileTree'
+import { FileTree, SortMode } from './FileTree'
 import { GitBranchSection } from './GitBranchSection'
 import { SettingsPanel } from './SettingsPanel'
 import { useProjectStore } from '../store/projectStore'
@@ -28,7 +28,7 @@ export function EnhancedSidebar({
 }: EnhancedSidebarProps): React.JSX.Element {
   const setFolderPath = useProjectStore((s) => s.setFolderPath)
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [sortOrder, setSortOrder] = useState<SortMode>('alpha-asc')
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([])
@@ -179,13 +179,27 @@ export function EnhancedSidebar({
 
       {/* Sort controls */}
       <div className="sidebar-sort-controls">
-        <span className="sidebar-sort-label">Name</span>
+        <span className="sidebar-sort-label">
+          {sortOrder.startsWith('alpha') ? 'Name' : 'Modified'}
+        </span>
         <button
           className="sidebar-sort-btn"
-          onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-          aria-label={`Sort ${sortOrder === 'asc' ? 'Z to A' : 'A to Z'}`}
+          onClick={() =>
+            setSortOrder((prev) => {
+              const cycle: SortMode[] = ['alpha-asc', 'alpha-desc', 'modified-desc', 'modified-asc']
+              const idx = cycle.indexOf(prev)
+              return cycle[(idx + 1) % cycle.length]
+            })
+          }
+          aria-label={`Sort mode: ${sortOrder}`}
         >
-          {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+          {sortOrder === 'alpha-asc'
+            ? 'A-Z'
+            : sortOrder === 'alpha-desc'
+              ? 'Z-A'
+              : sortOrder === 'modified-desc'
+                ? 'Newest'
+                : 'Oldest'}
         </button>
       </div>
 
