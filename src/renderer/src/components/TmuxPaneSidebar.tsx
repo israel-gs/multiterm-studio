@@ -80,11 +80,15 @@ export function TmuxPaneSidebar({ sessionId }: Props): React.JSX.Element | null 
             <button
               key={pane.index}
               className={`tmux-pane-tab${pane.active ? ' tmux-pane-tab--active' : ''}${agent ? ' tmux-pane-tab--agent' : ''}`}
-              onClick={(e) => {
+              onMouseDown={(e) => {
                 e.stopPropagation()
+                e.preventDefault() // prevent button from stealing focus from xterm
                 handleSelect(pane.index)
+                // Refocus the xterm terminal inside this card
+                const card = (e.target as HTMLElement).closest('.floating-card')
+                const xtermEl = card?.querySelector('.xterm-helper-textarea') as HTMLElement
+                if (xtermEl) xtermEl.focus()
               }}
-              onMouseDown={(e) => e.stopPropagation()}
               title={`${pane.command} (pane ${pane.index})`}
             >
               <span className="tmux-pane-tab-icon">
