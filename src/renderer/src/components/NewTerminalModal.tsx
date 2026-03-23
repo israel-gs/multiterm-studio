@@ -56,11 +56,23 @@ const PRESETS: Preset[] = [
   { id: 'shell', name: 'Shell', command: '', icon: ShellIcon }
 ]
 
+const SETTINGS_KEY = 'terminal.presetCommands'
+
 export function NewTerminalModal({ onCreateTerminal, onDismiss }: Props): React.JSX.Element {
   const [selectedPreset, setSelectedPreset] = useState('shell')
   const [name, setName] = useState('Shell')
   const [command, setCommand] = useState('')
+  const [savedCommands, setSavedCommands] = useState<Record<string, string>>({})
   const nameRef = useRef<HTMLInputElement>(null)
+
+  // Load saved commands per preset on mount
+  useEffect(() => {
+    window.electronAPI.settingsGet(SETTINGS_KEY).then((v) => {
+      if (v && typeof v === 'object') {
+        setSavedCommands(v as Record<string, string>)
+      }
+    })
+  }, [])
 
   useEffect(() => {
     nameRef.current?.focus()
@@ -82,11 +94,20 @@ export function NewTerminalModal({ onCreateTerminal, onDismiss }: Props): React.
   const selectPreset = (preset: Preset): void => {
     setSelectedPreset(preset.id)
     setName(preset.name)
-    setCommand(preset.command)
+    // Use saved command if available, otherwise use preset default
+    setCommand(savedCommands[preset.id] ?? preset.command)
   }
 
   const handleCreate = (): void => {
-    onCreateTerminal(name.trim() || 'Terminal', command.trim())
+    const trimmedCommand = command.trim()
+    // Save the command for this preset if it differs from default
+    const preset = PRESETS.find((p) => p.id === selectedPreset)
+    if (preset && trimmedCommand !== preset.command) {
+      const next = { ...savedCommands, [selectedPreset]: trimmedCommand }
+      setSavedCommands(next)
+      window.electronAPI.settingsSet(SETTINGS_KEY, next)
+    }
+    onCreateTerminal(name.trim() || 'Terminal', trimmedCommand)
     onDismiss()
   }
 
