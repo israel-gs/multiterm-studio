@@ -1,8 +1,9 @@
-import { useRef, useCallback, useState } from 'react'
+import { useRef, useCallback } from 'react'
 import { CardHeader } from './CardHeader'
 import { TerminalPanel } from './Terminal'
 import { EditorPanel } from './EditorPanel'
 import { NotePanel } from './NotePanel'
+import { ImagePanel } from './ImagePanel'
 import { usePanelStore } from '../store/panelStore'
 
 export interface CardRect {
@@ -21,9 +22,11 @@ interface Props {
   rect: CardRect
   zoomRef: React.RefObject<number>
   selected?: boolean
-  type?: 'terminal' | 'editor' | 'note'
+  focused?: boolean
+  type?: 'terminal' | 'editor' | 'note' | 'image'
   filePath?: string
   onSelect?: (id: string, shiftKey: boolean) => void
+  onFocusCard?: (id: string | null) => void
   onMove: (id: string, x: number, y: number) => void
   onResize: (id: string, w: number, h: number) => void
   onResizeWithMove?: (id: string, x: number, y: number, w: number, h: number) => void
@@ -47,9 +50,11 @@ export function FloatingCard({
   rect,
   zoomRef,
   selected,
+  focused,
   type = 'terminal',
   filePath,
   onSelect,
+  onFocusCard,
   onMove,
   onResize,
   onResizeWithMove,
@@ -60,7 +65,7 @@ export function FloatingCard({
 }: Props): React.JSX.Element {
   const cardRef = useRef<HTMLDivElement>(null)
   const clearAttention = usePanelStore((s) => s.clearAttention)
-  const [focused, setFocused] = useState(false)
+  const previewMode = usePanelStore((s) => s.panels[sessionId]?.previewMode ?? false)
 
   // Bring to front + select on any mousedown within the card
   const handleMouseDown = useCallback(
@@ -69,6 +74,107 @@ export function FloatingCard({
       onSelect?.(sessionId, e.shiftKey)
     },
     [sessionId, onBringToFront, onSelect]
+  )
+
+  // --- OVERLAY: drag-by-default for non-focused cards ---
+  const handleOverlayMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return
+      e.preventDefault()
+      e.stopPropagation()
+
+      const startX = e.clientX
+      const startY = e.clientY
+      const card = cardRef.current
+      if (!card) return
+
+      const scale = zoomRef.current ?? 1
+      let moved = false
+
+      // Get peer drag context for group drag support
+      const peers = onGroupDragContext?.(sessionId) ?? null
+      const isGroup = peers !== null && peers.length > 1
+      const peerEls = isGroup
+        ? peers!.map((p) => ({
+            ...p,
+            el: document.querySelector(`[data-card-id="${p.id}"]`) as HTMLElement | null
+          }))
+        : null
+
+      card.classList.add('floating-card--dragging')
+      document.body.classList.add('canvas-interacting')
+      document.body.style.cursor = 'grabbing'
+      document.body.style.userSelect = 'none'
+
+      const onMouseMove = (ev: MouseEvent): void => {
+        const dx = ev.clientX - startX
+        const dy = ev.clientY - startY
+        if (!moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+          moved = true
+        }
+        if (moved) {
+          const cdx = dx / scale
+          const cdy = dy / scale
+          card.style.transform = `translate(${cdx}px, ${cdy}px)`
+          if (isGroup && peerEls) {
+            for (const p of peerEls) {
+              if (p.el && p.id !== sessionId) {
+                p.el.style.transform = `translate(${cdx}px, ${cdy}px)`
+              }
+            }
+          }
+        }
+      }
+
+      const onMouseUp = (ev: MouseEvent): void => {
+        document.removeEventListener('mousemove', onMouseMove)
+        document.removeEventListener('mouseup', onMouseUp)
+        card.classList.remove('floating-card--dragging')
+        document.body.classList.remove('canvas-interacting')
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+
+        if (moved) {
+          // Commit drag
+          const dx = (ev.clientX - startX) / scale
+          const dy = (ev.clientY - startY) / scale
+          const newX = snap(rect.x + dx)
+          const newY = snap(rect.y + dy)
+          card.style.left = `${newX}px`
+          card.style.top = `${newY}px`
+          card.style.transform = ''
+
+          if (isGroup && peerEls) {
+            const moves = peerEls.map((p) => ({
+              id: p.id,
+              x: snap(p.x + dx),
+              y: snap(p.y + dy)
+            }))
+            for (const p of peerEls) {
+              if (p.el && p.id !== sessionId) {
+                const m = moves.find((mm) => mm.id === p.id)
+                if (m) {
+                  p.el.style.left = `${m.x}px`
+                  p.el.style.top = `${m.y}px`
+                }
+                p.el.style.transform = ''
+              }
+            }
+            onGroupMove?.(moves)
+          } else {
+            onMove(sessionId, newX, newY)
+          }
+        } else {
+          // Click without drag -> focus this card
+          card.style.transform = ''
+          onFocusCard?.(sessionId)
+        }
+      }
+
+      document.addEventListener('mousemove', onMouseMove)
+      document.addEventListener('mouseup', onMouseUp)
+    },
+    [sessionId, rect.x, rect.y, zoomRef, onMove, onFocusCard, onGroupDragContext, onGroupMove]
   )
 
   // --- DRAG: accounts for canvas zoom, snaps to grid, supports group drag ---
@@ -314,6 +420,7 @@ export function FloatingCard({
   const classNames = [
     'floating-card',
     focused && 'floating-card--focused',
+    focused && 'floating-card--card-focused',
     selected && 'floating-card--selected'
   ]
     .filter(Boolean)
@@ -333,12 +440,6 @@ export function FloatingCard({
       }}
       tabIndex={0}
       onMouseDown={handleMouseDown}
-      onFocus={() => setFocused(true)}
-      onBlur={(e) => {
-        if (!cardRef.current?.contains(e.relatedTarget as Node)) {
-          setFocused(false)
-        }
-      }}
       onKeyDown={handleKeyDown}
     >
       {/* Drag handle wraps the header */}
@@ -351,8 +452,15 @@ export function FloatingCard({
         onClick={() => clearAttention(sessionId)}
         onFocus={() => clearAttention(sessionId)}
       >
-        <div className="floating-card-inner">
-          {type === 'editor' && filePath ? (
+        {!focused && (
+          <div className="card-content-overlay" onMouseDown={handleOverlayMouseDown} />
+        )}
+        <div className="floating-card-inner" style={!focused ? { pointerEvents: 'none' } : undefined}>
+          {type === 'image' && filePath && previewMode ? (
+            <EditorPanel sessionId={sessionId} filePath={filePath} />
+          ) : type === 'image' && filePath ? (
+            <ImagePanel sessionId={sessionId} filePath={filePath} />
+          ) : type === 'editor' && filePath ? (
             <EditorPanel sessionId={sessionId} filePath={filePath} />
           ) : type === 'note' ? (
             <NotePanel sessionId={sessionId} />

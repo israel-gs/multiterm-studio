@@ -42,22 +42,8 @@ export function NotePanel({ sessionId }: Props): React.JSX.Element {
     }
   }, [noteContent, editor])
 
-  // Stop mousedown propagation to prevent card drag
-  const wrapperRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = wrapperRef.current
-    if (!el) return
-    const stop = (e: MouseEvent): void => {
-      if ((e.target as HTMLElement).closest('.ProseMirror')) {
-        e.stopPropagation()
-      }
-    }
-    el.addEventListener('mousedown', stop)
-    return () => el.removeEventListener('mousedown', stop)
-  }, [])
-
   return (
-    <div ref={wrapperRef} className="note-panel">
+    <div className="note-panel">
       <EditorContent editor={editor} className="note-panel-editor" />
     </div>
   )
