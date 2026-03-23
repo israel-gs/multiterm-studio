@@ -485,6 +485,13 @@ export function FloatingCard({
         )}
       </div>
 
+      {/* Status bar with path */}
+      <div className="floating-card-statusbar">
+        <span className="floating-card-statusbar-path" title={filePath || cwd}>
+          {filePath || cwd}
+        </span>
+      </div>
+
       {/* Resize handles — all 8 directions */}
       <div
         className="resize-handle resize-handle--n"

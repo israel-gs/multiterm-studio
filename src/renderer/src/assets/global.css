@@ -338,6 +338,29 @@ body {
   transition: none;
 }
 
+/* Status bar at bottom of card */
+.floating-card-statusbar {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  background: var(--bg-header);
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.floating-card-statusbar-path {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
 .floating-card-body {
   flex: 1;
   position: relative;
