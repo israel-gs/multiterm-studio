@@ -198,6 +198,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   const handleAddPanelAtRef = useRef<(x: number, y: number) => void>(() => { })
   const handleAddNoteRef = useRef<() => void>(() => { })
   const handleClosePanelRef = useRef<(id: string) => void>(() => { })
+  const zoomToFitAllRef = useRef<() => void>(() => { })
+  const handleSpatialNavRef = useRef<(dir: 'left' | 'right' | 'up' | 'down') => void>(() => { })
+  const handleTidyRef = useRef<() => void>(() => { })
+  const handleDuplicateRef = useRef<(id: string) => void>(() => { })
 
   // Keep refs in sync
   useEffect(() => {
@@ -896,7 +900,9 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         return
       }
 
-      if ((e.target as HTMLElement).closest('.floating-card')) return
+      // Allow Cmd+Opt and Cmd+Shift combos through even when inside a card
+      const insideCard = !!(e.target as HTMLElement).closest('.floating-card')
+      if (insideCard && !(e.metaKey && (e.altKey || e.shiftKey))) return
 
       // Escape: restore maximized → unfocus card → clear selection
       if (e.key === 'Escape') {
@@ -949,28 +955,28 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       // Cmd+Opt+0: Zoom to fit all tiles
       if (e.key === '0' && e.metaKey && e.altKey) {
         e.preventDefault()
-        zoomToFitAll()
+        zoomToFitAllRef.current()
         return
       }
 
       // Cmd+Opt+F: Zoom to fit focused tile
       if (e.key === 'f' && e.metaKey && e.altKey) {
         e.preventDefault()
-        if (focusedCardIdRef.current) zoomToFitIds([focusedCardIdRef.current])
+        if (focusedCardIdRef.current) zoomToFitAllRef.current()
         return
       }
 
       // Cmd+Opt+T: Tidy/arrange selected tiles
       if (e.key === 't' && e.metaKey && e.altKey) {
         e.preventDefault()
-        handleTidySelection()
+        handleTidyRef.current()
         return
       }
 
       // Cmd+Shift+D: Duplicate focused terminal
-      if (e.key === 'd' && e.metaKey && e.shiftKey) {
+      if ((e.key === 'd' || e.key === 'D') && e.metaKey && e.shiftKey) {
         e.preventDefault()
-        if (focusedCardIdRef.current) handleDuplicateTile(focusedCardIdRef.current)
+        if (focusedCardIdRef.current) handleDuplicateRef.current(focusedCardIdRef.current)
         return
       }
 
@@ -978,7 +984,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       if (e.metaKey && e.altKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
         e.preventDefault()
         const dir = e.key.replace('Arrow', '').toLowerCase() as 'left' | 'right' | 'up' | 'down'
-        handleSpatialNavigation(dir)
+        handleSpatialNavRef.current(dir)
         return
       }
     }
@@ -1577,6 +1583,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   handleAddPanelAtRef.current = handleAddPanelAt
   handleAddNoteRef.current = handleAddNote
   handleClosePanelRef.current = handleClosePanel
+  zoomToFitAllRef.current = zoomToFitAll
+  handleSpatialNavRef.current = handleSpatialNavigation
+  handleTidyRef.current = handleTidySelection
+  handleDuplicateRef.current = handleDuplicateTile
 
   // --- Zoom to fit tiles in viewport ---
   function zoomToFitIds(ids: string[]): void {
