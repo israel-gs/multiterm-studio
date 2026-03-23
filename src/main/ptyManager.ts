@@ -242,7 +242,8 @@ export function registerPtyHandlers(win: BrowserWindow): void {
       cwd: safeCwd,
       env: {
         ...process.env,
-        TERM: 'xterm-256color'
+        TERM: 'xterm-256color',
+        MULTITERM_PTY_SESSION_ID: id
       }
     })
 
