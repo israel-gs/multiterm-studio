@@ -321,11 +321,15 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     }
   })
 
-  ipcMain.handle('pty:send-keys', (_event, id: string, keys: string) => {
+  ipcMain.handle('pty:send-keys', (_event, id: string, text: string, enter: boolean) => {
     const session = sessions.get(id)
     if (!session) return
     try {
-      tmuxExec('send-keys', '-t', session.tmuxName, keys)
+      // -l sends text literally (not as key names)
+      tmuxExec('send-keys', '-l', '-t', session.tmuxName, text)
+      if (enter) {
+        tmuxExec('send-keys', '-t', session.tmuxName, 'Enter')
+      }
     } catch {
       // ignore
     }

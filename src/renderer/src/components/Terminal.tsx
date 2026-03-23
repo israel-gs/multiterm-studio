@@ -104,7 +104,7 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
     if (meta?.initialCommand) {
       const cmd = meta.initialCommand
       setTimeout(() => {
-        window.electronAPI.ptySendKeys(sessionId, cmd + ' Enter')
+        window.electronAPI.ptySendKeys(sessionId, cmd, true)
       }, 800)
     }
 
