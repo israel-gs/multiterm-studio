@@ -413,7 +413,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 6px 4px;
+  padding: 6px 3px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -421,10 +421,11 @@ body {
 .tmux-pane-tab {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   width: 100%;
-  min-height: 30px;
-  padding: 4px 6px;
+  min-height: 28px;
+  padding: 4px 0;
   border: none;
   border-radius: 6px;
   background: transparent;
@@ -436,6 +437,12 @@ body {
   white-space: nowrap;
   transition: background 0.15s, color 0.15s;
   position: relative;
+}
+
+/* Expanded: align left with padding */
+.tmux-sidebar--expanded .tmux-pane-tab {
+  justify-content: flex-start;
+  padding: 4px 8px;
 }
 
 .tmux-pane-tab:hover {
@@ -458,16 +465,11 @@ body {
 
 .tmux-pane-tab-icon {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-}
-
-.tmux-pane-tab--active .tmux-pane-tab-icon {
-  background: rgba(198, 120, 221, 0.15);
 }
 
 .tmux-pane-tab-label {
@@ -476,11 +478,13 @@ body {
   gap: 4px;
   overflow: hidden;
   opacity: 0;
+  width: 0;
   transition: opacity 0.15s;
 }
 
 .tmux-sidebar--expanded .tmux-pane-tab-label {
   opacity: 1;
+  width: auto;
 }
 
 .tmux-pane-tab-cmd {
@@ -495,20 +499,25 @@ body {
   flex-shrink: 0;
 }
 
+/* Active dot: below icon when collapsed, right side when expanded */
 .tmux-pane-tab-dot {
   position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 5px;
-  height: 5px;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background: #c678dd;
   box-shadow: 0 0 6px rgba(198, 120, 221, 0.5);
 }
 
 .tmux-sidebar--expanded .tmux-pane-tab-dot {
+  bottom: auto;
+  left: auto;
   right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 /* Overlay: block terminal pointer events during drag/resize/pan */
