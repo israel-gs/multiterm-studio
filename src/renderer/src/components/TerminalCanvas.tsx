@@ -191,6 +191,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   const [modal, setModal] = useState<{ type: 'rename' | 'color'; cardId: string } | null>(null)
   const [showNewTerminal, setShowNewTerminal] = useState(false)
   const [maximizedId, setMaximizedId] = useState<string | null>(null)
+  const maximizedIdRef = useRef<string | null>(null)
 
   // Refs for accessing component-level functions from the main effect
   const handleAddPanelRef = useRef<() => void>(() => { })
@@ -211,6 +212,9 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   useEffect(() => {
     focusedCardIdRef.current = focusedCardId
   }, [focusedCardId])
+  useEffect(() => {
+    maximizedIdRef.current = maximizedId
+  }, [maximizedId])
 
   // === Main viewport effect: grid, pan, zoom, edge indicators, keyboard, selection, marquee ===
   useEffect(() => {
@@ -1159,7 +1163,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
   // --- Open file in editor or image tile ---
   function handleOpenFile(filePath: string): void {
-    const wasMaximized = !!maximizedId
+    const wasMaximized = !!maximizedIdRef.current
 
     // Route images to handleAddImage
     if (inferTileType(filePath) === 'image') {
