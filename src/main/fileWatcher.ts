@@ -1,56 +1,65 @@
-import { watch, type FSWatcher } from 'fs'
-import { join, relative } from 'path'
-import { BrowserWindow } from 'electron'
+import { utilityProcess, type UtilityProcess, BrowserWindow } from 'electron'
+import { join } from 'path'
 
-let watcher: FSWatcher | null = null
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-const pendingChanges = new Map<string, 'change' | 'rename'>()
+const MAX_RESTARTS = 5
+
+let worker: UtilityProcess | null = null
+let restartCount = 0
+let stopping = false
+let currentFolder: string | null = null
+let currentWin: BrowserWindow | null = null
+
+function workerPath(): string {
+  return join(__dirname, 'watcher-worker.js')
+}
+
+function spawnWorker(): void {
+  if (worker) return
+  stopping = false
+
+  worker = utilityProcess.fork(workerPath())
+
+  worker.on('message', (msg: { type: string; changes?: unknown[]; error?: string }) => {
+    if (msg.type === 'changes' && currentWin && !currentWin.isDestroyed()) {
+      currentWin.webContents.send('fs:changed', msg.changes)
+    }
+  })
+
+  worker.on('exit', (code) => {
+    worker = null
+    if (stopping) return
+
+    if (restartCount >= MAX_RESTARTS) {
+      console.error(`[file-watcher] Worker exited ${MAX_RESTARTS} times, giving up`)
+      return
+    }
+
+    console.warn(`[file-watcher] Worker exited with code ${code}, restarting`)
+    restartCount++
+    spawnWorker()
+    // Re-start watching after respawn
+    if (currentFolder) {
+      worker?.postMessage({ type: 'start', folderPath: currentFolder })
+    }
+  })
+}
 
 export function startFileWatcher(folderPath: string, win: BrowserWindow): void {
   stopFileWatcher()
+  currentFolder = folderPath
+  currentWin = win
+  restartCount = 0
 
-  try {
-    watcher = watch(folderPath, { recursive: true }, (eventType, filename) => {
-      if (!filename) return
-      // Ignore hidden dirs, node_modules, .git
-      if (
-        filename.startsWith('.') ||
-        filename.includes('node_modules') ||
-        filename.includes('.git/')
-      ) {
-        return
-      }
-
-      pendingChanges.set(filename, eventType as 'change' | 'rename')
-
-      // Debounce: batch changes over 300ms
-      if (debounceTimer) clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(() => {
-        const changes = Array.from(pendingChanges.entries()).map(([path, type]) => ({
-          path: join(folderPath, path),
-          relativePath: path,
-          type
-        }))
-        pendingChanges.clear()
-
-        if (changes.length > 0 && !win.isDestroyed()) {
-          win.webContents.send('fs:changed', changes)
-        }
-      }, 300)
-    })
-  } catch {
-    // folder might not exist yet
-  }
+  spawnWorker()
+  worker?.postMessage({ type: 'start', folderPath })
 }
 
 export function stopFileWatcher(): void {
-  if (debounceTimer) {
-    clearTimeout(debounceTimer)
-    debounceTimer = null
-  }
-  pendingChanges.clear()
-  if (watcher) {
-    watcher.close()
-    watcher = null
+  stopping = true
+  currentFolder = null
+  if (worker) {
+    worker.postMessage({ type: 'stop' })
+    worker.kill()
+    worker = null
   }
 }
