@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { FloatingCard } from './FloatingCard'
 import type { CardRect } from './FloatingCard'
 import { PanelModal } from './PanelModal'
+import { CanvasToolbar } from './CanvasToolbar'
+import { NewTerminalModal } from './NewTerminalModal'
 import { usePanelStore } from '../store/panelStore'
 import { useProjectStore } from '../store/projectStore'
 import type { AgentSpawnRequest, PaneCreateRequest } from '../store/projectStore'
@@ -187,6 +189,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
   // Context menu state
   const [modal, setModal] = useState<{ type: 'rename' | 'color'; cardId: string } | null>(null)
+  const [showNewTerminal, setShowNewTerminal] = useState(false)
 
   // Refs for accessing component-level functions from the main effect
   const handleAddPanelRef = useRef<() => void>(() => { })
@@ -1503,6 +1506,39 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   handleAddNoteRef.current = handleAddNote
   handleClosePanelRef.current = handleClosePanel
 
+  function handleCreateTerminal(termName: string, termCommand: string): void {
+    const newId = crypto.randomUUID()
+    const initialCommand = termCommand || undefined
+    addPanel(newId, termName || 'Terminal', colors.bgCard, 'terminal', undefined, initialCommand)
+
+    const viewport = viewportRef.current
+    const scale = scaleRef.current
+    let x = 40
+    let y = 40
+    if (viewport) {
+      const vw = viewport.clientWidth
+      const vh = viewport.clientHeight
+      x = snapToGrid((vw / 2 - canvasXRef.current) / scale - DEFAULT_W / 2)
+      y = snapToGrid((vh / 2 - canvasYRef.current) / scale - DEFAULT_H / 2)
+    }
+
+    const newZ = ++topZRef.current
+    const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
+
+    setPanelIds((prev) => {
+      const next = [...prev, newId]
+      panelIdsRef.current = next
+      return next
+    })
+    setPositions((prev) => {
+      const next = { ...prev, [newId]: newRect }
+      positionsRef.current = next
+      triggerSave([...panelIdsRef.current], next)
+      return next
+    })
+    setFocusedCardId(newId)
+  }
+
   function handleMove(id: string, x: number, y: number): void {
     setPositions((prev) => {
       const next = { ...prev, [id]: { ...prev[id], x, y } }
@@ -1547,6 +1583,16 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
   return (
     <div className="terminal-canvas">
+      <CanvasToolbar
+        onNewTerminal={() => setShowNewTerminal(true)}
+        onNewNote={() => handleAddNote()}
+      />
+      {showNewTerminal && (
+        <NewTerminalModal
+          onCreateTerminal={handleCreateTerminal}
+          onDismiss={() => setShowNewTerminal(false)}
+        />
+      )}
       <div
         ref={viewportRef}
         className="terminal-canvas-viewport"

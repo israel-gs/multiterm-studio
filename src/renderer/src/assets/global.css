@@ -397,6 +397,230 @@ body {
   outline-offset: -2px;
 }
 
+/* ===== Canvas Toolbar ===== */
+
+.canvas-toolbar {
+  position: fixed;
+  top: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1002;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  -webkit-app-region: no-drag;
+}
+
+.canvas-toolbar-btn {
+  width: 32px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 150ms ease-out, color 150ms ease-out;
+}
+
+.canvas-toolbar-btn:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.canvas-toolbar-btn:active {
+  transform: scale(0.95);
+}
+
+/* ===== New Terminal Modal ===== */
+
+.ntm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  animation: ntm-fade-in 150ms ease-out;
+}
+
+@keyframes ntm-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ntm-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  padding: 24px;
+  width: 380px;
+  max-width: 90vw;
+  animation: ntm-scale-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ntm-scale-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.ntm-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg-primary);
+  margin: 0 0 16px;
+  text-align: center;
+}
+
+.ntm-section-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.ntm-presets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.ntm-preset {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  transition: all 150ms ease-out;
+}
+
+.ntm-preset:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.ntm-preset--active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.ntm-preset:active {
+  transform: scale(0.97);
+}
+
+.ntm-preset-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ntm-preset-name {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.ntm-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.ntm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ntm-field-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-secondary);
+}
+
+.ntm-input {
+  width: 100%;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--fg-primary);
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color 150ms;
+  box-sizing: border-box;
+}
+
+.ntm-input:focus {
+  border-color: var(--accent);
+}
+
+.ntm-input--mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.ntm-input::placeholder {
+  color: var(--fg-muted);
+}
+
+.ntm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ntm-btn {
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background 150ms ease-out, transform 100ms;
+}
+
+.ntm-btn:active {
+  transform: scale(0.97);
+}
+
+.ntm-btn--secondary {
+  background: var(--hover-bg-strong);
+  color: var(--fg-primary);
+}
+
+.ntm-btn--secondary:hover {
+  background: var(--hover-bg);
+}
+
+.ntm-btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.ntm-btn--primary:hover {
+  filter: brightness(1.1);
+}
+
 /* ===== Tmux Pane Sidebar ===== */
 
 /* When sidebar is present, shrink terminal to make room */
