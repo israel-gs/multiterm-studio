@@ -31,7 +31,7 @@ declare global {
       gitIsRepo: (folderPath: string) => Promise<boolean>
       gitBranches: (folderPath: string) => Promise<{ current: string; branches: string[]; detached: boolean }>
       gitCheckout: (folderPath: string, branch: string) => Promise<{ ok: boolean; error?: string }>
-      onAgentSpawning: (callback: (data: { agentName: string; toolUseId: string; subagentsDir: string; cwd: string }) => void) => () => void
+      onAgentSpawning: (callback: (data: { agentName: string; toolUseId: string; subagentsDir: string; ptySessionId: string; cwd: string }) => void) => () => void
       onAgentSessionStarted: (callback: (data: { sessionId: string; ptySessionId: string | null; cwd: string }) => void) => () => void
       onAgentFileTouched: (callback: (data: { sessionId: string; ptySessionId: string | null; filePath: string; touchType: 'read' | 'write' }) => void) => () => void
       onAgentSessionEnded: (callback: (data: { sessionId: string; ptySessionId: string | null }) => void) => () => void

@@ -30,6 +30,8 @@ export interface PanelStore {
   pendingFocus: string | null
   requestFocus: (id: string) => void
   clearPendingFocus: () => void
+  agentNames: Record<string, string[]>
+  addAgentName: (ptySessionId: string, name: string) => void
 }
 
 export const usePanelStore = create<PanelStore>((set) => ({
@@ -114,5 +116,13 @@ export const usePanelStore = create<PanelStore>((set) => ({
 
   pendingFocus: null,
   requestFocus: (id) => set({ pendingFocus: id }),
-  clearPendingFocus: () => set({ pendingFocus: null })
+  clearPendingFocus: () => set({ pendingFocus: null }),
+  agentNames: {},
+  addAgentName: (ptySessionId, name) =>
+    set((s) => ({
+      agentNames: {
+        ...s.agentNames,
+        [ptySessionId]: [...(s.agentNames[ptySessionId] ?? []), name]
+      }
+    }))
 }))

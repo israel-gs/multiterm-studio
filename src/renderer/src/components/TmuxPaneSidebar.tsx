@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { usePanelStore } from '../store/panelStore'
 
 interface TmuxPane {
   index: number
@@ -11,11 +12,11 @@ interface Props {
   sessionId: string
 }
 
-const AGENT_COMMANDS = new Set(['claude', 'node', 'bun', 'npx'])
+const SHELL_COMMANDS = new Set(['zsh', 'bash', 'sh', 'fish'])
 const POLL_INTERVAL = 2000
 
 function isAgentPane(command: string): boolean {
-  return AGENT_COMMANDS.has(command.toLowerCase())
+  return !SHELL_COMMANDS.has(command.toLowerCase())
 }
 
 function ShellIcon(): React.JSX.Element {
@@ -39,6 +40,7 @@ export function TmuxPaneSidebar({ sessionId }: Props): React.JSX.Element | null 
   const [panes, setPanes] = useState<TmuxPane[]>([])
   const [hovered, setHovered] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const agentNames = usePanelStore((s) => s.agentNames[sessionId] ?? [])
 
   const poll = useCallback(async () => {
     const result = await window.electronAPI.ptyListPanes(sessionId)
@@ -74,28 +76,30 @@ export function TmuxPaneSidebar({ sessionId }: Props): React.JSX.Element | null 
       onMouseLeave={() => setHovered(false)}
     >
       <div className="tmux-sidebar-track">
-        {panes.map((pane) => {
+        {panes.map((pane, i) => {
           const agent = isAgentPane(pane.command)
+          // Pane 0 = main shell, panes 1+ map to agent names in order
+          const agentLabel = agent && i > 0 ? agentNames[i - 1] : null
+          const displayName = agentLabel ? `@${agentLabel}` : pane.command
           return (
             <button
               key={pane.index}
               className={`tmux-pane-tab${pane.active ? ' tmux-pane-tab--active' : ''}${agent ? ' tmux-pane-tab--agent' : ''}`}
               onMouseDown={(e) => {
                 e.stopPropagation()
-                e.preventDefault() // prevent button from stealing focus from xterm
+                e.preventDefault()
                 handleSelect(pane.index)
-                // Refocus the xterm terminal inside this card
                 const card = (e.target as HTMLElement).closest('.floating-card')
                 const xtermEl = card?.querySelector('.xterm-helper-textarea') as HTMLElement
                 if (xtermEl) xtermEl.focus()
               }}
-              title={`${pane.command} (pane ${pane.index})`}
+              title={`${displayName} (pane ${pane.index})`}
             >
               <span className="tmux-pane-tab-icon">
                 {agent ? <AgentIcon /> : <ShellIcon />}
               </span>
               <span className="tmux-pane-tab-label">
-                <span className="tmux-pane-tab-cmd">{pane.command}</span>
+                <span className="tmux-pane-tab-cmd">{displayName}</span>
                 <span className="tmux-pane-tab-idx">#{pane.index}</span>
               </span>
               {pane.active && <span className="tmux-pane-tab-dot" />}

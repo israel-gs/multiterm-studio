@@ -181,17 +181,18 @@ export async function startRpcServer(
     const agentName = String(params.agent_name ?? 'agent')
     const toolUseId = String(params.tool_use_id ?? '')
     const subagentsDir = String(params.subagents_dir ?? '')
+    const ptySessionId = String(params.pty_session_id ?? '')
     const cwd = String(params.cwd ?? '')
 
-    // Always create a separate FloatingCard for the agent viewer
     win.webContents.send('agent:spawning', {
       agentName,
       toolUseId,
       subagentsDir,
+      ptySessionId,
       cwd
     })
     return { ok: true }
-  }, { description: 'Handle agent subagent spawning — creates viewer card' })
+  }, { description: 'Handle agent subagent spawning — notifies pane sidebar' })
 
   registerMethod('agent.sessionStart', (params) => {
     const sessionId = String(params.session_id ?? '')
