@@ -2,9 +2,18 @@ import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { readdir, stat } from 'fs/promises'
 import { join } from 'path'
 
+let currentWin: BrowserWindow | null = null
+let folderHandlersRegistered = false
+
 export function registerFolderHandlers(win: BrowserWindow): void {
+  currentWin = win
+
+  if (folderHandlersRegistered) return
+  folderHandlersRegistered = true
+
   ipcMain.handle('folder:open', async () => {
-    const result = await dialog.showOpenDialog(win, {
+    if (!currentWin) return null
+    const result = await dialog.showOpenDialog(currentWin, {
       properties: ['openDirectory']
     })
     if (result.canceled || result.filePaths.length === 0) {
@@ -14,7 +23,8 @@ export function registerFolderHandlers(win: BrowserWindow): void {
   })
 
   ipcMain.handle('file:open-dialog', async (_event, filters?: { name: string; extensions: string[] }[]) => {
-    const result = await dialog.showOpenDialog(win, {
+    if (!currentWin) return null
+    const result = await dialog.showOpenDialog(currentWin, {
       properties: ['openFile'],
       filters: filters ?? []
     })

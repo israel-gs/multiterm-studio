@@ -302,5 +302,57 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('hooks:inject', folderPath),
 
   hooksRemove: (folderPath: string): Promise<void> =>
-    ipcRenderer.invoke('hooks:remove', folderPath)
+    ipcRenderer.invoke('hooks:remove', folderPath),
+
+  // Auto-update API
+  updateGetStatus: (): Promise<{
+    status: string
+    progress?: number
+    version?: string
+    releaseNotes?: string
+    error?: string
+  }> => ipcRenderer.invoke('update:getStatus'),
+
+  updateCheck: (): Promise<{
+    status: string
+    progress?: number
+    version?: string
+    releaseNotes?: string
+    error?: string
+  }> => ipcRenderer.invoke('update:check'),
+
+  updateDownload: (): Promise<{
+    status: string
+    progress?: number
+    version?: string
+    releaseNotes?: string
+    error?: string
+  }> => ipcRenderer.invoke('update:download'),
+
+  updateInstall: (): void => {
+    ipcRenderer.send('update:install')
+  },
+
+  onUpdateStatus: (
+    callback: (state: {
+      status: string
+      progress?: number
+      version?: string
+      releaseNotes?: string
+      error?: string
+    }) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      state: {
+        status: string
+        progress?: number
+        version?: string
+        releaseNotes?: string
+        error?: string
+      }
+    ): void => callback(state)
+    ipcRenderer.on('update:status', listener)
+    return () => ipcRenderer.removeListener('update:status', listener)
+  }
 })

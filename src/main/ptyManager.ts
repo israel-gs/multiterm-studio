@@ -173,8 +173,25 @@ export function listPtySessions(): string[] {
   return Array.from(sessions.keys())
 }
 
+let currentWin: BrowserWindow | null = null
+let ptyHandlersRegistered = false
+
+/** Update the BrowserWindow reference used by PTY data push (called when window is re-created). */
+export function setPtyWindow(win: BrowserWindow): void {
+  currentWin = win
+}
+
+/** @internal Reset registration guard — only for tests */
+export function _resetPtyHandlersForTests(): void {
+  ptyHandlersRegistered = false
+  currentWin = null
+}
+
 export function registerPtyHandlers(win: BrowserWindow): void {
-  const { webContents } = win
+  currentWin = win
+
+  if (ptyHandlersRegistered) return
+  ptyHandlersRegistered = true
 
   ipcMain.handle('pty:create', (_event, id: string, cwd: string, initialCommand?: string) => {
     const shell =
@@ -261,11 +278,11 @@ export function registerPtyHandlers(win: BrowserWindow): void {
 
     // Send recovered scrollback before live data
     if (scrollback) {
-      webContents.send(`pty:scrollback:${id}`, scrollback)
+      currentWin?.webContents.send(`pty:scrollback:${id}`, scrollback)
     }
 
     ptyProcess.onData((data: string) => {
-      webContents.send(`pty:data:${id}`, data)
+      currentWin?.webContents.send(`pty:data:${id}`, data)
 
       if (ATTENTION_PATTERN.test(data)) {
         const now = Date.now()
@@ -273,8 +290,8 @@ export function registerPtyHandlers(win: BrowserWindow): void {
         if (now - lastFired >= ATTENTION_COOLDOWN_MS) {
           attentionCooldown.set(id, now)
           const snippet = data.slice(0, 120).trim()
-          webContents.send('pty:attention', { id, snippet })
-          handleAttentionEvent(win, id, 'Terminal', snippet)
+          currentWin?.webContents.send('pty:attention', { id, snippet })
+          if (currentWin) handleAttentionEvent(currentWin, id, 'Terminal', snippet)
         }
       }
     })

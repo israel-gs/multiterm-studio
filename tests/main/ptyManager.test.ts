@@ -62,11 +62,14 @@ const mockWin = {
 const fakeEvent = {}
 
 describe('ptyManager IPC handlers (INFRA-02)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // Clear all spy/mock histories
     vi.clearAllMocks()
     // Clear captured handlers so each test starts fresh
     Object.keys(capturedHandlers).forEach((k) => delete capturedHandlers[k])
+    // Reset the registration guard so each test can re-register handlers
+    const { _resetPtyHandlersForTests } = await import('../../src/main/ptyManager')
+    _resetPtyHandlersForTests()
   })
 
   test('registerPtyHandlers registers exactly 4 IPC handlers', async () => {
@@ -174,9 +177,11 @@ describe('ptyManager IPC handlers (INFRA-02)', () => {
 })
 
 describe('PTY session behavior (TERM-01, TERM-02)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
     Object.keys(capturedHandlers).forEach((k) => delete capturedHandlers[k])
+    const { _resetPtyHandlersForTests } = await import('../../src/main/ptyManager')
+    _resetPtyHandlersForTests()
   })
 
   test('spawns with process.env.SHELL', async () => {
@@ -202,10 +207,12 @@ describe('PTY session behavior (TERM-01, TERM-02)', () => {
 })
 
 describe('attention detection (ATTN-01, ATTN-02)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
     vi.useRealTimers()
     Object.keys(capturedHandlers).forEach((k) => delete capturedHandlers[k])
+    const { _resetPtyHandlersForTests } = await import('../../src/main/ptyManager')
+    _resetPtyHandlersForTests()
   })
 
   test('ATTENTION_PATTERN matches "? " prompt character', async () => {

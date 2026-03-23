@@ -18,6 +18,7 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
+    "build:mac:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux",
     "test": "vitest run --reporter=verbose"
   },
@@ -33,6 +34,7 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
+    "electron-updater": "^6.8.3",
     "lucide-react": "^1.0.1",
     "mermaid": "^11.13.0",
     "monaco-editor": "^0.55.1",

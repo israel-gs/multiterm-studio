@@ -57,7 +57,20 @@ declare global {
       terminalSetMouseMode: (enabled: boolean) => Promise<void>
       hooksInject: (folderPath: string) => Promise<void>
       hooksRemove: (folderPath: string) => Promise<void>
+      updateGetStatus: () => Promise<UpdateState>
+      updateCheck: () => Promise<UpdateState>
+      updateDownload: () => Promise<UpdateState>
+      updateInstall: () => void
+      onUpdateStatus: (callback: (state: UpdateState) => void) => () => void
     }
+  }
+
+  interface UpdateState {
+    status: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'installing' | 'error'
+    progress?: number
+    version?: string
+    releaseNotes?: string
+    error?: string
   }
 }
 

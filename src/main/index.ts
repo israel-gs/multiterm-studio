@@ -14,6 +14,7 @@ import { injectHooks, removeHooks } from './hookInjector'
 import { startFileWatcher, stopFileWatcher } from './fileWatcher'
 import { installCli } from './cliInstaller'
 import { loadWorkspaceConfig, saveWorkspaceConfig } from './workspaceConfig'
+import { setupUpdateIPC, updateManager } from './updater'
 
 // Set app name early — used by macOS menu bar
 app.setName('Multiterm Studio')
@@ -27,6 +28,8 @@ protocol.registerSchemesAsPrivileged([
 // Cache the most-recent save data so before-quit can do a synchronous flush
 let lastSaveData: { folderPath: string; layout: LayoutSnapshot } | null = null
 let rpcCleanup: (() => void) | null = null
+let mainWindow: BrowserWindow | null = null
+let inlineHandlersRegistered = false
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -65,65 +68,76 @@ function createWindow(): void {
   // Register recent projects IPC handlers
   registerRecentProjectsHandlers()
 
+  // Register auto-update IPC handlers
+  setupUpdateIPC()
+
+  // Update module-level window reference (used by inline IPC handlers)
+  mainWindow = win
+
   // Start RPC server for Claude Code hook notifications
   startRpcServer(win).then(({ cleanup }) => {
     rpcCleanup = cleanup
   })
 
-  // Pane creation acknowledgment pass-through (renderer → RPC server)
-  ipcMain.on('pane:created', (_event, sessionId: string) => {
-    // Emit a targeted event that rpcServer's pane.split handler listens for
-    ipcMain.emit(`pane:created:${sessionId}`)
-  })
+  // Register inline IPC handlers only once (they use mainWindow which is updated above)
+  if (!inlineHandlersRegistered) {
+    inlineHandlersRegistered = true
 
-  // Native context menu
-  ipcMain.handle(
-    'context-menu:show',
-    async (_event, items: Array<{ id: string; label?: string; enabled?: boolean }>) => {
-      return new Promise<string | null>((resolve) => {
-        const menu = Menu.buildFromTemplate(
-          items.map((item) => {
-            if (item.id === 'separator') return { type: 'separator' as const }
-            return {
-              label: item.label ?? item.id,
-              enabled: item.enabled ?? true,
-              click: (): void => resolve(item.id)
-            }
-          })
-        )
-        menu.popup({ window: win, callback: () => resolve(null) })
-      })
-    }
-  )
+    // Pane creation acknowledgment pass-through (renderer → RPC server)
+    ipcMain.on('pane:created', (_event, sessionId: string) => {
+      // Emit a targeted event that rpcServer's pane.split handler listens for
+      ipcMain.emit(`pane:created:${sessionId}`)
+    })
 
-  // Canvas pinch forwarding for smoother trackpad zoom
-  ipcMain.on('canvas:forward-pinch', (_event, deltaY: number) => {
-    win.webContents.send('canvas:pinch', deltaY)
-  })
+    // Native context menu
+    ipcMain.handle(
+      'context-menu:show',
+      async (_event, items: Array<{ id: string; label?: string; enabled?: boolean }>) => {
+        return new Promise<string | null>((resolve) => {
+          const menu = Menu.buildFromTemplate(
+            items.map((item) => {
+              if (item.id === 'separator') return { type: 'separator' as const }
+              return {
+                label: item.label ?? item.id,
+                enabled: item.enabled ?? true,
+                click: (): void => resolve(item.id)
+              }
+            })
+          )
+          menu.popup({ window: mainWindow!, callback: () => resolve(null) })
+        })
+      }
+    )
 
-  // Hooks IPC handlers
-  ipcMain.handle('hooks:inject', async (_event, folderPath: string) => {
-    await injectHooks(folderPath)
-    startFileWatcher(folderPath, win)
-  })
-  ipcMain.handle('hooks:remove', async (_event, folderPath: string) => {
-    await removeHooks(folderPath)
-    stopFileWatcher()
-  })
+    // Canvas pinch forwarding for smoother trackpad zoom
+    ipcMain.on('canvas:forward-pinch', (_event, deltaY: number) => {
+      mainWindow?.webContents.send('canvas:pinch', deltaY)
+    })
 
-  // Native UI zoom (Cmd+= / Cmd+- / Cmd+0) and fullscreen (Shift+Cmd+F)
-  ipcMain.on('zoom:in', () => {
-    win.webContents.zoomLevel = Math.min(win.webContents.zoomLevel + 0.5, 5)
-  })
-  ipcMain.on('zoom:out', () => {
-    win.webContents.zoomLevel = Math.max(win.webContents.zoomLevel - 0.5, -3)
-  })
-  ipcMain.on('zoom:reset', () => {
-    win.webContents.zoomLevel = 0
-  })
-  ipcMain.on('fullscreen:toggle', () => {
-    win.setFullScreen(!win.isFullScreen())
-  })
+    // Hooks IPC handlers
+    ipcMain.handle('hooks:inject', async (_event, folderPath: string) => {
+      await injectHooks(folderPath)
+      if (mainWindow) startFileWatcher(folderPath, mainWindow)
+    })
+    ipcMain.handle('hooks:remove', async (_event, folderPath: string) => {
+      await removeHooks(folderPath)
+      stopFileWatcher()
+    })
+
+    // Native UI zoom (Cmd+= / Cmd+- / Cmd+0) and fullscreen (Shift+Cmd+F)
+    ipcMain.on('zoom:in', () => {
+      if (mainWindow) mainWindow.webContents.zoomLevel = Math.min(mainWindow.webContents.zoomLevel + 0.5, 5)
+    })
+    ipcMain.on('zoom:out', () => {
+      if (mainWindow) mainWindow.webContents.zoomLevel = Math.max(mainWindow.webContents.zoomLevel - 0.5, -3)
+    })
+    ipcMain.on('zoom:reset', () => {
+      if (mainWindow) mainWindow.webContents.zoomLevel = 0
+    })
+    ipcMain.on('fullscreen:toggle', () => {
+      if (mainWindow) mainWindow.setFullScreen(!mainWindow.isFullScreen())
+    })
+  }
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
@@ -281,6 +295,17 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
 
   createWindow()
+
+  // Initialize auto-updater with cleanup callback for PTY sessions
+  updateManager.init({
+    onBeforeQuit: async () => {
+      stopFileWatcher()
+      if (rpcCleanup) {
+        rpcCleanup()
+        rpcCleanup = null
+      }
+    }
+  })
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

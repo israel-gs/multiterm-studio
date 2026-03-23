@@ -35,7 +35,11 @@ async function saveRecent(projects: RecentProject[]): Promise<void> {
   }
 }
 
+let recentHandlersRegistered = false
+
 export function registerRecentProjectsHandlers(): void {
+  if (recentHandlersRegistered) return
+  recentHandlersRegistered = true
   ipcMain.handle('projects:recent', async () => {
     return loadRecent()
   })

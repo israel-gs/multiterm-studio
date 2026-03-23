@@ -2,7 +2,11 @@ import { ipcMain, BrowserWindow, shell } from 'electron'
 import { readFile, writeFile, rename, mkdir } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 
+let fileHandlersRegistered = false
+
 export function registerFileHandlers(_win: BrowserWindow): void {
+  if (fileHandlersRegistered) return
+  fileHandlersRegistered = true
   ipcMain.handle('file:read', async (_event, filePath: string) => {
     return readFile(filePath, 'utf-8')
   })

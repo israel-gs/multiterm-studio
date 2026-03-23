@@ -13,7 +13,11 @@ function runGit(args: string[], cwd: string): Promise<{ stdout: string; stderr: 
   })
 }
 
+let gitHandlersRegistered = false
+
 export function registerGitHandlers(): void {
+  if (gitHandlersRegistered) return
+  gitHandlersRegistered = true
   ipcMain.handle('git:is-repo', async (_event, folderPath: string) => {
     try {
       await runGit(['rev-parse', '--is-inside-work-tree'], folderPath)
