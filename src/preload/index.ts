@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ptySelectPane: (id: string, paneIndex: number): Promise<void> =>
     ipcRenderer.invoke('pty:select-pane', id, paneIndex),
 
+  ptyHasProcess: (id: string): Promise<boolean> => ipcRenderer.invoke('pty:has-process', id),
+
   // Folder operations — project context panel (Phase 03)
   folderOpen: (): Promise<string | null> => ipcRenderer.invoke('folder:open'),
 

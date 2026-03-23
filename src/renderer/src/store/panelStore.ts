@@ -12,6 +12,8 @@ export interface PanelMeta {
   previewMode: boolean
   initialCommand?: string
   agentActive: boolean
+  hasProcess: boolean
+  cwd?: string
 }
 
 export interface PanelStore {
@@ -26,6 +28,8 @@ export interface PanelStore {
   clearDirty: (id: string) => void
   togglePreview: (id: string) => void
   setAgentActive: (id: string, active: boolean) => void
+  setHasProcess: (id: string, has: boolean) => void
+  setCwd: (id: string, cwd: string) => void
   setNoteContent: (id: string, content: string) => void
   pendingFocus: string | null
   requestFocus: (id: string) => void
@@ -50,7 +54,8 @@ export const usePanelStore = create<PanelStore>((set) => ({
           dirty: false,
           previewMode: false,
           initialCommand,
-          agentActive: false
+          agentActive: false,
+          hasProcess: false
         }
       }
     })),
@@ -106,6 +111,18 @@ export const usePanelStore = create<PanelStore>((set) => ({
     set((s) => {
       if (!s.panels[id]) return s
       return { panels: { ...s.panels, [id]: { ...s.panels[id], agentActive: active } } }
+    }),
+
+  setHasProcess: (id, has) =>
+    set((s) => {
+      if (!s.panels[id]) return s
+      return { panels: { ...s.panels, [id]: { ...s.panels[id], hasProcess: has } } }
+    }),
+
+  setCwd: (id, cwd) =>
+    set((s) => {
+      if (!s.panels[id]) return s
+      return { panels: { ...s.panels, [id]: { ...s.panels[id], cwd } } }
     }),
 
   setNoteContent: (id, content) =>

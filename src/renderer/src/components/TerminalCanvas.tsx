@@ -1531,10 +1531,17 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   }
 
   function handleClosePanel(id: string): void {
+    // Check for running process before closing
+    const panelMeta = usePanelStore.getState().panels[id]
+    if (panelMeta?.type === 'terminal' && panelMeta.hasProcess) {
+      if (!window.confirm('This terminal has a running process. Close anyway?')) {
+        return
+      }
+    }
+
     if (focusedCardIdRef.current === id) setFocusedCardId(null)
     if (maximizedId === id) setMaximizedId(null)
 
-    const panelMeta = usePanelStore.getState().panels[id]
     if (!panelMeta || (panelMeta.type !== 'editor' && panelMeta.type !== 'note' && panelMeta.type !== 'image')) {
       window.electronAPI.ptyKill(id)
     }

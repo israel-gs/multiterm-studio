@@ -135,11 +135,36 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
       term.options.theme = resolveTheme()
     })
 
+    // Track PWD changes via OSC 7
+    term.parser.registerOscHandler(7, (data) => {
+      // OSC 7 format: file://hostname/path
+      try {
+        const url = new URL(data)
+        const pwd = decodeURIComponent(url.pathname)
+        if (pwd) {
+          usePanelStore.getState().setCwd(sessionId, pwd)
+        }
+      } catch {
+        // Not a valid URL, try as plain path
+        if (data.startsWith('/')) {
+          usePanelStore.getState().setCwd(sessionId, data)
+        }
+      }
+      return false // don't consume, let xterm handle it too
+    })
+
+    // Poll for running process indicator
+    const processInterval = setInterval(async () => {
+      const has = await window.electronAPI.ptyHasProcess(sessionId)
+      usePanelStore.getState().setHasProcess(sessionId, has)
+    }, 3000)
+
     return () => {
       unsubAppearance()
       unsubScrollback()
       unsubscribe()
       observer.disconnect()
+      clearInterval(processInterval)
       // NOTE: ptyKill is intentionally NOT called here.
       // PTY lifecycle is managed by TerminalCanvas's handleClosePanel
       // to avoid double-kill when a panel is closed.

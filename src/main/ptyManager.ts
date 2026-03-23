@@ -347,6 +347,19 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     }
   })
 
+  ipcMain.handle('pty:has-process', (_event, id: string) => {
+    const session = sessions.get(id)
+    if (!session) return false
+    try {
+      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', '#{pane_current_command}')
+      const cmd = raw.split('\n')[0]?.trim() ?? ''
+      const shells = ['zsh', 'bash', 'sh', 'fish']
+      return !shells.includes(cmd.toLowerCase())
+    } catch {
+      return false
+    }
+  })
+
   ipcMain.handle('pty:kill', (_event, id: string) => {
     const session = sessions.get(id)
     if (!session) return

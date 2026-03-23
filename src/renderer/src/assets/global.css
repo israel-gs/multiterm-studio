@@ -316,7 +316,8 @@ body {
   flex-direction: column;
   overflow: hidden;
   outline: none;
-  transition: box-shadow 0.15s ease;
+  opacity: 0.85;
+  transition: box-shadow 0.15s ease, opacity 0.15s;
   animation: card-enter 150ms ease-out;
   pointer-events: all;
 }
@@ -336,6 +337,23 @@ body {
 
 .floating-card--resizing {
   transition: none;
+}
+
+.floating-card-resize-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: var(--fg-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 100;
+  white-space: nowrap;
 }
 
 /* Status bar at bottom of card */
@@ -389,6 +407,7 @@ body {
 .floating-card--card-focused {
   border-color: var(--accent, #6366f1);
   box-shadow: var(--card-shadow), 0 0 0 1px var(--accent, #6366f1);
+  opacity: 1;
 }
 
 /* Image panel */
@@ -436,6 +455,7 @@ body {
   transform: none !important;
   padding-top: 38px !important;
   animation: card-maximize 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 1 !important;
 }
 
 .floating-card--maximized .panel-header {
@@ -967,6 +987,7 @@ body.canvas-interacting .floating-card-inner {
 .floating-card--selected {
   border-color: var(--accent);
   box-shadow: var(--card-shadow), 0 0 0 1px var(--accent), 0 0 12px var(--accent-glow);
+  opacity: 0.92;
 }
 
 /* ===== Selection Marquee ===== */

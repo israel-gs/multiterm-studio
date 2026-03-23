@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CardHeader } from './CardHeader'
 import { TerminalPanel } from './Terminal'
@@ -72,6 +72,8 @@ export function FloatingCard({
   const cardRef = useRef<HTMLDivElement>(null)
   const clearAttention = usePanelStore((s) => s.clearAttention)
   const previewMode = usePanelStore((s) => s.panels[sessionId]?.previewMode ?? false)
+  const panelCwd = usePanelStore((s) => s.panels[sessionId]?.cwd)
+  const [resizeIndicator, setResizeIndicator] = useState<string | null>(null)
 
   // Bring to front + select on any mousedown within the card
   const handleMouseDown = useCallback(
@@ -334,11 +336,18 @@ export function FloatingCard({
           card.style.left = `${newX}px`
           card.style.top = `${newY}px`
         }
+        // Approximate terminal dimensions from card size
+        const headerH = 30  // panel header height
+        const statusH = 22  // status bar height
+        const cols = Math.floor((newW - 16) / 8.4)
+        const rows = Math.floor((newH - headerH - statusH) / 17)
+        setResizeIndicator(`${cols}\u00d7${rows}`)
       }
 
       const onMouseUp = (ev: MouseEvent): void => {
         document.removeEventListener('mousemove', onMouseMove)
         document.removeEventListener('mouseup', onMouseUp)
+        setResizeIndicator(null)
 
         const { newW: rawW, newH: rawH } = compute(ev)
         const snappedW = Math.max(MIN_W, snap(rawW))
@@ -488,10 +497,14 @@ export function FloatingCard({
 
       {/* Status bar with path */}
       <div className="floating-card-statusbar">
-        <span className="floating-card-statusbar-path" title={filePath || cwd}>
-          {filePath || cwd}
+        <span className="floating-card-statusbar-path" title={filePath || panelCwd || cwd}>
+          {filePath || panelCwd || cwd}
         </span>
       </div>
+
+      {resizeIndicator && (
+        <div className="floating-card-resize-indicator">{resizeIndicator}</div>
+      )}
 
       {/* Resize handles — all 8 directions */}
       <div

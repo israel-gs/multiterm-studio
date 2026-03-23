@@ -1,4 +1,4 @@
-import { Eye, Code, Maximize2, Minimize2, X } from 'lucide-react'
+import { Eye, Code, Maximize2, Minimize2, X, Zap } from 'lucide-react'
 import { usePanelStore } from '../store/panelStore'
 import { colors } from '../tokens'
 
@@ -39,7 +39,8 @@ export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: 
       type: 'terminal' as const,
       dirty: false,
       previewMode: false,
-      agentActive: false
+      agentActive: false,
+      hasProcess: false
     }
   const togglePreview = usePanelStore((s) => s.togglePreview)
 
@@ -72,6 +73,10 @@ export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: 
             animation: 'pulse-agent 2s ease-in-out infinite'
           }}
         />
+      )}
+
+      {panel.hasProcess && (
+        <Zap size={12} strokeWidth={1.5} style={{ color: '#e5a84b', flexShrink: 0 }} />
       )}
 
       {isEditor && panel.dirty && (

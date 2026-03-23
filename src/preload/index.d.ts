@@ -8,6 +8,7 @@ declare global {
       ptySendKeys: (id: string, text: string, enter?: boolean) => Promise<void>
       ptyListPanes: (id: string) => Promise<Array<{ index: number; command: string; title: string; active: boolean; pid: number }>>
       ptySelectPane: (id: string, paneIndex: number) => Promise<void>
+      ptyHasProcess: (id: string) => Promise<boolean>
       onPtyData: (id: string, callback: (data: string) => void) => () => void
       onPtyScrollback: (id: string, callback: (data: string) => void) => () => void
       folderOpen: () => Promise<string | null>
