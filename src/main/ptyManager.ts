@@ -292,13 +292,15 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     try {
       const raw = tmuxExec(
         'list-panes', '-t', session.tmuxName,
-        '-F', '#{pane_index}\t#{pane_current_command}\t#{pane_active}\t#{pane_pid}'
+        '-F', '#{pane_index}\t#{pane_current_command}\t#{pane_active}\t#{pane_pid}\t#{pane_title}'
       )
       return raw.split('\n').filter(Boolean).map((line) => {
-        const [index, command, active, pid] = line.split('\t')
+        const [index, command, active, pid, ...titleParts] = line.split('\t')
+        const title = titleParts.join('\t')
         return {
           index: Number(index),
           command: command ?? '',
+          title: title ?? '',
           active: active === '1',
           pid: Number(pid)
         }

@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { usePanelStore } from '../store/panelStore'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 interface TmuxPane {
   index: number
   command: string
+  title: string
   active: boolean
   pid: number
 }
@@ -15,8 +15,30 @@ interface Props {
 const SHELL_COMMANDS = new Set(['zsh', 'bash', 'sh', 'fish'])
 const POLL_INTERVAL = 2000
 
-function isAgentPane(command: string): boolean {
-  return !SHELL_COMMANDS.has(command.toLowerCase())
+/** Detect agent panes by the ✳ prefix in the title set by Claude Code */
+function isAgentPane(pane: TmuxPane): boolean {
+  if (pane.title.startsWith('✳')) return true
+  return !SHELL_COMMANDS.has(pane.command.toLowerCase())
+}
+
+/** Extract a short display name from the pane title or command */
+function getDisplayName(pane: TmuxPane): string {
+  // Claude Code agent titles look like: "✳ Review VS Code extension code quality"
+  if (pane.title.startsWith('✳')) {
+    const text = pane.title.slice(1).trim()
+    // Truncate to first ~30 chars for the tab
+    return text.length > 30 ? text.slice(0, 28) + '…' : text
+  }
+  // Shell panes: show the shell name
+  if (SHELL_COMMANDS.has(pane.command.toLowerCase())) {
+    return pane.command
+  }
+  // Fallback: use title if it's more descriptive than the command
+  if (pane.title && pane.title !== pane.command && !pane.title.includes('.local')) {
+    const text = pane.title
+    return text.length > 30 ? text.slice(0, 28) + '…' : text
+  }
+  return pane.command
 }
 
 function ShellIcon(): React.JSX.Element {
@@ -40,8 +62,6 @@ export function TmuxPaneSidebar({ sessionId }: Props): React.JSX.Element | null 
   const [panes, setPanes] = useState<TmuxPane[]>([])
   const [hovered, setHovered] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const allAgentNames = usePanelStore((s) => s.agentNames)
-  const agentNames = useMemo(() => allAgentNames[sessionId] ?? [], [allAgentNames, sessionId])
 
   const poll = useCallback(async () => {
     const result = await window.electronAPI.ptyListPanes(sessionId)
@@ -59,7 +79,6 @@ export function TmuxPaneSidebar({ sessionId }: Props): React.JSX.Element | null 
   const handleSelect = useCallback(
     (paneIndex: number) => {
       window.electronAPI.ptySelectPane(sessionId, paneIndex)
-      // Optimistic update
       setPanes((prev) =>
         prev.map((p) => ({ ...p, active: p.index === paneIndex }))
       )
@@ -67,7 +86,6 @@ export function TmuxPaneSidebar({ sessionId }: Props): React.JSX.Element | null 
     [sessionId]
   )
 
-  // Don't show sidebar if only 1 pane
   if (panes.length <= 1) return null
 
   return (
@@ -77,11 +95,9 @@ export function TmuxPaneSidebar({ sessionId }: Props): React.JSX.Element | null 
       onMouseLeave={() => setHovered(false)}
     >
       <div className="tmux-sidebar-track">
-        {panes.map((pane, i) => {
-          const agent = isAgentPane(pane.command)
-          // Pane 0 = main shell, panes 1+ map to agent names in order
-          const agentLabel = agent && i > 0 ? agentNames[i - 1] : null
-          const displayName = agentLabel ? `@${agentLabel}` : pane.command
+        {panes.map((pane) => {
+          const agent = isAgentPane(pane)
+          const displayName = getDisplayName(pane)
           return (
             <button
               key={pane.index}
@@ -94,7 +110,7 @@ export function TmuxPaneSidebar({ sessionId }: Props): React.JSX.Element | null 
                 const xtermEl = card?.querySelector('.xterm-helper-textarea') as HTMLElement
                 if (xtermEl) xtermEl.focus()
               }}
-              title={`${displayName} (pane ${pane.index})`}
+              title={pane.title || `${pane.command} (pane ${pane.index})`}
             >
               <span className="tmux-pane-tab-icon">
                 {agent ? <AgentIcon /> : <ShellIcon />}
