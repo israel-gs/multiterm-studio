@@ -3,6 +3,8 @@ import { colors } from '../tokens'
 
 interface Props {
   sessionId: string
+  maximized?: boolean
+  onToggleMaximize?: () => void
   onClose: () => void
 }
 
@@ -20,6 +22,23 @@ function isMarkdownFile(filePath?: string): boolean {
   if (!filePath) return false
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
   return ext === 'md' || ext === 'mdx'
+}
+
+function MaximizeIcon(): React.JSX.Element {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <rect x="1.5" y="1.5" width="9" height="9" rx="1" stroke="currentColor" strokeWidth="1.3" />
+    </svg>
+  )
+}
+
+function RestoreIcon(): React.JSX.Element {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <rect x="1.5" y="3.5" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M3.5 3.5V2.5C3.5 1.95 3.95 1.5 4.5 1.5H9.5C10.05 1.5 10.5 1.95 10.5 2.5V7.5C10.5 8.05 10.05 8.5 9.5 8.5H8.5" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  )
 }
 
 function isSvgFile(filePath?: string): boolean {
@@ -44,7 +63,7 @@ function CodeIcon(): React.JSX.Element {
   )
 }
 
-export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
+export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: Props): React.JSX.Element {
   const panel =
     usePanelStore((s) => s.panels[sessionId]) ?? {
       title: 'Terminal',
@@ -129,6 +148,18 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
           aria-label={panel.previewMode ? 'Show image' : 'Edit SVG code'}
         >
           {panel.previewMode ? <EyeIcon /> : <CodeIcon />}
+        </button>
+      )}
+
+      {onToggleMaximize && (
+        <button
+          className="panel-header-btn"
+          style={{ color: fgColor }}
+          title={maximized ? 'Restore' : 'Maximize'}
+          onClick={(e) => { e.stopPropagation(); onToggleMaximize() }}
+          aria-label={maximized ? 'Restore tile' : 'Maximize tile'}
+        >
+          {maximized ? <RestoreIcon /> : <MaximizeIcon />}
         </button>
       )}
 

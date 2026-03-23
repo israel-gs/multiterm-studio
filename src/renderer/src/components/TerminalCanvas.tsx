@@ -190,6 +190,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   // Context menu state
   const [modal, setModal] = useState<{ type: 'rename' | 'color'; cardId: string } | null>(null)
   const [showNewTerminal, setShowNewTerminal] = useState(false)
+  const [maximizedId, setMaximizedId] = useState<string | null>(null)
 
   // Refs for accessing component-level functions from the main effect
   const handleAddPanelRef = useRef<() => void>(() => { })
@@ -837,14 +838,17 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         const cardId = card.dataset.cardId
         const pm = usePanelStore.getState().panels[cardId]
         const closeLabel = pm?.type === 'editor' ? 'Close editor' : pm?.type === 'note' ? 'Close note' : 'Close terminal'
+        const isMaximized = maximizedId === cardId
         window.electronAPI.contextMenuShow([
           { id: 'rename', label: 'Rename' },
           { id: 'color', label: 'Change color' },
+          { id: 'maximize', label: isMaximized ? 'Restore' : 'Maximize' },
           { id: 'separator' },
           { id: 'close', label: closeLabel }
         ]).then((selected) => {
           if (selected === 'rename') setModal({ type: 'rename', cardId })
           else if (selected === 'color') setModal({ type: 'color', cardId })
+          else if (selected === 'maximize') handleToggleMaximize(cardId)
           else if (selected === 'close') handleClosePanelRef.current(cardId)
         })
       } else {
@@ -890,8 +894,12 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
       if ((e.target as HTMLElement).closest('.floating-card')) return
 
-      // Escape: unfocus card first, then clear selection
+      // Escape: restore maximized → unfocus card → clear selection
       if (e.key === 'Escape') {
+        if (maximizedId) {
+          setMaximizedId(null)
+          return
+        }
         if (focusedCardIdRef.current) {
           setFocusedCardId(null)
           ;(document.activeElement as HTMLElement)?.blur()
@@ -1468,6 +1476,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
   function handleClosePanel(id: string): void {
     if (focusedCardIdRef.current === id) setFocusedCardId(null)
+    if (maximizedId === id) setMaximizedId(null)
 
     const panelMeta = usePanelStore.getState().panels[id]
     if (!panelMeta || (panelMeta.type !== 'editor' && panelMeta.type !== 'note' && panelMeta.type !== 'image')) {
@@ -1505,6 +1514,14 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   handleAddPanelAtRef.current = handleAddPanelAt
   handleAddNoteRef.current = handleAddNote
   handleClosePanelRef.current = handleClosePanel
+
+  function handleToggleMaximize(id: string): void {
+    setMaximizedId((prev) => {
+      if (prev === id) return null
+      setFocusedCardId(id)
+      return id
+    })
+  }
 
   function handleCreateTerminal(termName: string, termCommand: string): void {
     const newId = crypto.randomUUID()
@@ -1653,6 +1670,8 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
                 onResizeWithMove={handleResizeWithMove}
                 onBringToFront={handleBringToFront}
                 onClose={handleClosePanel}
+                maximized={maximizedId === id}
+                onToggleMaximize={handleToggleMaximize}
                 onGroupDragContext={getGroupDragContext}
                 onGroupMove={handleGroupMove}
               />

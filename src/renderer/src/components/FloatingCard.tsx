@@ -33,6 +33,8 @@ interface Props {
   onResizeWithMove?: (id: string, x: number, y: number, w: number, h: number) => void
   onBringToFront: (id: string) => void
   onClose: (id: string) => void
+  maximized?: boolean
+  onToggleMaximize?: (id: string) => void
   onGroupDragContext?: (id: string) => Array<{ id: string; x: number; y: number }> | null
   onGroupMove?: (moves: Array<{ id: string; x: number; y: number }>) => void
 }
@@ -61,6 +63,8 @@ export function FloatingCard({
   onResizeWithMove,
   onBringToFront,
   onClose,
+  maximized,
+  onToggleMaximize,
   onGroupDragContext,
   onGroupMove
 }: Props): React.JSX.Element {
@@ -422,7 +426,8 @@ export function FloatingCard({
     'floating-card',
     focused && 'floating-card--focused',
     focused && 'floating-card--card-focused',
-    selected && 'floating-card--selected'
+    selected && 'floating-card--selected',
+    maximized && 'floating-card--maximized'
   ]
     .filter(Boolean)
     .join(' ')
@@ -445,7 +450,12 @@ export function FloatingCard({
     >
       {/* Drag handle wraps the header */}
       <div data-drag-handle onMouseDown={handleDragStart}>
-        <CardHeader sessionId={sessionId} onClose={() => onClose(sessionId)} />
+        <CardHeader
+          sessionId={sessionId}
+          maximized={maximized}
+          onToggleMaximize={onToggleMaximize ? () => onToggleMaximize(sessionId) : undefined}
+          onClose={() => onClose(sessionId)}
+        />
       </div>
 
       <div
