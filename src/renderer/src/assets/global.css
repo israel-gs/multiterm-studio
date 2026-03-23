@@ -401,7 +401,7 @@ body {
 
 .floating-card--maximized {
   position: fixed !important;
-  top: 38px !important;
+  top: 0 !important;
   left: var(--sidebar-width, 0px) !important;
   right: 0 !important;
   bottom: 0 !important;
