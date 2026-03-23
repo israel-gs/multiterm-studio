@@ -1011,7 +1011,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     viewport.addEventListener('contextmenu', handleContextMenu)
     viewport.addEventListener('auxclick', handleAuxClick)
     edgeContainer.addEventListener('click', handleEdgeClick)
-    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keydown', handleKeyDown, true)
     window.addEventListener('keyup', handleKeyUp)
 
     const ro = new ResizeObserver(() => updateCanvas())
@@ -1029,7 +1029,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       viewport.removeEventListener('auxclick', handleAuxClick)
       edgeContainer.removeEventListener('click', handleEdgeClick)
       if (minimapCanvas) minimapCanvas.removeEventListener('mousedown', handleMinimapMouseDown)
-      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keydown', handleKeyDown, true)
       window.removeEventListener('keyup', handleKeyUp)
       ro.disconnect()
       clearTimeout(zoomTimer)
