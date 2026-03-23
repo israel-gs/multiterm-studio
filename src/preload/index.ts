@@ -133,12 +133,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       agentName: string
       toolUseId: string
       subagentsDir: string
+      ptySessionId: string
       cwd: string
     }) => void
   ): (() => void) => {
     const listener = (
       _event: Electron.IpcRendererEvent,
-      data: { agentName: string; toolUseId: string; subagentsDir: string; cwd: string }
+      data: { agentName: string; toolUseId: string; subagentsDir: string; ptySessionId: string; cwd: string }
     ): void => callback(data)
     ipcRenderer.on('agent:spawning', listener)
     return () => ipcRenderer.removeListener('agent:spawning', listener)
