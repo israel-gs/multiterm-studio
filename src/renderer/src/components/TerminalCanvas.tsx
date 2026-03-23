@@ -1159,6 +1159,8 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
   // --- Open file in editor or image tile ---
   function handleOpenFile(filePath: string): void {
+    // Restore maximized tile so the new tile is visible
+    if (maximizedId) setMaximizedId(null)
     // Route images to handleAddImage
     if (inferTileType(filePath) === 'image') {
       handleAddImage(filePath)
