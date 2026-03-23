@@ -135,28 +135,15 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
       term.options.theme = resolveTheme()
     })
 
-    // Track PWD changes via OSC 7
-    term.parser.registerOscHandler(7, (data) => {
-      // OSC 7 format: file://hostname/path
-      try {
-        const url = new URL(data)
-        const pwd = decodeURIComponent(url.pathname)
-        if (pwd) {
-          usePanelStore.getState().setCwd(sessionId, pwd)
-        }
-      } catch {
-        // Not a valid URL, try as plain path
-        if (data.startsWith('/')) {
-          usePanelStore.getState().setCwd(sessionId, data)
-        }
-      }
-      return false // don't consume, let xterm handle it too
-    })
-
-    // Poll for running process indicator
+    // Poll for CWD and running process indicator via tmux
     const processInterval = setInterval(async () => {
-      const has = await window.electronAPI.ptyHasProcess(sessionId)
-      usePanelStore.getState().setHasProcess(sessionId, has)
+      const [has, cwd] = await Promise.all([
+        window.electronAPI.ptyHasProcess(sessionId),
+        window.electronAPI.ptyGetCwd(sessionId)
+      ])
+      const store = usePanelStore.getState()
+      store.setHasProcess(sessionId, has)
+      if (cwd) store.setCwd(sessionId, cwd)
     }, 3000)
 
     return () => {

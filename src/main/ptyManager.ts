@@ -347,6 +347,17 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     }
   })
 
+  ipcMain.handle('pty:get-cwd', (_event, id: string) => {
+    const session = sessions.get(id)
+    if (!session) return null
+    try {
+      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', '#{pane_current_path}')
+      return raw.split('\n')[0]?.trim() || null
+    } catch {
+      return null
+    }
+  })
+
   ipcMain.handle('pty:has-process', (_event, id: string) => {
     const session = sessions.get(id)
     if (!session) return false
