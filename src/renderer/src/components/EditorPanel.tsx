@@ -109,12 +109,17 @@ export function EditorPanel({ sessionId, filePath }: EditorPanelProps): React.JS
   const [previewContent, setPreviewContent] = useState('')
   const isMarkdown = isMarkdownFile(filePath)
 
-  // When entering preview mode, snapshot editor content
+  // When entering preview mode, snapshot editor content.
+  // Falls back to reading from file if editor isn't available (e.g. after portal remount on maximize)
   useEffect(() => {
-    if (previewMode && editorRef.current) {
-      setPreviewContent(editorRef.current.getValue())
+    if (previewMode) {
+      if (editorRef.current) {
+        setPreviewContent(editorRef.current.getValue())
+      } else {
+        window.electronAPI.fileRead(filePath).then(setPreviewContent).catch(() => {})
+      }
     }
-  }, [previewMode])
+  }, [previewMode, filePath])
 
   // Re-layout monaco when returning from preview
   useEffect(() => {
