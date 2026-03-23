@@ -57,6 +57,13 @@ textarea {
   --hover-bg: rgba(255, 255, 255, 0.05);
   --hover-bg-strong: rgba(255, 255, 255, 0.08);
 
+  /* Accent */
+  --accent: #c678dd;
+  --accent-bg: rgba(198, 120, 221, 0.12);
+  --accent-bg-strong: rgba(198, 120, 221, 0.18);
+  --accent-glow: rgba(198, 120, 221, 0.5);
+  --fg-muted: #555;
+
   /* Typography — rem scale based on 16px root */
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
@@ -92,6 +99,11 @@ textarea {
   --card-shadow-elevated: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 8px 32px rgba(0, 0, 0, 0.15);
   --hover-bg: rgba(0, 0, 0, 0.04);
   --hover-bg-strong: rgba(0, 0, 0, 0.08);
+  --accent: #7c3aed;
+  --accent-bg: rgba(124, 58, 237, 0.1);
+  --accent-bg-strong: rgba(124, 58, 237, 0.16);
+  --accent-glow: rgba(124, 58, 237, 0.4);
+  --fg-muted: #999;
   --selection: #add6ff;
 }
 
@@ -109,6 +121,11 @@ textarea {
     --card-shadow-elevated: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 8px 32px rgba(0, 0, 0, 0.15);
     --hover-bg: rgba(0, 0, 0, 0.04);
     --hover-bg-strong: rgba(0, 0, 0, 0.08);
+    --accent: #7c3aed;
+    --accent-bg: rgba(124, 58, 237, 0.1);
+    --accent-bg-strong: rgba(124, 58, 237, 0.16);
+    --accent-glow: rgba(124, 58, 237, 0.4);
+    --fg-muted: #999;
     --selection: #add6ff;
   }
 }
@@ -396,17 +413,14 @@ body {
   z-index: 8;
   display: flex;
   flex-direction: column;
-  background: rgba(28, 28, 28, 0.95);
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-card);
+  border-left: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
   transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
 
 .tmux-sidebar--expanded {
   width: 152px;
-  background: rgba(28, 28, 28, 0.88);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 .tmux-sidebar-track {
@@ -446,21 +460,21 @@ body {
 }
 
 .tmux-pane-tab:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--fg-secondary, #999);
+  background: var(--hover-bg);
+  color: var(--fg-secondary);
 }
 
 .tmux-pane-tab--active {
-  background: rgba(198, 120, 221, 0.12);
-  color: #c678dd;
+  background: var(--accent-bg, rgba(198, 120, 221, 0.12));
+  color: var(--accent, #c678dd);
 }
 
 .tmux-pane-tab--active:hover {
-  background: rgba(198, 120, 221, 0.18);
+  background: var(--accent-bg-strong, rgba(198, 120, 221, 0.18));
 }
 
 .tmux-pane-tab--agent .tmux-pane-tab-icon {
-  color: #c678dd;
+  color: var(--accent, #c678dd);
 }
 
 .tmux-pane-tab-icon {
@@ -504,8 +518,8 @@ body {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #c678dd;
-  box-shadow: 0 0 6px rgba(198, 120, 221, 0.5);
+  background: var(--accent, #c678dd);
+  box-shadow: 0 0 6px var(--accent-glow, rgba(198, 120, 221, 0.5));
 }
 
 .tmux-sidebar--expanded .tmux-pane-tab-dot {
