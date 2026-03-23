@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { usePanelStore } from '../store/panelStore'
 
 interface TmuxPane {
@@ -40,7 +40,8 @@ export function TmuxPaneSidebar({ sessionId }: Props): React.JSX.Element | null 
   const [panes, setPanes] = useState<TmuxPane[]>([])
   const [hovered, setHovered] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const agentNames = usePanelStore((s) => s.agentNames[sessionId] ?? [])
+  const allAgentNames = usePanelStore((s) => s.agentNames)
+  const agentNames = useMemo(() => allAgentNames[sessionId] ?? [], [allAgentNames, sessionId])
 
   const poll = useCallback(async () => {
     const result = await window.electronAPI.ptyListPanes(sessionId)
