@@ -12,7 +12,7 @@ export interface SavedLayoutShape {
   version: number
   panelIds?: string[]
   tree?: unknown
-  panels: Array<{ id: string; title: string; color: string; type?: 'terminal' | 'editor' | 'note'; filePath?: string; noteContent?: string }>
+  panels: Array<{ id: string; title: string; color: string; type?: 'terminal' | 'editor' | 'note' | 'image'; filePath?: string; noteContent?: string }>
   positions?: Record<string, CardRect>
   viewport?: { panX: number; panY: number; zoom: number }
 }
@@ -26,6 +26,8 @@ const DEFAULT_W = 480
 const DEFAULT_H = 320
 const NOTE_W = 280
 const NOTE_H = 220
+const IMAGE_W = 280
+const IMAGE_H = 280
 const CASCADE_OFFSET = 30
 const MIN_ZOOM = 0.15
 const MAX_ZOOM = 3.0
@@ -33,6 +35,12 @@ const GRID_CELL = 24
 const GRID_MAJOR = 5
 const EDGE_INSET = 12
 const MARQUEE_THRESHOLD = 3
+const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp'])
+
+function inferTileType(filePath: string): 'editor' | 'image' {
+  const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+  return IMAGE_EXTS.has(ext) ? 'image' : 'editor'
+}
 
 function extractLeafIds(node: unknown): string[] {
   if (node === null || node === undefined) return []
@@ -173,6 +181,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   const selectedIdsRef = useRef<Set<string>>(new Set())
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
+  // Focused card state (content overlay / drag-by-default)
+  const [focusedCardId, setFocusedCardId] = useState<string | null>(null)
+  const focusedCardIdRef = useRef<string | null>(null)
+
   // Context menu state
   const [modal, setModal] = useState<{ type: 'rename' | 'color'; cardId: string } | null>(null)
 
@@ -192,6 +204,9 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   useEffect(() => {
     folderPathRef.current = folderPath
   }, [folderPath])
+  useEffect(() => {
+    focusedCardIdRef.current = focusedCardId
+  }, [focusedCardId])
 
   // === Main viewport effect: grid, pan, zoom, edge indicators, keyboard, selection, marquee ===
   useEffect(() => {
@@ -793,6 +808,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       if (!(e.target as HTMLElement).closest('.floating-card, .edge-dot')) {
         selectedIdsRef.current.clear()
         setSelectedIds(new Set())
+        setFocusedCardId(null)
       }
     }
 
@@ -831,14 +847,21 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       } else {
         window.electronAPI.contextMenuShow([
           { id: 'new-terminal', label: 'New terminal' },
-          { id: 'new-note', label: 'New note' }
-        ]).then((selected) => {
+          { id: 'new-note', label: 'New note' },
+          { id: 'open-image', label: 'Open image...' }
+        ]).then(async (selected) => {
           if (selected === 'new-terminal') {
             clearSelection()
             handleAddPanelRef.current()
           } else if (selected === 'new-note') {
             clearSelection()
             handleAddNoteRef.current()
+          } else if (selected === 'open-image') {
+            clearSelection()
+            const result = await window.electronAPI.fileOpenDialog([
+              { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp'] }
+            ])
+            if (result) handleAddImage(result)
           }
         })
       }
@@ -861,6 +884,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         if (!e.repeat && !spaceHeld) {
           spaceHeld = true
           viewport.classList.add('space-held')
+          setFocusedCardId(null)
           // Blur focused terminal so space doesn't type into it
           const active = document.activeElement as HTMLElement | null
           if (active?.closest?.('.floating-card')) active.blur()
@@ -870,8 +894,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
       if ((e.target as HTMLElement).closest('.floating-card')) return
 
-      // Escape: clear selection and context menu
+      // Escape: unfocus card first, then clear selection
       if (e.key === 'Escape') {
+        if (focusedCardIdRef.current) {
+          setFocusedCardId(null)
+          ;(document.activeElement as HTMLElement)?.blur()
+          return
+        }
         selectedIdsRef.current.clear()
         setSelectedIds(new Set())
         return
@@ -1124,8 +1153,14 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // --- Open file in editor tile ---
+  // --- Open file in editor or image tile ---
   function handleOpenFile(filePath: string): void {
+    // Route images to handleAddImage
+    if (inferTileType(filePath) === 'image') {
+      handleAddImage(filePath)
+      return
+    }
+
     // Check if file is already open -> bring to front
     const allPanels = usePanelStore.getState().panels
     for (const id of panelIdsRef.current) {
@@ -1346,9 +1381,100 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     })
   }
 
+  function handleAddImage(filePath: string, cx?: number, cy?: number): void {
+    // Check if image is already open -> bring to front
+    const allPanels = usePanelStore.getState().panels
+    for (const id of panelIdsRef.current) {
+      const pm = allPanels[id]
+      if (pm && pm.type === 'image' && pm.filePath === filePath) {
+        const newZ = ++topZRef.current
+        setPositions((prev) => {
+          const next = { ...prev, [id]: { ...prev[id], z: newZ } }
+          positionsRef.current = next
+          return next
+        })
+        return
+      }
+    }
+
+    const newId = crypto.randomUUID()
+    const fileName = filePath.split('/').pop() ?? 'Image'
+    addPanel(newId, fileName, colors.bgCard, 'image', filePath)
+
+    const viewport = viewportRef.current
+    const scale = scaleRef.current
+    let x = cx ?? 40
+    let y = cy ?? 40
+
+    if (cx == null && viewport) {
+      const vw = viewport.clientWidth
+      const vh = viewport.clientHeight
+      x = snapToGrid((vw / 2 - canvasXRef.current) / scale - IMAGE_W / 2)
+      y = snapToGrid((vh / 2 - canvasYRef.current) / scale - IMAGE_H / 2)
+    } else {
+      x = snapToGrid(x)
+      y = snapToGrid(y)
+    }
+
+    const newZ = ++topZRef.current
+    const newRect: CardRect = { x, y, w: IMAGE_W, h: IMAGE_H, z: newZ }
+
+    setPanelIds((prev) => {
+      const next = [...prev, newId]
+      panelIdsRef.current = next
+      return next
+    })
+    setPositions((prev) => {
+      const next = { ...prev, [newId]: newRect }
+      positionsRef.current = next
+      triggerSave([...panelIdsRef.current], next)
+      return next
+    })
+  }
+
+  function handleOpenFileAt(filePath: string, cx: number, cy: number): void {
+    // Check if file is already open
+    const allPanels = usePanelStore.getState().panels
+    for (const id of panelIdsRef.current) {
+      const pm = allPanels[id]
+      if (pm && pm.type === 'editor' && pm.filePath === filePath) {
+        const newZ = ++topZRef.current
+        setPositions((prev) => {
+          const next = { ...prev, [id]: { ...prev[id], z: newZ } }
+          positionsRef.current = next
+          return next
+        })
+        return
+      }
+    }
+
+    const newId = crypto.randomUUID()
+    const fileName = filePath.split('/').pop() ?? 'File'
+    addPanel(newId, fileName, colors.bgCard, 'editor', filePath)
+
+    const x = snapToGrid(cx)
+    const y = snapToGrid(cy)
+    const newZ = ++topZRef.current
+    const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
+
+    setPanelIds((prev) => {
+      const next = [...prev, newId]
+      panelIdsRef.current = next
+      return next
+    })
+    setPositions((prev) => {
+      const next = { ...prev, [newId]: newRect }
+      positionsRef.current = next
+      triggerSave([...panelIdsRef.current], next)
+      return next
+    })
+  }
+
   function handleClosePanel(id: string): void {
+    if (focusedCardIdRef.current === id) setFocusedCardId(null)
+
     const panelMeta = usePanelStore.getState().panels[id]
-    if (!panelMeta || (panelMeta.type !== 'editor' && panelMeta.type !== 'note')) {
+    if (!panelMeta || (panelMeta.type !== 'editor' && panelMeta.type !== 'note' && panelMeta.type !== 'image')) {
       window.electronAPI.ptyKill(id)
     }
     removePanel(id)
@@ -1428,7 +1554,38 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
   return (
     <div className="terminal-canvas">
-      <div ref={viewportRef} className="terminal-canvas-viewport">
+      <div
+        ref={viewportRef}
+        className="terminal-canvas-viewport"
+        onDragOver={(e) => {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+          viewportRef.current?.classList.add('canvas-drop-target')
+        }}
+        onDragLeave={(e) => {
+          if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) {
+            viewportRef.current?.classList.remove('canvas-drop-target')
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          viewportRef.current?.classList.remove('canvas-drop-target')
+          const raw = e.dataTransfer.getData('application/x-multiterm-file')
+          if (!raw) return
+          const data = JSON.parse(raw) as { path: string; name: string; isDir: boolean }
+          if (data.isDir) return
+          const vpRect = viewportRef.current!.getBoundingClientRect()
+          const scale = scaleRef.current
+          const cx = (e.clientX - vpRect.left - canvasXRef.current) / scale
+          const cy = (e.clientY - vpRect.top - canvasYRef.current) / scale
+          const tileType = inferTileType(data.path)
+          if (tileType === 'image') {
+            handleAddImage(data.path, cx, cy)
+          } else {
+            handleOpenFileAt(data.path, cx, cy)
+          }
+        }}
+      >
         <canvas ref={gridCanvasRef} className="terminal-canvas-grid" />
         <div
           ref={tileLayerRef}
@@ -1447,9 +1604,11 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
                 rect={rect}
                 zoomRef={scaleRef}
                 selected={selectedIds.has(id)}
+                focused={focusedCardId === id}
                 type={pm?.type ?? 'terminal'}
                 filePath={pm?.filePath}
                 onSelect={handleCardSelect}
+                onFocusCard={setFocusedCardId}
                 onMove={handleMove}
                 onResize={handleResize}
                 onResizeWithMove={handleResizeWithMove}
