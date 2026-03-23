@@ -5,7 +5,7 @@ export interface PanelMeta {
   title: string
   color: string
   attention: boolean
-  type: 'terminal' | 'editor' | 'note'
+  type: 'terminal' | 'editor' | 'note' | 'image'
   noteContent?: string
   filePath?: string
   dirty: boolean
@@ -16,7 +16,7 @@ export interface PanelMeta {
 
 export interface PanelStore {
   panels: Record<string, PanelMeta>
-  addPanel: (id: string, title?: string, color?: string, type?: 'terminal' | 'editor' | 'note', filePath?: string, initialCommand?: string) => void
+  addPanel: (id: string, title?: string, color?: string, type?: 'terminal' | 'editor' | 'note' | 'image', filePath?: string, initialCommand?: string) => void
   removePanel: (id: string) => void
   setTitle: (id: string, title: string) => void
   setColor: (id: string, color: string) => void
@@ -40,7 +40,7 @@ export const usePanelStore = create<PanelStore>((set) => ({
       panels: {
         ...s.panels,
         [id]: {
-          title: title ?? (type === 'editor' && filePath ? filePath.split('/').pop()! : type === 'note' ? 'Note' : 'Terminal'),
+          title: title ?? (type === 'image' && filePath ? filePath.split('/').pop()! : type === 'editor' && filePath ? filePath.split('/').pop()! : type === 'note' ? 'Note' : 'Terminal'),
           color: color ?? colors.bgCard,
           attention: false,
           type: type ?? 'terminal',

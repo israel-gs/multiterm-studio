@@ -22,6 +22,11 @@ function isMarkdownFile(filePath?: string): boolean {
   return ext === 'md' || ext === 'mdx'
 }
 
+function isSvgFile(filePath?: string): boolean {
+  if (!filePath) return false
+  return filePath.split('.').pop()?.toLowerCase() === 'svg'
+}
+
 function EyeIcon(): React.JSX.Element {
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -56,7 +61,9 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
   const headerBg = isDefaultColor ? undefined : panel.color
   const fgColor = isDefaultColor ? 'var(--fg-primary)' : (isLightColor(panel.color) ? '#000000' : '#ffffff')
   const isEditor = panel.type === 'editor'
+  const isImage = panel.type === 'image'
   const isMd = isMarkdownFile(panel.filePath)
+  const isSvg = isSvgFile(panel.filePath)
 
   return (
     <div className="panel-header" style={headerBg ? { background: headerBg } : undefined}>
@@ -107,6 +114,21 @@ export function CardHeader({ sessionId, onClose }: Props): React.JSX.Element {
           aria-label={panel.previewMode ? 'Show editor' : 'Preview markdown'}
         >
           {panel.previewMode ? <CodeIcon /> : <EyeIcon />}
+        </button>
+      )}
+
+      {isImage && isSvg && (
+        <button
+          className="panel-header-btn panel-header-preview-btn"
+          style={{ color: fgColor }}
+          title={panel.previewMode ? 'Show image' : 'Edit SVG code'}
+          onClick={(e) => {
+            e.stopPropagation()
+            togglePreview(sessionId)
+          }}
+          aria-label={panel.previewMode ? 'Show image' : 'Edit SVG code'}
+        >
+          {panel.previewMode ? <EyeIcon /> : <CodeIcon />}
         </button>
       )}
 
