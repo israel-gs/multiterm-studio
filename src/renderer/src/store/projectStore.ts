@@ -28,6 +28,9 @@ export interface ProjectStore {
   clearPendingPaneCreate: () => void
   fsRefreshKey: number
   bumpFsRefresh: () => void
+  expandedDirs: Set<string>
+  setExpandedDirs: (dirs: Set<string>) => void
+  toggleExpandedDir: (dir: string) => void
 }
 
 export const useProjectStore = create<ProjectStore>((set) => ({
@@ -43,5 +46,14 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   spawnInteractivePane: (req) => set({ pendingPaneCreate: req }),
   clearPendingPaneCreate: () => set({ pendingPaneCreate: null }),
   fsRefreshKey: 0,
-  bumpFsRefresh: () => set((s) => ({ fsRefreshKey: s.fsRefreshKey + 1 }))
+  bumpFsRefresh: () => set((s) => ({ fsRefreshKey: s.fsRefreshKey + 1 })),
+  expandedDirs: new Set<string>(),
+  setExpandedDirs: (dirs) => set({ expandedDirs: dirs }),
+  toggleExpandedDir: (dir) =>
+    set((s) => {
+      const next = new Set(s.expandedDirs)
+      if (next.has(dir)) next.delete(dir)
+      else next.add(dir)
+      return { expandedDirs: next }
+    })
 }))

@@ -44,6 +44,12 @@ function App(): React.JSX.Element {
       prevFolderRef.current = path
       // Track in recent projects (non-blocking)
       void window.electronAPI.projectsAdd(path)
+      // Load workspace config (expanded dirs, selected file)
+      window.electronAPI.workspaceLoad(path).then((wsConfig) => {
+        if (wsConfig.expanded_dirs.length > 0) {
+          useProjectStore.getState().setExpandedDirs(new Set(wsConfig.expanded_dirs))
+        }
+      })
       // Inject Claude Code hooks for agent auto-spawn
       void window.electronAPI.hooksInject(path)
     },
@@ -97,6 +103,26 @@ function App(): React.JSX.Element {
       unsubPaneFocus()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Save workspace config (expanded dirs) when they change — debounced
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const unsubscribe = useProjectStore.subscribe((state, prev) => {
+      if (state.expandedDirs !== prev.expandedDirs && state.folderPath) {
+        if (timer) clearTimeout(timer)
+        timer = setTimeout(() => {
+          window.electronAPI.workspaceSave(state.folderPath!, {
+            selected_file: null,
+            expanded_dirs: Array.from(state.expandedDirs)
+          })
+        }, 1000)
+      }
+    })
+    return () => {
+      unsubscribe()
+      if (timer) clearTimeout(timer)
+    }
   }, [])
 
   // Sync sidebar width to CSS custom property (drives .enhanced-sidebar width)
