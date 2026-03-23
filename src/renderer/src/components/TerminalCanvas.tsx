@@ -847,21 +847,14 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       } else {
         window.electronAPI.contextMenuShow([
           { id: 'new-terminal', label: 'New terminal' },
-          { id: 'new-note', label: 'New note' },
-          { id: 'open-image', label: 'Open image...' }
-        ]).then(async (selected) => {
+          { id: 'new-note', label: 'New note' }
+        ]).then((selected) => {
           if (selected === 'new-terminal') {
             clearSelection()
             handleAddPanelRef.current()
           } else if (selected === 'new-note') {
             clearSelection()
             handleAddNoteRef.current()
-          } else if (selected === 'open-image') {
-            clearSelection()
-            const result = await window.electronAPI.fileOpenDialog([
-              { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp'] }
-            ])
-            if (result) handleAddImage(result)
           }
         })
       }
