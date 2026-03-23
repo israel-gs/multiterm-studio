@@ -15,6 +15,21 @@ interface PtySession {
 
 const sessions = new Map<string, PtySession>()
 
+let tmuxMouseEnabled = true
+
+export function setTmuxMouseMode(enabled: boolean): void {
+  tmuxMouseEnabled = enabled
+  try {
+    tmuxExec('set-option', '-g', 'mouse', enabled ? 'on' : 'off')
+  } catch {
+    // tmux server might not be running yet
+  }
+}
+
+export function getTmuxMouseMode(): boolean {
+  return tmuxMouseEnabled
+}
+
 // Per-session cooldown: maps session id -> timestamp of last attention event (ms since epoch)
 export const attentionCooldown = new Map<string, number>()
 
@@ -212,7 +227,7 @@ export function registerPtyHandlers(win: BrowserWindow): void {
         '-x', '80', '-y', '24'
       )
       tmuxExec('set-option', '-t', tmuxName, 'status', 'off')
-      tmuxExec('set-option', '-g', 'mouse', 'on')
+      tmuxExec('set-option', '-g', 'mouse', tmuxMouseEnabled ? 'on' : 'off')
       tmuxExec('set-environment', '-t', tmuxName, 'MULTITERM_PTY_SESSION_ID', id)
       tmuxExec('set-environment', '-t', tmuxName, 'SHELL', shell)
       tmuxExec('set-environment', '-t', tmuxName, 'TERM_PROGRAM', 'multiterm-studio')

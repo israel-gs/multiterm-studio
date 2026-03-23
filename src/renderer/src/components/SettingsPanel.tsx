@@ -124,6 +124,49 @@ function AppearanceSettings(): React.JSX.Element {
   )
 }
 
+function TerminalSettings(): React.JSX.Element {
+  const [mouseMode, setMouseMode] = useState(true)
+
+  useEffect(() => {
+    window.electronAPI.settingsGet('terminal.mouseMode').then((v) => {
+      if (typeof v === 'boolean') setMouseMode(v)
+    })
+  }, [])
+
+  const handleToggle = (): void => {
+    const next = !mouseMode
+    setMouseMode(next)
+    window.electronAPI.settingsSet('terminal.mouseMode', next)
+    window.electronAPI.terminalSetMouseMode(next)
+  }
+
+  return (
+    <div className="stg-content">
+      <div className="stg-content-header">
+        <h2 className="stg-content-title">Terminal</h2>
+        <p className="stg-content-desc">Configure terminal behavior and defaults</p>
+      </div>
+      <div className="stg-group">
+        <div className="stg-group-label">Mouse</div>
+        <div className="stg-toggle-row">
+          <div className="stg-toggle-info">
+            <span className="stg-toggle-label">Tmux mouse mode</span>
+            <span className="stg-toggle-desc">Enable mouse scrolling, clicking and selection inside tmux panes</span>
+          </div>
+          <button
+            className={`stg-toggle${mouseMode ? ' stg-toggle--on' : ''}`}
+            onClick={handleToggle}
+            role="switch"
+            aria-checked={mouseMode}
+          >
+            <span className="stg-toggle-knob" />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PlaceholderSettings({ title, desc }: { title: string; desc: string }): React.JSX.Element {
   return (
     <div className="stg-content">
@@ -158,7 +201,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
       case 'appearance':
         return <AppearanceSettings />
       case 'terminal':
-        return <PlaceholderSettings title="Terminal" desc="Configure terminal behavior and defaults" />
+        return <TerminalSettings />
       case 'editor':
         return <PlaceholderSettings title="Editor" desc="Customize the code editor experience" />
       case 'keybindings':
