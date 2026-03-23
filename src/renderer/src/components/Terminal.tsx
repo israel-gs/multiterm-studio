@@ -97,13 +97,15 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
     // Create PTY session in main process
     window.electronAPI.ptyCreate(sessionId, cwd)
 
-    // Write initial command if configured (e.g. agent viewer script)
+    // Execute initial command if configured (e.g. claude, codex)
+    // Uses tmux send-keys for atomic delivery (avoids text leaking into
+    // the launched program's input buffer from fragmented pty writes)
     const meta = usePanelStore.getState().panels[sessionId]
     if (meta?.initialCommand) {
       const cmd = meta.initialCommand
       setTimeout(() => {
-        window.electronAPI.ptyWrite(sessionId, cmd + '\n')
-      }, 500)
+        window.electronAPI.ptySendKeys(sessionId, cmd + ' Enter')
+      }, 800)
     }
 
     // Renderer → Main: keyboard input

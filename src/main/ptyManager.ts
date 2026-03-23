@@ -321,6 +321,16 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     }
   })
 
+  ipcMain.handle('pty:send-keys', (_event, id: string, keys: string) => {
+    const session = sessions.get(id)
+    if (!session) return
+    try {
+      tmuxExec('send-keys', '-t', session.tmuxName, keys)
+    } catch {
+      // ignore
+    }
+  })
+
   ipcMain.handle('pty:kill', (_event, id: string) => {
     const session = sessions.get(id)
     if (!session) return

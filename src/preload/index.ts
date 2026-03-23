@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   ptyKill: (id: string): Promise<void> => ipcRenderer.invoke('pty:kill', id),
 
+  ptySendKeys: (id: string, keys: string): Promise<void> =>
+    ipcRenderer.invoke('pty:send-keys', id, keys),
+
   ptyListPanes: (id: string): Promise<Array<{ index: number; command: string; title: string; active: boolean; pid: number }>> =>
     ipcRenderer.invoke('pty:list-panes', id),
 
