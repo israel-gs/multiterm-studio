@@ -1215,9 +1215,12 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     })
 
     // If a tile was maximized, maximize the new file instead
+    // Use requestAnimationFrame so the new panel renders first
     if (wasMaximized) {
-      setMaximizedId(newId)
-      setFocusedCardId(newId)
+      requestAnimationFrame(() => {
+        setMaximizedId(newId)
+        setFocusedCardId(newId)
+      })
     }
   }
 
