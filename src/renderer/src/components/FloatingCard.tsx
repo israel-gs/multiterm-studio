@@ -1,4 +1,5 @@
 import { useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { CardHeader } from './CardHeader'
 import { TerminalPanel } from './Terminal'
 import { EditorPanel } from './EditorPanel'
@@ -432,12 +433,12 @@ export function FloatingCard({
     .filter(Boolean)
     .join(' ')
 
-  return (
+  const cardElement = (
     <div
       ref={cardRef}
       data-card-id={sessionId}
       className={classNames}
-      style={{
+      style={maximized ? undefined : {
         left: rect.x,
         top: rect.y,
         width: rect.w,
@@ -519,4 +520,11 @@ export function FloatingCard({
       />
     </div>
   )
+
+  // When maximized, render via portal to escape the canvas transform context
+  if (maximized) {
+    return createPortal(cardElement, document.body)
+  }
+
+  return cardElement
 }
