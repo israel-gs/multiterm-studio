@@ -1,12 +1,13 @@
-import { mkdir, writeFile, readFile, appendFile } from 'fs/promises'
-import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import { mkdir, writeFile, rename, readFile, appendFile, unlink } from 'fs/promises'
+import { existsSync, mkdirSync, writeFileSync, renameSync, unlinkSync } from 'fs'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
 
 export interface PanelEntry {
   id: string
   title: string
   color: string
-  type?: 'terminal' | 'editor'
+  type?: 'terminal' | 'editor' | 'note' | 'image'
   filePath?: string
 }
 
@@ -89,11 +90,15 @@ function migrateV2toV3(v2: LayoutSnapshotV2): LayoutSnapshotV3 {
  * Silently fails on any error (never throws).
  */
 export async function saveLayout(folderPath: string, layout: LayoutSnapshot): Promise<void> {
+  const targetPath = layoutPath(folderPath)
+  const tmpPath = `${targetPath}.${randomUUID()}.tmp`
   try {
     await mkdir(multitermDir(folderPath), { recursive: true })
-    await writeFile(layoutPath(folderPath), JSON.stringify(layout, null, 2))
+    await writeFile(tmpPath, JSON.stringify(layout, null, 2))
+    await rename(tmpPath, targetPath)
   } catch {
     // Silent failure — do not crash the app on save errors
+    try { await unlink(tmpPath) } catch { /* ignore cleanup errors */ }
   }
 }
 
@@ -102,11 +107,15 @@ export async function saveLayout(folderPath: string, layout: LayoutSnapshot): Pr
  * Silently fails on any error.
  */
 export function saveLayoutSync(folderPath: string, layout: LayoutSnapshot): void {
+  const targetPath = layoutPath(folderPath)
+  const tmpPath = `${targetPath}.${randomUUID()}.tmp`
   try {
     mkdirSync(multitermDir(folderPath), { recursive: true })
-    writeFileSync(layoutPath(folderPath), JSON.stringify(layout, null, 2))
+    writeFileSync(tmpPath, JSON.stringify(layout, null, 2))
+    renameSync(tmpPath, targetPath)
   } catch {
     // Silent failure
+    try { unlinkSync(tmpPath) } catch { /* ignore cleanup errors */ }
   }
 }
 
