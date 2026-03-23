@@ -1159,20 +1159,25 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
   // --- Open file in editor or image tile ---
   function handleOpenFile(filePath: string): void {
-    // Restore maximized tile so the new tile is visible
-    if (maximizedId) setMaximizedId(null)
+    const wasMaximized = !!maximizedId
+
     // Route images to handleAddImage
     if (inferTileType(filePath) === 'image') {
+      if (wasMaximized) setMaximizedId(null)
       handleAddImage(filePath)
       return
     }
 
-    // Check if file is already open -> bring to front
+    // Check if file is already open -> maximize it (or bring to front)
     const allPanels = usePanelStore.getState().panels
     for (const id of panelIdsRef.current) {
       const pm = allPanels[id]
       if (pm && pm.type === 'editor' && pm.filePath === filePath) {
-        handleBringToFront(id)
+        if (wasMaximized) {
+          setMaximizedId(id)
+        } else {
+          handleBringToFront(id)
+        }
         return
       }
     }
@@ -1208,6 +1213,12 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       triggerSave([...panelIdsRef.current], next)
       return next
     })
+
+    // If a tile was maximized, maximize the new file instead
+    if (wasMaximized) {
+      setMaximizedId(newId)
+      setFocusedCardId(newId)
+    }
   }
 
   // Subscribe to pendingFileOpen from projectStore
