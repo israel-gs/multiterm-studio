@@ -21,6 +21,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Folder operations — project context panel (Phase 03)
   folderOpen: (): Promise<string | null> => ipcRenderer.invoke('folder:open'),
 
+  fileOpenDialog: (
+    filters?: { name: string; extensions: string[] }[]
+  ): Promise<string | null> => ipcRenderer.invoke('file:open-dialog', filters),
+
   folderReaddir: (
     dirPath: string
   ): Promise<Array<{ name: string; isDir: boolean; itemCount?: number; modifiedAt?: number }>> =>
@@ -74,6 +78,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   fileWrite: (filePath: string, content: string): Promise<void> =>
     ipcRenderer.invoke('file:write', filePath, content),
+
+  // File tree operations — rename, move, trash, create
+  fileRename: (oldPath: string, newName: string): Promise<string> =>
+    ipcRenderer.invoke('file:rename', oldPath, newName),
+  fileMove: (sourcePath: string, targetFolder: string): Promise<string> =>
+    ipcRenderer.invoke('file:move', sourcePath, targetFolder),
+  fileTrash: (filePath: string): Promise<void> =>
+    ipcRenderer.invoke('file:trash', filePath),
+  fileCreate: (filePath: string, content?: string): Promise<void> =>
+    ipcRenderer.invoke('file:create', filePath, content ?? ''),
+  folderCreate: (folderPath: string): Promise<void> =>
+    ipcRenderer.invoke('folder:create', folderPath),
 
   // Recent projects
   projectsRecent: (): Promise<
@@ -230,6 +246,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   zoomOut: (): void => ipcRenderer.send('zoom:out'),
   zoomReset: (): void => ipcRenderer.send('zoom:reset'),
   fullscreenToggle: (): void => ipcRenderer.send('fullscreen:toggle'),
+
+  // Workspace config per project
+  workspaceLoad: (folderPath: string): Promise<{ selected_file: string | null; expanded_dirs: string[] }> =>
+    ipcRenderer.invoke('workspace:load', folderPath),
+  workspaceSave: (folderPath: string, config: { selected_file: string | null; expanded_dirs: string[] }): Promise<void> =>
+    ipcRenderer.invoke('workspace:save', folderPath, config),
+
+  // Settings persistence
+  settingsGet: (key: string): Promise<unknown> => ipcRenderer.invoke('settings:get', key),
+  settingsSet: (key: string, value: unknown): Promise<void> =>
+    ipcRenderer.invoke('settings:set', key, value),
+  terminalSetMouseMode: (enabled: boolean): Promise<void> =>
+    ipcRenderer.invoke('terminal:set-mouse-mode', enabled),
 
   // Hook injection for Claude Code integration
   hooksInject: (folderPath: string): Promise<void> =>

@@ -1,7 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain, Menu, globalShortcut, protocol, net } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { registerPtyHandlers, cleanupOrphanSessions } from './ptyManager'
+import { registerPtyHandlers, cleanupOrphanSessions, setTmuxMouseMode } from './ptyManager'
+import { initSettings, getSetting, setSetting } from './settingsManager'
 import { registerFolderHandlers } from './folderManager'
 import { registerFileHandlers } from './fileManager'
 import { registerGitHandlers } from './gitManager'
@@ -11,6 +12,8 @@ import type { LayoutSnapshot } from './layoutManager'
 import { startRpcServer } from './rpcServer'
 import { injectHooks, removeHooks } from './hookInjector'
 import { startFileWatcher, stopFileWatcher } from './fileWatcher'
+import { installCli } from './cliInstaller'
+import { loadWorkspaceConfig, saveWorkspaceConfig } from './workspaceConfig'
 
 // Set app name early — used by macOS menu bar
 app.setName('Multiterm Studio')
@@ -131,6 +134,24 @@ function createWindow(): void {
   }
 }
 
+// Settings IPC handlers
+ipcMain.handle('settings:get', (_event, key: string) => getSetting(key))
+ipcMain.handle('settings:set', (_event, key: string, value: unknown) => {
+  setSetting(key, value)
+})
+ipcMain.handle('terminal:set-mouse-mode', (_event, enabled: boolean) => {
+  setTmuxMouseMode(enabled)
+  setSetting('terminal.mouseMode', enabled)
+})
+
+// Workspace config IPC handlers
+ipcMain.handle('workspace:load', async (_event, folderPath: string) => {
+  return loadWorkspaceConfig(folderPath)
+})
+ipcMain.handle('workspace:save', async (_event, folderPath: string, config: unknown) => {
+  await saveWorkspaceConfig(folderPath, config as { selected_file: string | null; expanded_dirs: string[] })
+})
+
 // Layout persistence IPC handlers
 ipcMain.handle('layout:save', async (_event, folderPath: string, layout: LayoutSnapshot) => {
   lastSaveData = { folderPath, layout }
@@ -170,6 +191,10 @@ app.whenReady().then(() => {
     return net.fetch(`file://${filePath}`)
   })
 
+  initSettings()
+  const mouseMode = getSetting('terminal.mouseMode')
+  if (mouseMode === false) setTmuxMouseMode(false)
+
   electronApp.setAppUserModelId('com.multiterm.studio')
 
   // Default open or close DevTools by F12 in development
@@ -178,6 +203,8 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
+
+  installCli()
 
   createWindow()
 
