@@ -945,6 +945,42 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         showZoomIndicator()
         scheduleViewportSave()
       }
+
+      // Cmd+Opt+0: Zoom to fit all tiles
+      if (e.key === '0' && e.metaKey && e.altKey) {
+        e.preventDefault()
+        zoomToFitAll()
+        return
+      }
+
+      // Cmd+Opt+F: Zoom to fit focused tile
+      if (e.key === 'f' && e.metaKey && e.altKey) {
+        e.preventDefault()
+        if (focusedCardIdRef.current) zoomToFitIds([focusedCardIdRef.current])
+        return
+      }
+
+      // Cmd+Opt+T: Tidy/arrange selected tiles
+      if (e.key === 't' && e.metaKey && e.altKey) {
+        e.preventDefault()
+        handleTidySelection()
+        return
+      }
+
+      // Cmd+Shift+D: Duplicate focused terminal
+      if (e.key === 'd' && e.metaKey && e.shiftKey) {
+        e.preventDefault()
+        if (focusedCardIdRef.current) handleDuplicateTile(focusedCardIdRef.current)
+        return
+      }
+
+      // Cmd+Opt+Arrows: Spatial navigation between tiles
+      if (e.metaKey && e.altKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+        e.preventDefault()
+        const dir = e.key.replace('Arrow', '').toLowerCase() as 'left' | 'right' | 'up' | 'down'
+        handleSpatialNavigation(dir)
+        return
+      }
     }
 
     function handleKeyUp(e: KeyboardEvent): void {
@@ -1534,6 +1570,175 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   handleAddPanelAtRef.current = handleAddPanelAt
   handleAddNoteRef.current = handleAddNote
   handleClosePanelRef.current = handleClosePanel
+
+  // --- Zoom to fit tiles in viewport ---
+  function zoomToFitIds(ids: string[]): void {
+    if (ids.length === 0) return
+    const vp = viewportRef.current
+    if (!vp) return
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const id of ids) {
+      const r = positionsRef.current[id]
+      if (!r) continue
+      minX = Math.min(minX, r.x)
+      minY = Math.min(minY, r.y)
+      maxX = Math.max(maxX, r.x + r.w)
+      maxY = Math.max(maxY, r.y + r.h)
+    }
+    if (!isFinite(minX)) return
+
+    const padding = 60
+    const bboxW = maxX - minX
+    const bboxH = maxY - minY
+    const vpW = vp.clientWidth
+    const vpH = vp.clientHeight
+    const scale = Math.min(
+      Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, (vpW - padding * 2) / bboxW)),
+      Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, (vpH - padding * 2) / bboxH))
+    )
+    const cx = (minX + maxX) / 2
+    const cy = (minY + maxY) / 2
+
+    scaleRef.current = scale
+    canvasXRef.current = vpW / 2 - cx * scale
+    canvasYRef.current = vpH / 2 - cy * scale
+    updateCanvasRef.current()
+    triggerSave(panelIdsRef.current, positionsRef.current)
+  }
+
+  function zoomToFitAll(): void {
+    zoomToFitIds(panelIdsRef.current)
+  }
+
+  // --- Spatial navigation ---
+  function handleSpatialNavigation(dir: 'left' | 'right' | 'up' | 'down'): void {
+    const focusedId = focusedCardIdRef.current
+    if (!focusedId) {
+      // No focused tile — focus first one
+      if (panelIdsRef.current.length > 0) {
+        const id = panelIdsRef.current[0]
+        setFocusedCardId(id)
+        handleBringToFront(id)
+      }
+      return
+    }
+
+    const from = positionsRef.current[focusedId]
+    if (!from) return
+    const fromCx = from.x + from.w / 2
+    const fromCy = from.y + from.h / 2
+
+    let bestId: string | null = null
+    let bestDist = Infinity
+
+    for (const id of panelIdsRef.current) {
+      if (id === focusedId) continue
+      const r = positionsRef.current[id]
+      if (!r) continue
+      const cx = r.x + r.w / 2
+      const cy = r.y + r.h / 2
+
+      // Filter by direction
+      const ok =
+        (dir === 'right' && cx > fromCx) ||
+        (dir === 'left' && cx < fromCx) ||
+        (dir === 'down' && cy > fromCy) ||
+        (dir === 'up' && cy < fromCy)
+      if (!ok) continue
+
+      const dist = Math.hypot(cx - fromCx, cy - fromCy)
+      if (dist < bestDist) {
+        bestDist = dist
+        bestId = id
+      }
+    }
+
+    if (bestId) {
+      setFocusedCardId(bestId)
+      handleBringToFront(bestId)
+      // Auto-pan to make the tile visible
+      zoomToFitIds([bestId])
+    }
+  }
+
+  // --- Tidy / auto-arrange ---
+  function handleTidySelection(): void {
+    const ids = selectedIdsRef.current.size > 0
+      ? Array.from(selectedIdsRef.current)
+      : [...panelIdsRef.current]
+    if (ids.length === 0) return
+
+    const cols = Math.ceil(Math.sqrt(ids.length))
+    const gap = GRID_CELL
+
+    // Get average tile size
+    let avgW = DEFAULT_W, avgH = DEFAULT_H
+    let sumW = 0, sumH = 0, count = 0
+    for (const id of ids) {
+      const r = positionsRef.current[id]
+      if (r) { sumW += r.w; sumH += r.h; count++ }
+    }
+    if (count > 0) { avgW = sumW / count; avgH = sumH / count }
+
+    // Compute bounding box center of current positions
+    let cxSum = 0, cySum = 0
+    for (const id of ids) {
+      const r = positionsRef.current[id]
+      if (r) { cxSum += r.x + r.w / 2; cySum += r.y + r.h / 2 }
+    }
+    const centerX = cxSum / ids.length
+    const centerY = cySum / ids.length
+
+    const totalW = cols * avgW + (cols - 1) * gap
+    const rows = Math.ceil(ids.length / cols)
+    const totalH = rows * avgH + (rows - 1) * gap
+    const startX = snapToGrid(centerX - totalW / 2)
+    const startY = snapToGrid(centerY - totalH / 2)
+
+    setPositions((prev) => {
+      const next = { ...prev }
+      ids.forEach((id, i) => {
+        const col = i % cols
+        const row = Math.floor(i / cols)
+        const x = snapToGrid(startX + col * (avgW + gap))
+        const y = snapToGrid(startY + row * (avgH + gap))
+        next[id] = { ...next[id], x, y }
+      })
+      positionsRef.current = next
+      triggerSave(panelIdsRef.current, next)
+      return next
+    })
+  }
+
+  // --- Duplicate tile ---
+  function handleDuplicateTile(id: string): void {
+    const pm = usePanelStore.getState().panels[id]
+    const rect = positionsRef.current[id]
+    if (!pm || !rect) return
+
+    const newId = crypto.randomUUID()
+    const title = (pm.title || 'Terminal') + ' (copy)'
+    addPanel(newId, title, pm.color, pm.type, pm.filePath, pm.initialCommand)
+
+    const x = snapToGrid(rect.x + 30)
+    const y = snapToGrid(rect.y + 30)
+    const newZ = ++topZRef.current
+    const newRect: CardRect = { x, y, w: rect.w, h: rect.h, z: newZ }
+
+    setPanelIds((prev) => {
+      const next = [...prev, newId]
+      panelIdsRef.current = next
+      return next
+    })
+    setPositions((prev) => {
+      const next = { ...prev, [newId]: newRect }
+      positionsRef.current = next
+      triggerSave([...panelIdsRef.current], next)
+      return next
+    })
+    setFocusedCardId(newId)
+  }
 
   function handleToggleMaximize(id: string): void {
     setMaximizedId((prev) => {
