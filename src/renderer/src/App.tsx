@@ -61,13 +61,9 @@ function App(): React.JSX.Element {
   useEffect(() => {
     const unsubAttention = window.electronAPI.onAttention((data) => setAttention(data.id))
     const unsubPanelFocus = window.electronAPI.onPanelFocus((id) => clearAttention(id))
-    const unsubAgentSpawning = window.electronAPI.onAgentSpawning((data) => {
-      useProjectStore.getState().spawnAgentTerminal({
-        agentName: data.agentName,
-        toolUseId: data.toolUseId,
-        subagentsDir: data.subagentsDir,
-        cwd: data.cwd
-      })
+    const unsubAgentSpawning = window.electronAPI.onAgentSpawning(() => {
+      // Agent panes are now shown in the TmuxPaneSidebar within the parent
+      // terminal tile — no separate tile is created.
     })
     const unsubSessionStarted = window.electronAPI.onAgentSessionStarted((data) => {
       if (data.ptySessionId) {

@@ -286,6 +286,38 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     session.process.resize(cols, rows)
   })
 
+  ipcMain.handle('pty:list-panes', (_event, id: string) => {
+    const session = sessions.get(id)
+    if (!session) return []
+    try {
+      const raw = tmuxExec(
+        'list-panes', '-t', session.tmuxName,
+        '-F', '#{pane_index}\t#{pane_current_command}\t#{pane_active}\t#{pane_pid}'
+      )
+      return raw.split('\n').filter(Boolean).map((line) => {
+        const [index, command, active, pid] = line.split('\t')
+        return {
+          index: Number(index),
+          command: command ?? '',
+          active: active === '1',
+          pid: Number(pid)
+        }
+      })
+    } catch {
+      return []
+    }
+  })
+
+  ipcMain.handle('pty:select-pane', (_event, id: string, paneIndex: number) => {
+    const session = sessions.get(id)
+    if (!session) return
+    try {
+      tmuxExec('select-pane', '-t', `${session.tmuxName}.${paneIndex}`)
+    } catch {
+      // ignore
+    }
+  })
+
   ipcMain.handle('pty:kill', (_event, id: string) => {
     const session = sessions.get(id)
     if (!session) return

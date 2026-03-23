@@ -4,6 +4,7 @@ import { TerminalPanel } from './Terminal'
 import { EditorPanel } from './EditorPanel'
 import { NotePanel } from './NotePanel'
 import { ImagePanel } from './ImagePanel'
+import { TmuxPaneSidebar } from './TmuxPaneSidebar'
 import { usePanelStore } from '../store/panelStore'
 
 export interface CardRect {
@@ -468,6 +469,9 @@ export function FloatingCard({
             <TerminalPanel sessionId={sessionId} cwd={cwd} />
           )}
         </div>
+        {(!type || type === 'terminal') && (
+          <TmuxPaneSidebar sessionId={sessionId} />
+        )}
       </div>
 
       {/* Resize handles — all 8 directions */}

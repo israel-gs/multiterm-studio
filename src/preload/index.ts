@@ -18,6 +18,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   ptyKill: (id: string): Promise<void> => ipcRenderer.invoke('pty:kill', id),
 
+  ptyListPanes: (id: string): Promise<Array<{ index: number; command: string; active: boolean; pid: number }>> =>
+    ipcRenderer.invoke('pty:list-panes', id),
+
+  ptySelectPane: (id: string, paneIndex: number): Promise<void> =>
+    ipcRenderer.invoke('pty:select-pane', id, paneIndex),
+
   // Folder operations — project context panel (Phase 03)
   folderOpen: (): Promise<string | null> => ipcRenderer.invoke('folder:open'),
 

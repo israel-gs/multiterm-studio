@@ -5,6 +5,8 @@ declare global {
       ptyWrite: (id: string, data: string) => Promise<void>
       ptyResize: (id: string, cols: number, rows: number) => Promise<void>
       ptyKill: (id: string) => Promise<void>
+      ptyListPanes: (id: string) => Promise<Array<{ index: number; command: string; active: boolean; pid: number }>>
+      ptySelectPane: (id: string, paneIndex: number) => Promise<void>
       onPtyData: (id: string, callback: (data: string) => void) => () => void
       onPtyScrollback: (id: string, callback: (data: string) => void) => () => void
       folderOpen: () => Promise<string | null>

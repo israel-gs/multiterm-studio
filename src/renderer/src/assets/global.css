@@ -380,6 +380,131 @@ body {
   outline-offset: -2px;
 }
 
+/* ===== Tmux Pane Sidebar ===== */
+
+.tmux-sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 36px;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  background: rgba(28, 28, 28, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.tmux-sidebar--expanded {
+  width: 152px;
+}
+
+.tmux-sidebar-track {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 4px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.tmux-pane-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-muted, #666);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+  position: relative;
+}
+
+.tmux-pane-tab:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--fg-secondary, #999);
+}
+
+.tmux-pane-tab--active {
+  background: rgba(198, 120, 221, 0.12);
+  color: #c678dd;
+}
+
+.tmux-pane-tab--active:hover {
+  background: rgba(198, 120, 221, 0.18);
+}
+
+.tmux-pane-tab--agent .tmux-pane-tab-icon {
+  color: #c678dd;
+}
+
+.tmux-pane-tab-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.tmux-pane-tab--active .tmux-pane-tab-icon {
+  background: rgba(198, 120, 221, 0.15);
+}
+
+.tmux-pane-tab-label {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.tmux-sidebar--expanded .tmux-pane-tab-label {
+  opacity: 1;
+}
+
+.tmux-pane-tab-cmd {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tmux-pane-tab-idx {
+  color: var(--fg-muted, #555);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.tmux-pane-tab-dot {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #c678dd;
+  box-shadow: 0 0 6px rgba(198, 120, 221, 0.5);
+}
+
+.tmux-sidebar--expanded .tmux-pane-tab-dot {
+  right: 8px;
+}
+
 /* Overlay: block terminal pointer events during drag/resize/pan */
 body.canvas-interacting .floating-card-inner {
   pointer-events: none;
