@@ -38,14 +38,79 @@ interface Props {
   onToggleMaximize?: (id: string) => void
   onGroupDragContext?: (id: string) => Array<{ id: string; x: number; y: number }> | null
   onGroupMove?: (moves: Array<{ id: string; x: number; y: number }>) => void
+  allRects?: Record<string, CardRect>
+  onSnapGuides?: (guides: { x: number[]; y: number[] } | null) => void
 }
 
 const MIN_W = 300
 const MIN_H = 200
 const GRID_STEP = 24
+const SNAP_THRESHOLD = 8
 
 function snap(v: number): number {
   return Math.round(v / GRID_STEP) * GRID_STEP
+}
+
+interface SnapResult {
+  x: number
+  y: number
+  guides: { x: number[]; y: number[] }
+}
+
+function computeSnap(
+  movingX: number, movingY: number, movingW: number, movingH: number,
+  allRects: Record<string, CardRect>, excludeId: string, threshold: number
+): SnapResult {
+  const guides: { x: number[]; y: number[] } = { x: [], y: [] }
+  let bestX = snap(movingX)
+  let bestY = snap(movingY)
+  let bestDx = Math.abs(bestX - movingX)
+  let bestDy = Math.abs(bestY - movingY)
+
+  const movingCx = movingX + movingW / 2
+  const movingCy = movingY + movingH / 2
+  const movingR = movingX + movingW
+  const movingB = movingY + movingH
+
+  for (const [id, r] of Object.entries(allRects)) {
+    if (id === excludeId) continue
+    const otherCx = r.x + r.w / 2
+    const otherCy = r.y + r.h / 2
+    const otherR = r.x + r.w
+    const otherB = r.y + r.h
+
+    // X axis snaps: left-left, left-right, right-left, right-right, center-center
+    const xPairs: [number, number][] = [
+      [movingX, r.x], [movingX, otherR], [movingR, r.x], [movingR, otherR], [movingCx, otherCx]
+    ]
+    for (const [moving, target] of xPairs) {
+      const d = Math.abs(moving - target)
+      if (d < threshold && d < bestDx) {
+        bestDx = d
+        bestX = movingX + (target - moving)
+        guides.x = [target]
+      } else if (d < threshold && d === bestDx && !guides.x.includes(target)) {
+        guides.x.push(target)
+      }
+    }
+
+    // Y axis snaps: top-top, top-bottom, bottom-top, bottom-bottom, center-center
+    const yPairs: [number, number][] = [
+      [movingY, r.y], [movingY, otherB], [movingB, r.y], [movingB, otherB], [movingCy, otherCy]
+    ]
+    for (const [moving, target] of yPairs) {
+      const d = Math.abs(moving - target)
+      if (d < threshold && d < bestDy) {
+        bestDy = d
+        bestY = movingY + (target - moving)
+        guides.y = [target]
+      } else if (d < threshold && d === bestDy && !guides.y.includes(target)) {
+        guides.y.push(target)
+      }
+    }
+  }
+
+  return { x: bestX, y: bestY, guides }
 }
 
 export function FloatingCard({
@@ -67,7 +132,9 @@ export function FloatingCard({
   maximized,
   onToggleMaximize,
   onGroupDragContext,
-  onGroupMove
+  onGroupMove,
+  allRects,
+  onSnapGuides
 }: Props): React.JSX.Element {
   const cardRef = useRef<HTMLDivElement>(null)
   const clearAttention = usePanelStore((s) => s.clearAttention)
@@ -144,14 +211,22 @@ export function FloatingCard({
         document.body.style.userSelect = ''
 
         if (moved) {
-          // Commit drag
+          // Commit drag with magnetic snap
           const dx = (ev.clientX - startX) / scale
           const dy = (ev.clientY - startY) / scale
-          const newX = snap(rect.x + dx)
-          const newY = snap(rect.y + dy)
+
+          let newX: number, newY: number
+          if (allRects && !ev.metaKey) {
+            const s = computeSnap(rect.x + dx, rect.y + dy, rect.w, rect.h, allRects, sessionId, SNAP_THRESHOLD / scale)
+            newX = s.x; newY = s.y
+          } else {
+            newX = snap(rect.x + dx); newY = snap(rect.y + dy)
+          }
+
           card.style.left = `${newX}px`
           card.style.top = `${newY}px`
           card.style.transform = ''
+          onSnapGuides?.(null)
 
           if (isGroup && peerEls) {
             const moves = peerEls.map((p) => ({
@@ -183,7 +258,7 @@ export function FloatingCard({
       document.addEventListener('mousemove', onMouseMove)
       document.addEventListener('mouseup', onMouseUp)
     },
-    [sessionId, rect.x, rect.y, zoomRef, onMove, onFocusCard, onBringToFront, onGroupDragContext, onGroupMove]
+    [sessionId, rect.x, rect.y, rect.w, rect.h, zoomRef, onMove, onFocusCard, onBringToFront, onGroupDragContext, onGroupMove, allRects, onSnapGuides]
   )
 
   // --- DRAG: accounts for canvas zoom, snaps to grid, supports group drag ---
@@ -231,10 +306,16 @@ export function FloatingCard({
 
         const dx = (ev.clientX - startX) / scale
         const dy = (ev.clientY - startY) / scale
-        const newX = snap(rect.x + dx)
-        const newY = snap(rect.y + dy)
 
-        // Commit to DOM before React re-render (prevents flash)
+        // Magnetic snap to other tiles, fallback to grid
+        let newX: number, newY: number
+        if (allRects && !ev.metaKey) {
+          const s = computeSnap(rect.x + dx, rect.y + dy, rect.w, rect.h, allRects, sessionId, SNAP_THRESHOLD / scale)
+          newX = s.x; newY = s.y
+        } else {
+          newX = snap(rect.x + dx); newY = snap(rect.y + dy)
+        }
+
         card.style.left = `${newX}px`
         card.style.top = `${newY}px`
         card.style.transform = ''
@@ -242,6 +323,7 @@ export function FloatingCard({
         document.body.classList.remove('canvas-interacting')
         document.body.style.cursor = ''
         document.body.style.userSelect = ''
+        onSnapGuides?.(null)
 
         if (peerEls.length > 0 && onGroupMove) {
           const moves = [{ id: sessionId, x: newX, y: newY }]
@@ -262,7 +344,7 @@ export function FloatingCard({
       document.addEventListener('mousemove', onMouseMove)
       document.addEventListener('mouseup', onMouseUp)
     },
-    [sessionId, rect.x, rect.y, zoomRef, onMove, onGroupDragContext, onGroupMove]
+    [sessionId, rect.x, rect.y, rect.w, rect.h, zoomRef, onMove, onGroupDragContext, onGroupMove, allRects, onSnapGuides]
   )
 
   // --- RESIZE: all 8 directions, accounts for canvas zoom, snaps to grid ---

@@ -1945,6 +1945,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
                 onToggleMaximize={handleToggleMaximize}
                 onGroupDragContext={getGroupDragContext}
                 onGroupMove={handleGroupMove}
+                allRects={positions}
               />
             )
           })}
