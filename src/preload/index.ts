@@ -7,8 +7,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 // The fix: capture the wrapper in a closure and return it as the unsubscribe function.
 contextBridge.exposeInMainWorld('electronAPI', {
   // Renderer → Main (two-way via invoke)
-  ptyCreate: (id: string, cwd: string): Promise<void> =>
-    ipcRenderer.invoke('pty:create', id, cwd),
+  ptyCreate: (id: string, cwd: string, initialCommand?: string): Promise<void> =>
+    ipcRenderer.invoke('pty:create', id, cwd, initialCommand),
 
   ptyWrite: (id: string, data: string): Promise<void> =>
     ipcRenderer.invoke('pty:write', id, data),

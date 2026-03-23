@@ -176,7 +176,7 @@ export function listPtySessions(): string[] {
 export function registerPtyHandlers(win: BrowserWindow): void {
   const { webContents } = win
 
-  ipcMain.handle('pty:create', (_event, id: string, cwd: string) => {
+  ipcMain.handle('pty:create', (_event, id: string, cwd: string, initialCommand?: string) => {
     const shell =
       process.env.SHELL || (process.platform === 'win32' ? 'cmd.exe' : '/bin/bash')
 
@@ -221,11 +221,23 @@ export function registerPtyHandlers(win: BrowserWindow): void {
         // ignore
       }
     } else {
-      tmuxExec(
-        'new-session', '-d', '-s', tmuxName,
-        '-c', safeCwd,
-        '-x', '80', '-y', '24'
-      )
+      if (initialCommand) {
+        // Launch command directly inside the shell so it gets proper environment
+        // The shell -c wraps the command, and exec replaces the shell so the
+        // tmux pane shows the command process, not a shell waiting after it exits
+        tmuxExec(
+          'new-session', '-d', '-s', tmuxName,
+          '-c', safeCwd,
+          '-x', '80', '-y', '24',
+          shell, '-c', initialCommand
+        )
+      } else {
+        tmuxExec(
+          'new-session', '-d', '-s', tmuxName,
+          '-c', safeCwd,
+          '-x', '80', '-y', '24'
+        )
+      }
       tmuxExec('set-option', '-t', tmuxName, 'status', 'off')
       tmuxExec('set-option', '-g', 'mouse', tmuxMouseEnabled ? 'on' : 'off')
       tmuxExec('set-environment', '-t', tmuxName, 'MULTITERM_PTY_SESSION_ID', id)

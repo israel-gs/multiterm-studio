@@ -95,18 +95,10 @@ export function TerminalPanel({ sessionId, cwd }: Props): React.JSX.Element {
     fitAddon.fit()
 
     // Create PTY session in main process
-    window.electronAPI.ptyCreate(sessionId, cwd)
-
-    // Execute initial command if configured (e.g. claude, codex)
-    // Uses tmux send-keys for atomic delivery (avoids text leaking into
-    // the launched program's input buffer from fragmented pty writes)
+    // If initialCommand is set, pass it to ptyCreate so tmux launches
+    // the command directly (no send-keys, no input leak)
     const meta = usePanelStore.getState().panels[sessionId]
-    if (meta?.initialCommand) {
-      const cmd = meta.initialCommand
-      setTimeout(() => {
-        window.electronAPI.ptySendKeys(sessionId, cmd, true)
-      }, 800)
-    }
+    window.electronAPI.ptyCreate(sessionId, cwd, meta?.initialCommand)
 
     // Renderer → Main: keyboard input
     // Filter out DA1/DA2/XTVERSION responses that xterm.js generates in reply
