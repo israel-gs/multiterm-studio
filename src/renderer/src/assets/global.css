@@ -411,8 +411,12 @@ body {
   border-radius: 0 !important;
   border: none !important;
   transform: none !important;
-  -webkit-app-region: no-drag;
+  padding-top: 38px !important;
   animation: card-maximize 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.floating-card--maximized .panel-header {
+  -webkit-app-region: no-drag;
 }
 
 @keyframes card-maximize {
