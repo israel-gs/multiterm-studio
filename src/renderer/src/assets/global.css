@@ -382,6 +382,11 @@ body {
 
 /* ===== Tmux Pane Sidebar ===== */
 
+/* When sidebar is present, shrink terminal to make room */
+.floating-card-body:has(.tmux-sidebar) > .floating-card-inner {
+  padding-right: 36px;
+}
+
 .tmux-sidebar {
   position: absolute;
   top: 0;
@@ -391,9 +396,7 @@ body {
   z-index: 8;
   display: flex;
   flex-direction: column;
-  background: rgba(28, 28, 28, 0.88);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(28, 28, 28, 0.95);
   border-left: 1px solid rgba(255, 255, 255, 0.06);
   transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
@@ -401,6 +404,9 @@ body {
 
 .tmux-sidebar--expanded {
   width: 152px;
+  background: rgba(28, 28, 28, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .tmux-sidebar-track {

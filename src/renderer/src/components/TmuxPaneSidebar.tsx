@@ -74,18 +74,11 @@ export function TmuxPaneSidebar({ sessionId }: Props): React.JSX.Element | null 
         {panes.map((pane, i) => {
           const isMain = i === 0
           // Pane 0 = main claude session, panes 1+ = team agents
-          let name: string
-          if (isMain) {
-            name = 'claude'
-          } else if (agentNames[i - 1]) {
-            name = `@${agentNames[i - 1]}`
-          } else if (pane.title) {
-            // Fallback: use tmux pane title (strip ✳ prefix, truncate)
-            const t = pane.title.replace(/^✳\s*/, '')
-            name = t.length > 24 ? t.slice(0, 22) + '…' : t
-          } else {
-            name = `agent #${pane.index}`
-          }
+          const name = isMain
+            ? 'claude'
+            : agentNames[i - 1]
+              ? `@${agentNames[i - 1]}`
+              : `agent ${pane.index}`
           return (
             <button
               key={pane.index}
