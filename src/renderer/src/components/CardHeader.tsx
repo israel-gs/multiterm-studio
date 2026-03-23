@@ -1,3 +1,4 @@
+import { Eye, Code, Maximize2, Minimize2, X } from 'lucide-react'
 import { usePanelStore } from '../store/panelStore'
 import { colors } from '../tokens'
 
@@ -24,43 +25,9 @@ function isMarkdownFile(filePath?: string): boolean {
   return ext === 'md' || ext === 'mdx'
 }
 
-function MaximizeIcon(): React.JSX.Element {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-      <rect x="1.5" y="1.5" width="9" height="9" rx="1" stroke="currentColor" strokeWidth="1.3" />
-    </svg>
-  )
-}
-
-function RestoreIcon(): React.JSX.Element {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-      <rect x="1.5" y="3.5" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.2" />
-      <path d="M3.5 3.5V2.5C3.5 1.95 3.95 1.5 4.5 1.5H9.5C10.05 1.5 10.5 1.95 10.5 2.5V7.5C10.5 8.05 10.05 8.5 9.5 8.5H8.5" stroke="currentColor" strokeWidth="1.2" />
-    </svg>
-  )
-}
-
 function isSvgFile(filePath?: string): boolean {
   if (!filePath) return false
   return filePath.split('.').pop()?.toLowerCase() === 'svg'
-}
-
-function EyeIcon(): React.JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-      <path d="M8 3C4.5 3 1.7 5.1 1 8c.7 2.9 3.5 5 7 5s6.3-2.1 7-5c-.7-2.9-3.5-5-7-5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" fill="none" />
-      <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3" fill="none" />
-    </svg>
-  )
-}
-
-function CodeIcon(): React.JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-      <path d="M5.5 4.5L2 8l3.5 3.5M10.5 4.5L14 8l-3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
 }
 
 export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: Props): React.JSX.Element {
@@ -132,7 +99,7 @@ export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: 
           }}
           aria-label={panel.previewMode ? 'Show editor' : 'Preview markdown'}
         >
-          {panel.previewMode ? <CodeIcon /> : <EyeIcon />}
+          {panel.previewMode ? <Code size={14} strokeWidth={1.5} /> : <Eye size={14} strokeWidth={1.5} />}
         </button>
       )}
 
@@ -147,7 +114,7 @@ export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: 
           }}
           aria-label={panel.previewMode ? 'Show image' : 'Edit SVG code'}
         >
-          {panel.previewMode ? <EyeIcon /> : <CodeIcon />}
+          {panel.previewMode ? <Eye size={14} strokeWidth={1.5} /> : <Code size={14} strokeWidth={1.5} />}
         </button>
       )}
 
@@ -159,7 +126,7 @@ export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: 
           onClick={(e) => { e.stopPropagation(); onToggleMaximize() }}
           aria-label={maximized ? 'Restore tile' : 'Maximize tile'}
         >
-          {maximized ? <RestoreIcon /> : <MaximizeIcon />}
+          {maximized ? <Minimize2 size={12} strokeWidth={1.5} /> : <Maximize2 size={12} strokeWidth={1.5} />}
         </button>
       )}
 
@@ -170,7 +137,7 @@ export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: 
         onClick={onClose}
         aria-label="Close panel"
       >
-        ×
+        <X size={12} strokeWidth={1.5} />
       </button>
     </div>
   )

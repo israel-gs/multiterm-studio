@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { TerminalSquare, Sparkles } from 'lucide-react'
 import { usePanelStore } from '../store/panelStore'
 
 interface TmuxPane {
@@ -15,22 +16,6 @@ interface Props {
 
 const POLL_INTERVAL = 2000
 
-function ClaudeIcon(): React.JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-      <path d="M4.5 5.5L7 8L4.5 10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      <line x1="8.5" y1="10.5" x2="11.5" y2="10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function AgentIcon(): React.JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-      <path d="M8 1.5L9.3 5.2L13 5.5L10.2 8L11 11.8L8 9.8L5 11.8L5.8 8L3 5.5L6.7 5.2L8 1.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-    </svg>
-  )
-}
 
 export function TmuxPaneSidebar({ sessionId }: Props): React.JSX.Element | null {
   const [panes, setPanes] = useState<TmuxPane[]>([])
@@ -94,7 +79,7 @@ export function TmuxPaneSidebar({ sessionId }: Props): React.JSX.Element | null 
               title={pane.title || name}
             >
               <span className="tmux-pane-tab-icon">
-                {isMain ? <ClaudeIcon /> : <AgentIcon />}
+                {isMain ? <TerminalSquare size={14} strokeWidth={1.5} /> : <Sparkles size={14} strokeWidth={1.5} />}
               </span>
               <span className="tmux-pane-tab-label">
                 <span className="tmux-pane-tab-cmd">{name}</span>

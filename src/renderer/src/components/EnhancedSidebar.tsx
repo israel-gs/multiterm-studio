@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { PanelLeft, ChevronDown, Plus, Search, Settings } from 'lucide-react'
 import { FileTree, SortMode } from './FileTree'
 import { GitBranchSection } from './GitBranchSection'
 import { SettingsPanel } from './SettingsPanel'
@@ -85,10 +86,7 @@ export function EnhancedSidebar({
             onClick={onToggleSidebar}
             aria-label="Hide sidebar"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <rect x="1" y="2" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.2" />
-              <line x1="5.5" y1="2" x2="5.5" y2="14" stroke="currentColor" strokeWidth="1.2" />
-            </svg>
+            <PanelLeft size={16} strokeWidth={1.5} aria-hidden="true" />
           </button>
         )}
         <button
@@ -101,16 +99,12 @@ export function EnhancedSidebar({
             {shortPath.replace(/\/[^/]+$/, '/')}
             <strong>{folderName}</strong>
           </span>
-          <svg
+          <ChevronDown
             className={`sidebar-project-chevron-icon${dropdownOpen ? ' sidebar-project-chevron-icon--open' : ''}`}
-            width="8"
-            height="8"
-            viewBox="0 0 8 8"
-            fill="none"
+            size={8}
+            strokeWidth={1.5}
             aria-hidden="true"
-          >
-            <path d="M2 3L4 5L6 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          />
         </button>
 
         {/* Dropdown — inside top-row for correct absolute positioning */}
@@ -134,9 +128,7 @@ export function EnhancedSidebar({
               className="sidebar-project-dropdown-item sidebar-project-dropdown-item--add"
               onClick={() => void handleAddWorkspace()}
             >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                <path d="M6 2.5V9.5M2.5 6H9.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-              </svg>
+              <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
               Add workspace...
             </button>
           </div>
@@ -148,24 +140,12 @@ export function EnhancedSidebar({
 
       {/* Search bar */}
       <div className="sidebar-search">
-        <svg
+        <Search
           className="sidebar-search-icon"
-          width="14"
-          height="14"
-          viewBox="0 0 14 14"
-          fill="none"
+          size={14}
+          strokeWidth={1.5}
           aria-hidden="true"
-        >
-          <circle cx="6" cy="6" r="4.5" stroke="var(--fg-secondary)" strokeWidth="1.2" />
-          <line
-            x1="9.5"
-            y1="9.5"
-            x2="13"
-            y2="13"
-            stroke="var(--fg-secondary)"
-            strokeWidth="1.2"
-          />
-        </svg>
+        />
         <input
           className="sidebar-search-input"
           type="text"
@@ -215,10 +195,7 @@ export function EnhancedSidebar({
           onClick={() => setSettingsOpen(true)}
           aria-label="Open settings"
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-            <path d="M5.72 1.53a1.2 1.2 0 0 1 2.56 0 1.2 1.2 0 0 0 1.8.79 1.2 1.2 0 0 1 1.6 1.6 1.2 1.2 0 0 0 .79 1.8 1.2 1.2 0 0 1 0 2.56 1.2 1.2 0 0 0-.79 1.8 1.2 1.2 0 0 1-1.6 1.6 1.2 1.2 0 0 0-1.8.79 1.2 1.2 0 0 1-2.56 0 1.2 1.2 0 0 0-1.8-.79 1.2 1.2 0 0 1-1.6-1.6 1.2 1.2 0 0 0-.79-1.8 1.2 1.2 0 0 1 0-2.56 1.2 1.2 0 0 0 .79-1.8 1.2 1.2 0 0 1 1.6-1.6 1.2 1.2 0 0 0 1.8-.79Z" stroke="currentColor" strokeWidth="1.1" />
-            <circle cx="7" cy="7" r="2" stroke="currentColor" strokeWidth="1.1" />
-          </svg>
+          <Settings size={14} strokeWidth={1.5} aria-hidden="true" />
           Settings
         </button>
       </div>

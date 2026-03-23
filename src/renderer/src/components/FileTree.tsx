@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import React from 'react'
+import { ChevronRight } from 'lucide-react'
 import { useProjectStore } from '../store/projectStore'
 
 interface TreeEntry {
@@ -9,19 +10,15 @@ interface TreeEntry {
   modifiedAt?: number
 }
 
-// --- Icons (inline SVGs, no external deps) ---
+// --- Icons ---
 
 function ChevronIcon({ expanded }: { expanded: boolean }): React.JSX.Element {
   return (
-    <svg
+    <ChevronRight
       className={`file-tree-chevron${expanded ? ' file-tree-chevron--open' : ''}`}
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-    >
-      <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+      size={16}
+      strokeWidth={1.5}
+    />
   )
 }
 

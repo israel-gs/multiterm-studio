@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { Sun, TerminalSquare, Pencil, Keyboard, Moon, Monitor, X } from 'lucide-react'
 import { useAppearanceStore } from '../store/appearanceStore'
 import type { AppearanceMode } from '../tokens'
 
@@ -13,46 +14,22 @@ const tabs: { id: SettingsTab; label: string; icon: React.JSX.Element }[] = [
   {
     id: 'appearance',
     label: 'Appearance',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <circle cx="8" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.2" />
-        <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.42 1.42M11.18 11.18l1.42 1.42M12.6 3.4l-1.42 1.42M4.82 11.18l-1.42 1.42" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-      </svg>
-    )
+    icon: <Sun size={16} strokeWidth={1.5} />
   },
   {
     id: 'terminal',
     label: 'Terminal',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
-        <path d="M4.5 6.5L6.5 8.5L4.5 10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-        <line x1="8" y1="10.5" x2="11" y2="10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-      </svg>
-    )
+    icon: <TerminalSquare size={16} strokeWidth={1.5} />
   },
   {
     id: 'editor',
     label: 'Editor',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <path d="M9.5 2L14 6.5 6 14.5H1.5V10L9.5 2Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-        <path d="M8 3.5L12.5 8" stroke="currentColor" strokeWidth="1.2" />
-      </svg>
-    )
+    icon: <Pencil size={16} strokeWidth={1.5} />
   },
   {
     id: 'keybindings',
     label: 'Keybindings',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="1" y="4" width="14" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
-        <rect x="3.5" y="6.5" width="2" height="1.5" rx="0.3" fill="currentColor" opacity="0.5" />
-        <rect x="7" y="6.5" width="2" height="1.5" rx="0.3" fill="currentColor" opacity="0.5" />
-        <rect x="10.5" y="6.5" width="2" height="1.5" rx="0.3" fill="currentColor" opacity="0.5" />
-        <rect x="5" y="9.5" width="6" height="1.5" rx="0.3" fill="currentColor" opacity="0.5" />
-      </svg>
-    )
+    icon: <Keyboard size={16} strokeWidth={1.5} />
   }
 ]
 
@@ -61,33 +38,19 @@ const modes: { value: AppearanceMode; label: string; desc: string; icon: React.J
     value: 'dark',
     label: 'Dark',
     desc: 'Optimized for low-light environments',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M17.5 10.83a7.5 7.5 0 1 1-8.33-8.33 6 6 0 0 0 8.33 8.33Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-      </svg>
-    )
+    icon: <Moon size={20} strokeWidth={1.5} />
   },
   {
     value: 'light',
     label: 'Light',
     desc: 'Clean and bright for day use',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="3.5" stroke="currentColor" strokeWidth="1.3" />
-        <path d="M10 3v2M10 15v2M3 10h2M15 10h2M5.05 5.05l1.41 1.41M13.54 13.54l1.41 1.41M14.95 5.05l-1.41 1.41M6.46 13.54l-1.41 1.41" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-      </svg>
-    )
+    icon: <Sun size={20} strokeWidth={1.5} />
   },
   {
     value: 'system',
     label: 'System',
     desc: 'Follow your OS preference',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <rect x="2" y="3" width="16" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
-        <path d="M7 17h6M10 14v3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-      </svg>
-    )
+    icon: <Monitor size={20} strokeWidth={1.5} />
   }
 ]
 
@@ -235,9 +198,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         {/* Content area */}
         <div className="stg-main">
           <button className="stg-close" onClick={onClose} aria-label="Close settings">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path d="M1.5 1.5L10.5 10.5M10.5 1.5L1.5 10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
+            <X size={12} strokeWidth={1.5} />
           </button>
           {content}
         </div>
