@@ -253,6 +253,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('canvas:pinch', listener)
   },
 
+  // Menu bar actions
+  onMenuAction: (callback: (action: string) => void): (() => void) => {
+    const channels = [
+      'menu:new-terminal', 'menu:new-note', 'menu:duplicate', 'menu:close-tile',
+      'menu:zoom-fit-all', 'menu:zoom-fit-focused', 'menu:tidy',
+      'menu:toggle-sidebar', 'menu:settings',
+      'menu:nav-left', 'menu:nav-right', 'menu:nav-up', 'menu:nav-down'
+    ]
+    const listener = (event: Electron.IpcRendererEvent): void => {
+      const ch = (event as unknown as { channel?: string }).channel
+      if (ch) callback(ch.replace('menu:', ''))
+    }
+    // Use a single wrapper per channel
+    const listeners = channels.map((ch) => {
+      const fn = (): void => callback(ch.replace('menu:', ''))
+      ipcRenderer.on(ch, fn)
+      return { ch, fn }
+    })
+    return () => {
+      for (const { ch, fn } of listeners) ipcRenderer.removeListener(ch, fn)
+    }
+  },
+
   // Native zoom and fullscreen
   zoomIn: (): void => ipcRenderer.send('zoom:in'),
   zoomOut: (): void => ipcRenderer.send('zoom:out'),

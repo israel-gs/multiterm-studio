@@ -206,6 +206,80 @@ app.whenReady().then(() => {
 
   installCli()
 
+  // Build application menu bar
+  const isMac = process.platform === 'darwin'
+  const sendToRenderer = (channel: string): void => {
+    const win = BrowserWindow.getFocusedWindow()
+    if (win) win.webContents.send(channel)
+  }
+  const menuTemplate: Electron.MenuItemConstructorOptions[] = [
+    ...(isMac ? [{
+      label: app.name,
+      submenu: [
+        { role: 'about' as const },
+        { type: 'separator' as const },
+        { label: 'Settings…', accelerator: 'Cmd+,', click: () => sendToRenderer('menu:settings') },
+        { type: 'separator' as const },
+        { role: 'hide' as const },
+        { role: 'hideOthers' as const },
+        { role: 'unhide' as const },
+        { type: 'separator' as const },
+        { role: 'quit' as const }
+      ]
+    }] : []),
+    {
+      label: 'File',
+      submenu: [
+        { label: 'New Terminal', accelerator: 'CmdOrCtrl+T', click: () => sendToRenderer('menu:new-terminal') },
+        { label: 'New Note', accelerator: 'CmdOrCtrl+Shift+N', click: () => sendToRenderer('menu:new-note') },
+        { type: 'separator' },
+        { label: 'Duplicate', accelerator: 'CmdOrCtrl+Shift+D', click: () => sendToRenderer('menu:duplicate') },
+        { type: 'separator' },
+        { label: 'Close Tile', accelerator: 'CmdOrCtrl+W', click: () => sendToRenderer('menu:close-tile') }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { label: 'Zoom to Fit All', accelerator: 'CmdOrCtrl+Alt+0', click: () => sendToRenderer('menu:zoom-fit-all') },
+        { label: 'Zoom to Fit Focused', accelerator: 'CmdOrCtrl+Alt+F', click: () => sendToRenderer('menu:zoom-fit-focused') },
+        { type: 'separator' },
+        { label: 'Tidy Selection', accelerator: 'CmdOrCtrl+Alt+T', click: () => sendToRenderer('menu:tidy') },
+        { type: 'separator' },
+        { label: 'Toggle Sidebar', accelerator: 'CmdOrCtrl+B', click: () => sendToRenderer('menu:toggle-sidebar') },
+        { type: 'separator' },
+        { label: 'Navigate Left', accelerator: 'CmdOrCtrl+Alt+Left', click: () => sendToRenderer('menu:nav-left') },
+        { label: 'Navigate Right', accelerator: 'CmdOrCtrl+Alt+Right', click: () => sendToRenderer('menu:nav-right') },
+        { label: 'Navigate Up', accelerator: 'CmdOrCtrl+Alt+Up', click: () => sendToRenderer('menu:nav-up') },
+        { label: 'Navigate Down', accelerator: 'CmdOrCtrl+Alt+Down', click: () => sendToRenderer('menu:nav-down') },
+        { type: 'separator' },
+        { role: 'toggleDevTools' },
+        { role: 'togglefullscreen' }
+      ]
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        ...(isMac ? [{ type: 'separator' as const }, { role: 'front' as const }] : [])
+      ]
+    }
+  ]
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate))
+
   createWindow()
 
   app.on('activate', function () {

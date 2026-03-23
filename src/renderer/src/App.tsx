@@ -186,6 +186,14 @@ function App(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Menu bar actions for app-level features
+  useEffect(() => {
+    const unsub = window.electronAPI.onMenuAction((action) => {
+      if (action === 'toggle-sidebar') toggleSidebarRef.current()
+    })
+    return unsub
+  }, [])
+
   // Sidebar drag-to-resize
   function handleSidebarResizeStart(e: React.MouseEvent): void {
     e.preventDefault()

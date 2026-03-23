@@ -44,6 +44,7 @@ declare global {
       contextMenuShow: (items: Array<{ id: string; label?: string; enabled?: boolean }>) => Promise<string | null>
       canvasForwardPinch: (deltaY: number) => void
       onCanvasPinch: (callback: (deltaY: number) => void) => () => void
+      onMenuAction: (callback: (action: string) => void) => () => void
       zoomIn: () => void
       zoomOut: () => void
       zoomReset: () => void

@@ -851,18 +851,23 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
           { id: 'rename', label: 'Rename' },
           { id: 'color', label: 'Change color' },
           { id: 'maximize', label: isMaximized ? 'Restore' : 'Maximize' },
+          { id: 'duplicate', label: 'Duplicate' },
           { id: 'separator' },
           { id: 'close', label: closeLabel }
         ]).then((selected) => {
           if (selected === 'rename') setModal({ type: 'rename', cardId })
           else if (selected === 'color') setModal({ type: 'color', cardId })
           else if (selected === 'maximize') handleToggleMaximize(cardId)
+          else if (selected === 'duplicate') handleDuplicateRef.current(cardId)
           else if (selected === 'close') handleClosePanelRef.current(cardId)
         })
       } else {
         window.electronAPI.contextMenuShow([
           { id: 'new-terminal', label: 'New terminal' },
-          { id: 'new-note', label: 'New note' }
+          { id: 'new-note', label: 'New note' },
+          { id: 'separator' },
+          { id: 'tidy', label: 'Tidy selection' },
+          { id: 'zoom-fit', label: 'Zoom to fit all' }
         ]).then((selected) => {
           if (selected === 'new-terminal') {
             clearSelection()
@@ -870,6 +875,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
           } else if (selected === 'new-note') {
             clearSelection()
             handleAddNoteRef.current()
+          } else if (selected === 'tidy') {
+            handleTidyRef.current()
+          } else if (selected === 'zoom-fit') {
+            zoomToFitAllRef.current()
           }
         })
       }
@@ -1269,6 +1278,26 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       })
     }
   }
+
+  // Listen for menu bar actions
+  useEffect(() => {
+    const unsub = window.electronAPI.onMenuAction((action) => {
+      switch (action) {
+        case 'new-terminal': setShowNewTerminal(true); break
+        case 'new-note': handleAddNoteRef.current(); break
+        case 'duplicate': if (focusedCardIdRef.current) handleDuplicateRef.current(focusedCardIdRef.current); break
+        case 'close-tile': if (focusedCardIdRef.current) handleClosePanelRef.current(focusedCardIdRef.current); break
+        case 'zoom-fit-all': zoomToFitAllRef.current(); break
+        case 'zoom-fit-focused': if (focusedCardIdRef.current) zoomToFitAllRef.current(); break
+        case 'tidy': handleTidyRef.current(); break
+        case 'nav-left': handleSpatialNavRef.current('left'); break
+        case 'nav-right': handleSpatialNavRef.current('right'); break
+        case 'nav-up': handleSpatialNavRef.current('up'); break
+        case 'nav-down': handleSpatialNavRef.current('down'); break
+      }
+    })
+    return unsub
+  }, [])
 
   // Subscribe to pendingFileOpen from projectStore
   useEffect(() => {
