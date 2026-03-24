@@ -52,11 +52,21 @@ class UpdateManager {
     autoUpdater.on('update-available', (info) => {
       const releaseNotes =
         typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined
-      this.setState({
-        status: 'available',
-        version: info.version,
-        releaseNotes
-      })
+      // On macOS, skip the download step — quitAndInstall doesn't work without
+      // notarization. Go straight to 'ready' so the button opens the release page.
+      if (process.platform === 'darwin') {
+        this.setState({
+          status: 'ready',
+          version: info.version,
+          releaseNotes
+        })
+      } else {
+        this.setState({
+          status: 'available',
+          version: info.version,
+          releaseNotes
+        })
+      }
     })
 
     autoUpdater.on('update-not-available', () => {
@@ -122,19 +132,21 @@ class UpdateManager {
   async install(): Promise<void> {
     if (this.state.status !== 'ready') return
 
-    this.setState({ status: 'installing', version: this.state.version })
-
     if (!app.isPackaged) return
 
-    // On macOS without notarization, quitAndInstall silently fails because
-    // Squirrel can't replace the app. Fall back to opening the release page.
     const version = this.state.version ?? 'latest'
     const releaseUrl = `https://github.com/israel-gs/multiterm-studio/releases/tag/v${version}`
 
+    // On macOS without notarization, quitAndInstall silently fails.
+    // Open the release page so the user can download manually.
     if (process.platform === 'darwin') {
       await shell.openExternal(releaseUrl)
+      // Reset to idle after opening — don't show "installing" since nothing installs
+      this.setState({ status: 'idle' })
       return
     }
+
+    this.setState({ status: 'installing', version: this.state.version })
 
     // Run cleanup explicitly so PTY sessions, watchers, and servers are
     // shut down before quitAndInstall terminates the process.

@@ -34,7 +34,6 @@ export function CanvasToolbar({ onNewTerminal, onNewNote }: Props): React.JSX.El
     status === 'available' ||
     status === 'downloading' ||
     status === 'ready' ||
-    status === 'installing' ||
     status === 'error' ||
     (isDevMode && (status === 'idle' || status === 'checking'))
 
@@ -97,7 +96,7 @@ export function CanvasToolbar({ onNewTerminal, onNewNote }: Props): React.JSX.El
         <>
           <div className="canvas-toolbar-separator" />
           <button
-            className={`canvas-toolbar-update${status === 'error' ? ' is-error' : ''}${isDisabled ? ' is-disabled' : ''}${status === 'ready' ? ' is-ready' : ''}`}
+            className={`canvas-toolbar-update${status === 'error' ? ' is-error' : ''}${isDisabled ? ' is-disabled' : ''}${status === 'ready' || status === 'available' ? ' is-ready' : ''}`}
             onClick={handleUpdateClick}
             disabled={isDisabled}
             title={getUpdateLabel()}
