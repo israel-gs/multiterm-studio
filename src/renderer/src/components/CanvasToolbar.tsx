@@ -45,7 +45,7 @@ export function CanvasToolbar({ onNewTerminal, onNewNote }: Props): React.JSX.El
       case 'downloading':
         return `Updating ${progress ?? 0}%`
       case 'ready':
-        return 'Restart to Update'
+        return 'View Update'
       case 'installing':
         return 'Installing...'
       case 'error':

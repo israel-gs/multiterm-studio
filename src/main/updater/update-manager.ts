@@ -1,6 +1,6 @@
 import electronUpdater from 'electron-updater'
 const { autoUpdater } = electronUpdater
-import { app, BrowserWindow, powerMonitor } from 'electron'
+import { app, BrowserWindow, powerMonitor, shell } from 'electron'
 
 export type UpdateStatus =
   | 'idle'
@@ -126,13 +126,23 @@ class UpdateManager {
 
     if (!app.isPackaged) return
 
+    // On macOS without notarization, quitAndInstall silently fails because
+    // Squirrel can't replace the app. Fall back to opening the release page.
+    const version = this.state.version ?? 'latest'
+    const releaseUrl = `https://github.com/israel-gs/multiterm-studio/releases/tag/v${version}`
+
+    if (process.platform === 'darwin') {
+      await shell.openExternal(releaseUrl)
+      return
+    }
+
     // Run cleanup explicitly so PTY sessions, watchers, and servers are
     // shut down before quitAndInstall terminates the process.
     if (this.onBeforeQuit) {
       await this.onBeforeQuit()
     }
 
-    autoUpdater.quitAndInstall()
+    autoUpdater.quitAndInstall(false, true)
   }
 
   getState(): UpdateState {
