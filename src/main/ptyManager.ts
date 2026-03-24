@@ -277,12 +277,14 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     })
 
     // Send recovered scrollback before live data
-    if (scrollback) {
-      currentWin?.webContents.send(`pty:scrollback:${id}`, scrollback)
+    if (scrollback && currentWin && !currentWin.isDestroyed()) {
+      currentWin.webContents.send(`pty:scrollback:${id}`, scrollback)
     }
 
     ptyProcess.onData((data: string) => {
-      currentWin?.webContents.send(`pty:data:${id}`, data)
+      if (!currentWin || currentWin.isDestroyed()) return
+
+      currentWin.webContents.send(`pty:data:${id}`, data)
 
       if (ATTENTION_PATTERN.test(data)) {
         const now = Date.now()
@@ -290,8 +292,8 @@ export function registerPtyHandlers(win: BrowserWindow): void {
         if (now - lastFired >= ATTENTION_COOLDOWN_MS) {
           attentionCooldown.set(id, now)
           const snippet = data.slice(0, 120).trim()
-          currentWin?.webContents.send('pty:attention', { id, snippet })
-          if (currentWin) handleAttentionEvent(currentWin, id, 'Terminal', snippet)
+          currentWin.webContents.send('pty:attention', { id, snippet })
+          handleAttentionEvent(currentWin, id, 'Terminal', snippet)
         }
       }
     })

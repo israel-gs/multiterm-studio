@@ -74,10 +74,12 @@ function createWindow(): void {
   // Update module-level window reference (used by inline IPC handlers)
   mainWindow = win
 
-  // Start RPC server for Claude Code hook notifications
-  startRpcServer(win).then(({ cleanup }) => {
-    rpcCleanup = cleanup
-  })
+  // Start RPC server for Claude Code hook notifications (only once per process)
+  if (!rpcCleanup) {
+    startRpcServer(win).then(({ cleanup }) => {
+      rpcCleanup = cleanup
+    })
+  }
 
   // Register inline IPC handlers only once (they use mainWindow which is updated above)
   if (!inlineHandlersRegistered) {
@@ -111,7 +113,7 @@ function createWindow(): void {
 
     // Canvas pinch forwarding for smoother trackpad zoom
     ipcMain.on('canvas:forward-pinch', (_event, deltaY: number) => {
-      mainWindow?.webContents.send('canvas:pinch', deltaY)
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('canvas:pinch', deltaY)
     })
 
     // Hooks IPC handlers
@@ -126,16 +128,16 @@ function createWindow(): void {
 
     // Native UI zoom (Cmd+= / Cmd+- / Cmd+0) and fullscreen (Shift+Cmd+F)
     ipcMain.on('zoom:in', () => {
-      if (mainWindow) mainWindow.webContents.zoomLevel = Math.min(mainWindow.webContents.zoomLevel + 0.5, 5)
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.zoomLevel = Math.min(mainWindow.webContents.zoomLevel + 0.5, 5)
     })
     ipcMain.on('zoom:out', () => {
-      if (mainWindow) mainWindow.webContents.zoomLevel = Math.max(mainWindow.webContents.zoomLevel - 0.5, -3)
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.zoomLevel = Math.max(mainWindow.webContents.zoomLevel - 0.5, -3)
     })
     ipcMain.on('zoom:reset', () => {
-      if (mainWindow) mainWindow.webContents.zoomLevel = 0
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.zoomLevel = 0
     })
     ipcMain.on('fullscreen:toggle', () => {
-      if (mainWindow) mainWindow.setFullScreen(!mainWindow.isFullScreen())
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setFullScreen(!mainWindow.isFullScreen())
     })
   }
 

@@ -31,12 +31,6 @@ textarea {
   --color-folder: #e8a87c;
   --color-folder-open: #dcb67a;
 
-  /* Accent — selection, focus rings, edge indicators */
-  --accent: #4a9eff;
-  --accent-hover: #78b8ff;
-  --accent-glow: rgba(74, 158, 255, 0.25);
-  --accent-wash: rgba(74, 158, 255, 0.08);
-
   /* Surfaces */
   --bg-canvas: #111;
   --bg-card: #1c1c1c;
@@ -59,9 +53,11 @@ textarea {
 
   /* Accent */
   --accent: #c678dd;
+  --accent-hover: #d28ee6;
   --accent-bg: rgba(198, 120, 221, 0.12);
   --accent-bg-strong: rgba(198, 120, 221, 0.18);
   --accent-glow: rgba(198, 120, 221, 0.5);
+  --accent-wash: rgba(198, 120, 221, 0.08);
   --fg-muted: #555;
 
   /* Typography — rem scale based on 16px root */
@@ -100,9 +96,11 @@ textarea {
   --hover-bg: rgba(0, 0, 0, 0.04);
   --hover-bg-strong: rgba(0, 0, 0, 0.08);
   --accent: #7c3aed;
+  --accent-hover: #8b5cf6;
   --accent-bg: rgba(124, 58, 237, 0.1);
   --accent-bg-strong: rgba(124, 58, 237, 0.16);
   --accent-glow: rgba(124, 58, 237, 0.4);
+  --accent-wash: rgba(124, 58, 237, 0.08);
   --fg-muted: #999;
   --selection: #add6ff;
 }
@@ -122,9 +120,11 @@ textarea {
     --hover-bg: rgba(0, 0, 0, 0.04);
     --hover-bg-strong: rgba(0, 0, 0, 0.08);
     --accent: #7c3aed;
+    --accent-hover: #8b5cf6;
     --accent-bg: rgba(124, 58, 237, 0.1);
     --accent-bg-strong: rgba(124, 58, 237, 0.16);
     --accent-glow: rgba(124, 58, 237, 0.4);
+    --accent-wash: rgba(124, 58, 237, 0.08);
     --fg-muted: #999;
     --selection: #add6ff;
   }
