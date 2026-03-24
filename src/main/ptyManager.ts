@@ -68,6 +68,11 @@ function tmuxEnv(): NodeJS.ProcessEnv {
   return env
 }
 
+/** Shell-quote a string with single quotes (for embedding in sh -c). */
+function shellQuote(s: string): string {
+  return `'${s.replace(/'/g, "'\\''")}'`
+}
+
 function tmuxExec(...args: string[]): string {
   return execFileSync(getTmuxBin(), ['-L', TMUX_SOCKET, '-f', getTmuxConf(), ...args], {
     encoding: 'utf-8',
@@ -245,20 +250,27 @@ export function registerPtyHandlers(win: BrowserWindow): void {
       }
     } else {
       if (initialCommand) {
-        // Launch command directly inside the shell so it gets proper environment
-        // The shell -c wraps the command, and exec replaces the shell so the
-        // tmux pane shows the command process, not a shell waiting after it exits
+        // Pass the entire command as a single shell-quoted string so that
+        // tmux's internal sh -c parsing preserves the full command with args.
+        // Without quoting, "zsh -l -c claude --flag" makes zsh treat --flag
+        // as $0 instead of part of the command.
+        // Use login+interactive shell (-lic) so both .zprofile AND .zshrc are
+        // sourced. This is critical because tools like claude are installed in
+        // ~/.local/bin which is typically added to PATH in .zshrc, not .zprofile.
+        const fullCmd = `${shell} -lic ${shellQuote(initialCommand)}`
         tmuxExec(
           'new-session', '-d', '-s', tmuxName,
           '-c', safeCwd,
           '-x', '80', '-y', '24',
-          shell, '-c', initialCommand
+          fullCmd
         )
       } else {
+        // Use login shell for regular terminals too so PATH is correct
         tmuxExec(
           'new-session', '-d', '-s', tmuxName,
           '-c', safeCwd,
-          '-x', '80', '-y', '24'
+          '-x', '80', '-y', '24',
+          shell, '-l'
         )
       }
       tmuxExec('set-option', '-t', tmuxName, 'status', 'off')
