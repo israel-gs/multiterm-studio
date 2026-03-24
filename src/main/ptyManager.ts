@@ -264,7 +264,7 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     }
 
     // Attach to tmux session via node-pty
-    const ptyProcess = pty.spawn('tmux', ['-L', TMUX_SOCKET, '-f', getTmuxConf(), '-u', 'attach-session', '-t', tmuxName], {
+    const ptyProcess = pty.spawn(getTmuxBin(), ['-L', TMUX_SOCKET, '-f', getTmuxConf(), '-u', 'attach-session', '-t', tmuxName], {
       name: 'xterm-256color',
       cols: 80,
       rows: 24,
