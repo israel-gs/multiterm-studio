@@ -1,6 +1,6 @@
 {
   "name": "multiterm-studio",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A project-scoped multi-terminal workspace with tiling layout, session persistence, and output attention detection",
   "main": "./out/main/index.js",
   "author": "",

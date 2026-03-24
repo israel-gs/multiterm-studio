@@ -57,9 +57,15 @@ function getTerminfoDir(): string | undefined {
 }
 
 function tmuxEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env }
   const dir = getTerminfoDir()
-  if (!dir) return process.env
-  return { ...process.env, TERMINFO: dir }
+  if (dir) env.TERMINFO = dir
+  // When packaged, the tmux server forks/daemonizes and loses @loader_path
+  // context. Set DYLD_LIBRARY_PATH so the forked server finds its dylibs.
+  if (app?.isPackaged) {
+    env.DYLD_LIBRARY_PATH = join(process.resourcesPath, 'lib')
+  }
+  return env
 }
 
 function tmuxExec(...args: string[]): string {
@@ -270,7 +276,7 @@ export function registerPtyHandlers(win: BrowserWindow): void {
       rows: 24,
       cwd: safeCwd,
       env: {
-        ...process.env,
+        ...tmuxEnv(),
         TERM: 'xterm-256color',
         MULTITERM_PTY_SESSION_ID: id
       }
