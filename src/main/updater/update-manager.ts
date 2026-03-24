@@ -36,6 +36,8 @@ class UpdateManager {
 
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true
+    // Allow updates for unsigned/dev-signed builds
+    autoUpdater.allowDowngrade = false
     autoUpdater.logger = {
       info: (msg: string) => console.log(`[updater] ${msg}`),
       warn: (msg: string) => console.warn(`[updater] ${msg}`),
