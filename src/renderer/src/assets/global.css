@@ -2099,6 +2099,55 @@ main > .sidebar-toggle-btn {
   padding-right: 8px;
   border-radius: 4px;
   margin: 0 4px;
+  position: relative;
+}
+
+/* Indent guide lines for hierarchy visualization */
+.file-tree-indent-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--card-border);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.file-tree-node:hover .file-tree-indent-guide {
+  opacity: 0.7;
+}
+
+/* Folder action buttons (+ and terminal) */
+.file-tree-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.file-tree-node:hover .file-tree-actions {
+  opacity: 1;
+}
+
+.file-tree-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  padding: 0;
+}
+
+.file-tree-action-btn:hover {
+  background: var(--hover-bg-strong);
+  color: var(--fg-primary);
 }
 
 .file-tree-node:hover {
@@ -2111,6 +2160,17 @@ main > .sidebar-toggle-btn {
 
 .file-tree-node--hidden {
   opacity: 0.5;
+}
+
+/* Root project node */
+.file-tree-node--root {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin-bottom: 2px;
+}
+
+.file-tree-node--root .file-tree-name {
+  text-transform: none;
 }
 
 /* Chevron for folder expand/collapse */
@@ -2149,11 +2209,13 @@ main > .sidebar-toggle-btn {
 .file-tree-count {
   font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
+  font-weight: 400;
   color: var(--fg-secondary);
   background: var(--bg-header);
   padding: 0 5px;
   border-radius: 8px;
-  flex-shrink: 0;
+  margin-left: 6px;
+  vertical-align: middle;
 }
 
 .file-tree-date {
@@ -2516,6 +2578,42 @@ main > .sidebar-toggle-btn {
 .welcome-card:hover {
   border-color: var(--border-subtle);
   box-shadow: var(--card-shadow);
+}
+
+/* Wrapper for card + remove button */
+.welcome-card-wrapper {
+  position: relative;
+}
+
+.welcome-card-wrapper .welcome-card {
+  width: 100%;
+}
+
+.welcome-card-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms ease, color 150ms ease, background 150ms ease;
+}
+
+.welcome-card-wrapper:hover .welcome-card-remove {
+  opacity: 1;
+}
+
+.welcome-card-remove:hover {
+  color: var(--color-red, #ef4444);
+  background: var(--hover-bg);
 }
 
 .welcome-card--add {

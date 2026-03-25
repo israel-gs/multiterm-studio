@@ -18,7 +18,7 @@ export interface PanelMeta {
 
 export interface PanelStore {
   panels: Record<string, PanelMeta>
-  addPanel: (id: string, title?: string, color?: string, type?: 'terminal' | 'editor' | 'note' | 'image', filePath?: string, initialCommand?: string) => void
+  addPanel: (id: string, title?: string, color?: string, type?: 'terminal' | 'editor' | 'note' | 'image', filePath?: string, initialCommand?: string, cwd?: string) => void
   removePanel: (id: string) => void
   setTitle: (id: string, title: string) => void
   setColor: (id: string, color: string) => void
@@ -41,7 +41,7 @@ export interface PanelStore {
 export const usePanelStore = create<PanelStore>((set) => ({
   panels: {},
 
-  addPanel: (id, title, color, type, filePath, initialCommand) =>
+  addPanel: (id, title, color, type, filePath, initialCommand, cwd) =>
     set((s) => ({
       panels: {
         ...s.panels,
@@ -55,7 +55,8 @@ export const usePanelStore = create<PanelStore>((set) => ({
           previewMode: false,
           initialCommand,
           agentActive: false,
-          hasProcess: false
+          hasProcess: false,
+          cwd
         }
       }
     })),

@@ -24,8 +24,8 @@ interface TerminalCanvasProps {
 }
 
 
-const DEFAULT_W = 480
-const DEFAULT_H = 320
+const DEFAULT_W = 620
+const DEFAULT_H = 420
 const NOTE_W = 280
 const NOTE_H = 220
 const IMAGE_W = 280
@@ -70,6 +70,80 @@ function normalizeZIndices(positions: Record<string, CardRect>): Record<string, 
 
 function snapToGrid(v: number): number {
   return Math.round(v / GRID_CELL) * GRID_CELL
+}
+
+/**
+ * Find a position for a new tile that doesn't overlap existing ones.
+ * Starts at (idealX, idealY) and spirals outward in grid steps until a
+ * non-overlapping spot is found (up to maxAttempts).
+ */
+function findNonOverlappingPosition(
+  idealX: number,
+  idealY: number,
+  w: number,
+  h: number,
+  positions: Record<string, CardRect>
+): { x: number; y: number } {
+  const GAP = GRID_CELL // minimum gap between tiles
+  const rects = Object.values(positions)
+
+  function overlaps(x: number, y: number): boolean {
+    for (const r of rects) {
+      if (
+        x < r.x + r.w + GAP &&
+        x + w + GAP > r.x &&
+        y < r.y + r.h + GAP &&
+        y + h + GAP > r.y
+      ) return true
+    }
+    return false
+  }
+
+  // Try ideal position first
+  let x = snapToGrid(idealX)
+  let y = snapToGrid(idealY)
+  if (!overlaps(x, y)) return { x, y }
+
+  // Spiral outward: try right, then below, expanding radius
+  const step = GRID_CELL * 2
+  for (let radius = 1; radius <= 20; radius++) {
+    const offset = radius * step
+    // Right of ideal
+    x = snapToGrid(idealX + offset)
+    y = snapToGrid(idealY)
+    if (!overlaps(x, y)) return { x, y }
+    // Below ideal
+    x = snapToGrid(idealX)
+    y = snapToGrid(idealY + offset)
+    if (!overlaps(x, y)) return { x, y }
+    // Right-below diagonal
+    x = snapToGrid(idealX + offset)
+    y = snapToGrid(idealY + offset)
+    if (!overlaps(x, y)) return { x, y }
+    // Left of ideal
+    x = snapToGrid(idealX - offset)
+    y = snapToGrid(idealY)
+    if (!overlaps(x, y)) return { x, y }
+    // Above ideal
+    x = snapToGrid(idealX)
+    y = snapToGrid(idealY - offset)
+    if (!overlaps(x, y)) return { x, y }
+    // Left-below
+    x = snapToGrid(idealX - offset)
+    y = snapToGrid(idealY + offset)
+    if (!overlaps(x, y)) return { x, y }
+    // Right-above
+    x = snapToGrid(idealX + offset)
+    y = snapToGrid(idealY - offset)
+    if (!overlaps(x, y)) return { x, y }
+    // Left-above
+    x = snapToGrid(idealX - offset)
+    y = snapToGrid(idealY - offset)
+    if (!overlaps(x, y)) return { x, y }
+  }
+
+  // Fallback: place with offset to avoid exact overlap
+  return { x: snapToGrid(idealX + GRID_CELL * 2), y: snapToGrid(idealY + GRID_CELL * 2) }
 }
 
 function buildLayoutSnapshot(
@@ -203,6 +277,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   const panToTileRef = useRef<(id: string) => void>(() => { })
   const handleTidyRef = useRef<() => void>(() => { })
   const handleDuplicateRef = useRef<(id: string) => void>(() => { })
+  const handleToggleMaximizeRef = useRef<(id: string) => void>(() => { })
 
   // Keep refs in sync
   useEffect(() => {
@@ -840,8 +915,11 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     }
 
     // --- Right-click context menu (native) ---
+    // Uses capture phase (registered with `true`) so it fires before xterm.js
+    // mouse handlers which would otherwise swallow the event in tmux mouse mode.
     function handleContextMenu(e: MouseEvent): void {
       e.preventDefault()
+      e.stopPropagation()
       const card = (e.target as HTMLElement).closest('[data-card-id]') as HTMLElement | null
 
       if (card && card.dataset.cardId) {
@@ -859,7 +937,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         ]).then((selected) => {
           if (selected === 'rename') setModal({ type: 'rename', cardId })
           else if (selected === 'color') setModal({ type: 'color', cardId })
-          else if (selected === 'maximize') handleToggleMaximize(cardId)
+          else if (selected === 'maximize') handleToggleMaximizeRef.current(cardId)
           else if (selected === 'duplicate') handleDuplicateRef.current(cardId)
           else if (selected === 'close') handleClosePanelRef.current(cardId)
         })
@@ -1019,7 +1097,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     viewport.addEventListener('mousedown', handleMouseDown)
     viewport.addEventListener('click', handleClick)
     viewport.addEventListener('dblclick', handleDblClick)
-    viewport.addEventListener('contextmenu', handleContextMenu)
+    viewport.addEventListener('contextmenu', handleContextMenu, true)
     viewport.addEventListener('auxclick', handleAuxClick)
     edgeContainer.addEventListener('click', handleEdgeClick)
     window.addEventListener('keydown', handleKeyDown, true)
@@ -1036,7 +1114,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       viewport.removeEventListener('mousedown', handleMouseDown)
       viewport.removeEventListener('click', handleClick)
       viewport.removeEventListener('dblclick', handleDblClick)
-      viewport.removeEventListener('contextmenu', handleContextMenu)
+      viewport.removeEventListener('contextmenu', handleContextMenu, true)
       viewport.removeEventListener('auxclick', handleAuxClick)
       edgeContainer.removeEventListener('click', handleEdgeClick)
       if (minimapCanvas) minimapCanvas.removeEventListener('mousedown', handleMinimapMouseDown)
@@ -1156,7 +1234,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       return
     }
 
-    addPanel(req.sessionId, req.title ?? 'Terminal', colors.cyan, 'terminal')
+    addPanel(req.sessionId, req.title ?? 'Terminal', colors.cyan, 'terminal', undefined, undefined, req.cwd)
 
     // Position to the right of parent card if provided, else rightmost panel
     let x = 40, y = 40
@@ -1244,18 +1322,19 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     const fileName = filePath.split('/').pop() ?? 'Untitled'
     addPanel(newId, fileName, undefined, 'editor', filePath)
 
-    // Position at viewport center
+    // Position at viewport center, avoiding overlap
     const viewport = viewportRef.current
     const scale = scaleRef.current
-    let x = 40
-    let y = 40
+    let idealX = 40
+    let idealY = 40
     if (viewport) {
       const vw = viewport.clientWidth
       const vh = viewport.clientHeight
-      x = snapToGrid((vw / 2 - canvasXRef.current) / scale - DEFAULT_W / 2)
-      y = snapToGrid((vh / 2 - canvasYRef.current) / scale - DEFAULT_H / 2)
+      idealX = (vw / 2 - canvasXRef.current) / scale - DEFAULT_W / 2
+      idealY = (vh / 2 - canvasYRef.current) / scale - DEFAULT_H / 2
     }
 
+    const { x, y } = findNonOverlappingPosition(idealX, idealY, DEFAULT_W, DEFAULT_H, positionsRef.current)
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
 
@@ -1307,6 +1386,20 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       if (state.pendingFileOpen && state.pendingFileOpen !== prev.pendingFileOpen) {
         handleOpenFile(state.pendingFileOpen)
         useProjectStore.getState().clearPendingFileOpen()
+      }
+    })
+    return unsubscribe
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Subscribe to pendingTerminalCwd from projectStore (open terminal at specific path)
+  useEffect(() => {
+    const unsubscribe = useProjectStore.subscribe((state, prev) => {
+      if (state.pendingTerminalCwd && state.pendingTerminalCwd !== prev.pendingTerminalCwd) {
+        const cwd = state.pendingTerminalCwd
+        useProjectStore.getState().clearPendingTerminalCwd()
+        const dirName = cwd.split('/').pop() || 'Terminal'
+        handleCreateTerminal(dirName, '', cwd)
       }
     })
     return unsubscribe
@@ -1391,19 +1484,20 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     const newId = crypto.randomUUID()
     addPanel(newId)
 
-    // Place new card at the center of the current viewport
+    // Place new card at the center of the current viewport, avoiding overlap
     const viewport = viewportRef.current
     const scale = scaleRef.current
-    let x = 40
-    let y = 40
+    let idealX = 40
+    let idealY = 40
 
     if (viewport) {
       const vw = viewport.clientWidth
       const vh = viewport.clientHeight
-      x = snapToGrid((vw / 2 - canvasXRef.current) / scale - DEFAULT_W / 2)
-      y = snapToGrid((vh / 2 - canvasYRef.current) / scale - DEFAULT_H / 2)
+      idealX = (vw / 2 - canvasXRef.current) / scale - DEFAULT_W / 2
+      idealY = (vh / 2 - canvasYRef.current) / scale - DEFAULT_H / 2
     }
 
+    const { x, y } = findNonOverlappingPosition(idealX, idealY, DEFAULT_W, DEFAULT_H, positionsRef.current)
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
 
@@ -1420,18 +1514,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     })
   }
 
-  function handleAddPanelAt(x: number, y: number): void {
+  function handleAddPanelAt(cx: number, cy: number): void {
     const newId = crypto.randomUUID()
     addPanel(newId)
 
+    const { x, y } = findNonOverlappingPosition(cx - DEFAULT_W / 2, cy - DEFAULT_H / 2, DEFAULT_W, DEFAULT_H, positionsRef.current)
     const newZ = ++topZRef.current
-    const newRect: CardRect = {
-      x: snapToGrid(x - DEFAULT_W / 2),
-      y: snapToGrid(y - DEFAULT_H / 2),
-      w: DEFAULT_W,
-      h: DEFAULT_H,
-      z: newZ
-    }
+    const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
 
     setPanelIds((prev) => {
       const next = [...prev, newId]
@@ -1452,16 +1541,17 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
     const viewport = viewportRef.current
     const scale = scaleRef.current
-    let x = 40
-    let y = 40
+    let idealX = 40
+    let idealY = 40
 
     if (viewport) {
       const vw = viewport.clientWidth
       const vh = viewport.clientHeight
-      x = snapToGrid((vw / 2 - canvasXRef.current) / scale - NOTE_W / 2)
-      y = snapToGrid((vh / 2 - canvasYRef.current) / scale - NOTE_H / 2)
+      idealX = (vw / 2 - canvasXRef.current) / scale - NOTE_W / 2
+      idealY = (vh / 2 - canvasYRef.current) / scale - NOTE_H / 2
     }
 
+    const { x, y } = findNonOverlappingPosition(idealX, idealY, NOTE_W, NOTE_H, positionsRef.current)
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: NOTE_W, h: NOTE_H, z: newZ }
 
@@ -1500,19 +1590,17 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
     const viewport = viewportRef.current
     const scale = scaleRef.current
-    let x = cx ?? 40
-    let y = cy ?? 40
+    let idealX = cx ?? 40
+    let idealY = cy ?? 40
 
     if (cx == null && viewport) {
       const vw = viewport.clientWidth
       const vh = viewport.clientHeight
-      x = snapToGrid((vw / 2 - canvasXRef.current) / scale - IMAGE_W / 2)
-      y = snapToGrid((vh / 2 - canvasYRef.current) / scale - IMAGE_H / 2)
-    } else {
-      x = snapToGrid(x)
-      y = snapToGrid(y)
+      idealX = (vw / 2 - canvasXRef.current) / scale - IMAGE_W / 2
+      idealY = (vh / 2 - canvasYRef.current) / scale - IMAGE_H / 2
     }
 
+    const { x, y } = findNonOverlappingPosition(idealX, idealY, IMAGE_W, IMAGE_H, positionsRef.current)
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: IMAGE_W, h: IMAGE_H, z: newZ }
 
@@ -1549,8 +1637,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     const fileName = filePath.split('/').pop() ?? 'File'
     addPanel(newId, fileName, colors.bgCard, 'editor', filePath)
 
-    const x = snapToGrid(cx)
-    const y = snapToGrid(cy)
+    const { x, y } = findNonOverlappingPosition(cx, cy, DEFAULT_W, DEFAULT_H, positionsRef.current)
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
 
@@ -1769,8 +1856,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     const title = (pm.title || 'Terminal') + ' (copy)'
     addPanel(newId, title, pm.color, pm.type, pm.filePath, pm.initialCommand)
 
-    const x = snapToGrid(rect.x + 30)
-    const y = snapToGrid(rect.y + 30)
+    const { x, y } = findNonOverlappingPosition(rect.x + 30, rect.y + 30, rect.w, rect.h, positionsRef.current)
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: rect.w, h: rect.h, z: newZ }
 
@@ -1795,23 +1881,25 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       return id
     })
   }
+  handleToggleMaximizeRef.current = handleToggleMaximize
 
-  function handleCreateTerminal(termName: string, termCommand: string): void {
+  function handleCreateTerminal(termName: string, termCommand: string, termCwd?: string): void {
     const newId = crypto.randomUUID()
     const initialCommand = termCommand || undefined
-    addPanel(newId, termName || 'Terminal', colors.bgCard, 'terminal', undefined, initialCommand)
+    addPanel(newId, termName || 'Terminal', colors.bgCard, 'terminal', undefined, initialCommand, termCwd)
 
     const viewport = viewportRef.current
     const scale = scaleRef.current
-    let x = 40
-    let y = 40
+    let idealX = 40
+    let idealY = 40
     if (viewport) {
       const vw = viewport.clientWidth
       const vh = viewport.clientHeight
-      x = snapToGrid((vw / 2 - canvasXRef.current) / scale - DEFAULT_W / 2)
-      y = snapToGrid((vh / 2 - canvasYRef.current) / scale - DEFAULT_H / 2)
+      idealX = (vw / 2 - canvasXRef.current) / scale - DEFAULT_W / 2
+      idealY = (vh / 2 - canvasYRef.current) / scale - DEFAULT_H / 2
     }
 
+    const { x, y } = findNonOverlappingPosition(idealX, idealY, DEFAULT_W, DEFAULT_H, positionsRef.current)
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
 

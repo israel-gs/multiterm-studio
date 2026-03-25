@@ -26,6 +26,9 @@ export interface ProjectStore {
   pendingPaneCreate: PaneCreateRequest | null
   spawnInteractivePane: (req: PaneCreateRequest) => void
   clearPendingPaneCreate: () => void
+  pendingTerminalCwd: string | null
+  openTerminalAt: (cwd: string) => void
+  clearPendingTerminalCwd: () => void
   fsRefreshKey: number
   bumpFsRefresh: () => void
   expandedDirs: Set<string>
@@ -45,6 +48,9 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   pendingPaneCreate: null,
   spawnInteractivePane: (req) => set({ pendingPaneCreate: req }),
   clearPendingPaneCreate: () => set({ pendingPaneCreate: null }),
+  pendingTerminalCwd: null,
+  openTerminalAt: (cwd) => set({ pendingTerminalCwd: cwd }),
+  clearPendingTerminalCwd: () => set({ pendingTerminalCwd: null }),
   fsRefreshKey: 0,
   bumpFsRefresh: () => set((s) => ({ fsRefreshKey: s.fsRefreshKey + 1 })),
   expandedDirs: new Set<string>(),

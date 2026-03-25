@@ -1,6 +1,27 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import React from 'react'
-import { ChevronRight } from 'lucide-react'
+import {
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  FileCode2,
+  FileCog,
+  FileText,
+  FileImage,
+  File,
+  Palette,
+  Package,
+  FileLock2,
+  Terminal,
+  Database,
+  GitBranch,
+  FileJson,
+  FileType,
+  Shield,
+  Loader2,
+  Plus,
+  TerminalSquare
+} from 'lucide-react'
 import { useProjectStore } from '../store/projectStore'
 
 interface TreeEntry {
@@ -12,109 +33,84 @@ interface TreeEntry {
 
 // --- Icons ---
 
+const ICON_SIZE = 16
+const ICON_STROKE = 1.5
+
 function ChevronIcon({ expanded }: { expanded: boolean }): React.JSX.Element {
   return (
     <ChevronRight
       className={`file-tree-chevron${expanded ? ' file-tree-chevron--open' : ''}`}
-      size={16}
-      strokeWidth={1.5}
+      size={ICON_SIZE}
+      strokeWidth={ICON_STROKE}
     />
   )
 }
 
-function FolderIcon({ open }: { open: boolean }): React.JSX.Element {
-  if (open) {
-    return (
-      <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <path d="M1.5 4C1.5 3.17 2.17 2.5 3 2.5h3.17l1.5 1.5H13c.83 0 1.5.67 1.5 1.5v1H3.5L1.5 12V4z" fill="var(--color-folder)" />
-        <path d="M2.5 6.5h12l-2 7h-10l2-7z" fill="var(--color-folder-open)" fillOpacity="0.7" />
-      </svg>
-    )
-  }
-  return (
-    <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <path
-        d="M1.5 4C1.5 3.17 2.17 2.5 3 2.5h3.17l1.5 1.5H13c.83 0 1.5.67 1.5 1.5v7c0 .83-.67 1.5-1.5 1.5H3c-.83 0-1.5-.67-1.5-1.5V4z"
-        fill="var(--color-folder)"
-      />
-    </svg>
-  )
+function FolderIconComponent({ open }: { open: boolean }): React.JSX.Element {
+  const Icon = open ? FolderOpen : Folder
+  return <Icon className="file-tree-icon" size={ICON_SIZE} strokeWidth={ICON_STROKE} color="var(--color-folder)" />
+}
+
+function SpinnerIcon(): React.JSX.Element {
+  return <Loader2 className="file-tree-icon file-tree-spinner" size={14} strokeWidth={ICON_STROKE} color="var(--fg-secondary)" />
 }
 
 function getFileIcon(name: string): React.JSX.Element {
   const ext = name.includes('.') ? name.split('.').pop()?.toLowerCase() ?? '' : ''
+  const lowerName = name.toLowerCase()
+  const props = { className: 'file-tree-icon', size: ICON_SIZE, strokeWidth: ICON_STROKE }
 
-  // Code files
-  if (['ts', 'tsx', 'js', 'jsx', 'py', 'rb', 'go', 'rs', 'c', 'cpp', 'h', 'java', 'swift', 'kt'].includes(ext)) {
-    return (
-      <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="var(--color-blue)" strokeWidth="1.2" fill="none" />
-        <path d="M5.5 6.5L4 8l1.5 1.5M10.5 6.5L12 8l10.5 1.5" stroke="var(--color-blue)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    )
-  }
+  // Special filenames
+  if (lowerName === 'package.json' || lowerName === 'package-lock.json' || lowerName === 'cargo.toml')
+    return <Package {...props} color="var(--color-green)" />
+  if (lowerName === 'pnpm-lock.yaml' || lowerName === 'yarn.lock' || lowerName === 'bun.lockb')
+    return <FileLock2 {...props} color="var(--color-yellow)" />
+  if (lowerName === '.gitignore' || lowerName === '.gitmodules' || lowerName === '.gitattributes')
+    return <GitBranch {...props} color="var(--color-red)" />
+  if (lowerName === 'license' || lowerName === 'license.md' || lowerName === 'licence')
+    return <Shield {...props} color="var(--color-yellow)" />
+  if (lowerName === 'dockerfile' || lowerName === 'docker-compose.yml' || lowerName === 'docker-compose.yaml')
+    return <Package {...props} color="var(--color-blue)" />
 
-  // Config/data files
-  if (['json', 'yaml', 'yml', 'toml', 'xml', 'ini', 'env', 'conf', 'config'].includes(ext)) {
-    return (
-      <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="var(--color-green)" strokeWidth="1.2" fill="none" />
-        <path d="M5 5.5h6M5 8h4M5 10.5h5" stroke="var(--color-green)" strokeWidth="1" strokeLinecap="round" />
-      </svg>
-    )
-  }
+  // By extension
+  // Code
+  if (['ts', 'tsx'].includes(ext)) return <FileCode2 {...props} color="var(--color-blue)" />
+  if (['js', 'jsx', 'mjs', 'cjs'].includes(ext)) return <FileCode2 {...props} color="var(--color-yellow)" />
+  if (['py'].includes(ext)) return <FileCode2 {...props} color="var(--color-green)" />
+  if (['rb', 'go', 'rs', 'c', 'cpp', 'h', 'java', 'swift', 'kt', 'lua', 'zig'].includes(ext))
+    return <FileCode2 {...props} color="var(--color-blue)" />
+  if (['sh', 'bash', 'zsh', 'fish'].includes(ext)) return <Terminal {...props} color="var(--color-green)" />
 
-  // Markdown/docs
-  if (['md', 'mdx', 'txt', 'rst', 'doc', 'docx', 'pdf'].includes(ext)) {
-    return (
-      <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="var(--color-yellow)" strokeWidth="1.2" fill="none" />
-        <path d="M5 5h6M5 7.5h6M5 10h3" stroke="var(--color-yellow)" strokeWidth="1" strokeLinecap="round" />
-      </svg>
-    )
-  }
+  // Config/data
+  if (['json', 'jsonc'].includes(ext)) return <FileJson {...props} color="var(--color-yellow)" />
+  if (['yaml', 'yml', 'toml', 'xml', 'ini', 'env', 'conf', 'config'].includes(ext))
+    return <FileCog {...props} color="var(--color-green)" />
 
-  // Style files
-  if (['css', 'scss', 'sass', 'less', 'styl'].includes(ext)) {
-    return (
-      <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="var(--color-purple)" strokeWidth="1.2" fill="none" />
-        <path d="M6 5.5c-1 0-1.5.5-1.5 1s.5 1 1.5 1 1.5.5 1.5 1-.5 1-1.5 1" stroke="var(--color-purple)" strokeWidth="1.2" strokeLinecap="round" />
-      </svg>
-    )
-  }
+  // Styles
+  if (['css', 'scss', 'sass', 'less', 'styl'].includes(ext))
+    return <Palette {...props} color="var(--color-purple)" />
 
-  // Image files
-  if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp'].includes(ext)) {
-    return (
-      <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect x="2" y="1" width="12" height="14" rx="1.5" stroke="var(--color-cyan)" strokeWidth="1.2" fill="none" />
-        <circle cx="6" cy="5.5" r="1.5" stroke="var(--color-cyan)" strokeWidth="1" fill="none" />
-        <path d="M3 11l3-3 2 2 2-2 3 3" stroke="var(--color-cyan)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    )
-  }
+  // Docs/text
+  if (['md', 'mdx'].includes(ext)) return <FileText {...props} color="var(--color-cyan)" />
+  if (['txt', 'rst', 'doc', 'docx', 'pdf'].includes(ext))
+    return <FileText {...props} color="var(--color-yellow)" />
 
-  // Default file
-  return (
-    <svg className="file-tree-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <path
-        d="M3.5 2A1.5 1.5 0 002 3.5v9A1.5 1.5 0 003.5 14h9a1.5 1.5 0 001.5-1.5V5.5L10.5 2H3.5z"
-        stroke="var(--fg-secondary)"
-        strokeWidth="1.2"
-        fill="none"
-      />
-      <path d="M10 2v4h4" stroke="var(--fg-secondary)" strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  )
-}
+  // Images
+  if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp', 'avif'].includes(ext))
+    return <FileImage {...props} color="var(--color-cyan)" />
 
-function SpinnerIcon(): React.JSX.Element {
-  return (
-    <svg className="file-tree-icon file-tree-spinner" width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <circle cx="7" cy="7" r="5.5" stroke="var(--fg-secondary)" strokeWidth="1.5" strokeDasharray="10 20" strokeLinecap="round" />
-    </svg>
-  )
+  // Fonts
+  if (['woff', 'woff2', 'ttf', 'otf', 'eot'].includes(ext))
+    return <FileType {...props} color="var(--color-purple)" />
+
+  // Database
+  if (['sql', 'sqlite', 'db'].includes(ext)) return <Database {...props} color="var(--color-yellow)" />
+
+  // Lock files
+  if (ext === 'lock') return <FileLock2 {...props} color="var(--color-yellow)" />
+
+  // Default
+  return <File {...props} color="var(--fg-secondary)" />
 }
 
 // --- Helpers ---
@@ -166,6 +162,8 @@ interface FileTreeNodeProps {
   modifiedAt?: number
   searchQuery: string
   sortOrder: SortMode
+  startRenaming?: boolean
+  defaultExpanded?: boolean
 }
 
 const FileTreeNode = React.memo(function FileTreeNode({
@@ -176,15 +174,39 @@ const FileTreeNode = React.memo(function FileTreeNode({
   itemCount,
   modifiedAt,
   searchQuery,
-  sortOrder
+  sortOrder,
+  startRenaming: startRenamingProp,
+  defaultExpanded
 }: FileTreeNodeProps): React.JSX.Element {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(defaultExpanded ?? false)
   const [children, setChildren] = useState<TreeEntry[] | null>(null)
   const [loading, setLoading] = useState(false)
-  const [renaming, setRenaming] = useState(false)
+  const [renaming, setRenaming] = useState(startRenamingProp ?? false)
   const [renameValue, setRenameValue] = useState(name)
+  const [newChildRename, setNewChildRename] = useState<string | null>(null)
   const openFileInEditor = useProjectStore((s) => s.openFileInEditor)
   const bumpFsRefresh = useProjectStore((s) => s.bumpFsRefresh)
+  const fsRefreshKey = useProjectStore((s) => s.fsRefreshKey)
+
+  // Auto-load children when defaultExpanded and on fsRefresh
+  useEffect(() => {
+    if (isDir && expanded && children === null) {
+      setLoading(true)
+      window.electronAPI.folderReaddir(path).then((entries) => {
+        setChildren(entries)
+        setLoading(false)
+      })
+    }
+  }, [isDir, expanded, path]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refresh children when fsRefreshKey changes (file operations)
+  useEffect(() => {
+    if (isDir && expanded) {
+      window.electronAPI.folderReaddir(path).then((entries) => {
+        setChildren(entries)
+      })
+    }
+  }, [fsRefreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleToggle = useCallback(async (): Promise<void> => {
     if (!isDir) {
@@ -246,13 +268,12 @@ const FileTreeNode = React.memo(function FileTreeNode({
       case 'new-file':
         try {
           await window.electronAPI.fileCreate(`${path}/Untitled.md`)
-          if (!expanded) {
-            setLoading(true)
-            const entries = await window.electronAPI.folderReaddir(path)
-            setChildren(entries)
-            setLoading(false)
-            setExpanded(true)
-          }
+          setLoading(true)
+          const fileEntries = await window.electronAPI.folderReaddir(path)
+          setChildren(fileEntries)
+          setLoading(false)
+          setExpanded(true)
+          setNewChildRename('Untitled.md')
           bumpFsRefresh()
         } catch (err) {
           console.error('Create file failed:', err)
@@ -261,13 +282,12 @@ const FileTreeNode = React.memo(function FileTreeNode({
       case 'new-folder':
         try {
           await window.electronAPI.folderCreate(`${path}/New Folder`)
-          if (!expanded) {
-            setLoading(true)
-            const entries = await window.electronAPI.folderReaddir(path)
-            setChildren(entries)
-            setLoading(false)
-            setExpanded(true)
-          }
+          setLoading(true)
+          const folderEntries = await window.electronAPI.folderReaddir(path)
+          setChildren(folderEntries)
+          setLoading(false)
+          setExpanded(true)
+          setNewChildRename('New Folder')
           bumpFsRefresh()
         } catch (err) {
           console.error('Create folder failed:', err)
@@ -315,6 +335,14 @@ const FileTreeNode = React.memo(function FileTreeNode({
     return sortEntries(filterEntries(children, searchQuery), sortOrder)
   }, [children, searchQuery, sortOrder])
 
+  // Clear newChildRename after it's been consumed
+  useEffect(() => {
+    if (newChildRename) {
+      const timer = setTimeout(() => setNewChildRename(null), 100)
+      return () => clearTimeout(timer)
+    }
+  }, [newChildRename])
+
   const isHidden = name.startsWith('.')
 
   return (
@@ -339,9 +367,17 @@ const FileTreeNode = React.memo(function FileTreeNode({
             setRenaming(true)
           }
         }}
-        className={`file-tree-node${isHidden ? ' file-tree-node--hidden' : ''}`}
+        className={`file-tree-node${isHidden ? ' file-tree-node--hidden' : ''}${depth === 0 ? ' file-tree-node--root' : ''}`}
         style={{ paddingLeft: depth * 12 + 4 }}
       >
+        {/* Indent guide lines */}
+        {depth > 0 && Array.from({ length: depth }, (_, i) => (
+          <span
+            key={i}
+            className="file-tree-indent-guide"
+            style={{ left: i * 12 + 10 }}
+          />
+        ))}
         {/* Chevron (folders only) */}
         {isDir ? (
           <ChevronIcon expanded={expanded} />
@@ -350,7 +386,7 @@ const FileTreeNode = React.memo(function FileTreeNode({
         )}
 
         {/* Icon */}
-        {isDir ? <FolderIcon open={expanded} /> : getFileIcon(name)}
+        {isDir ? <FolderIconComponent open={expanded} /> : getFileIcon(name)}
 
         {/* Name or inline rename input */}
         {renaming ? (
@@ -359,6 +395,15 @@ const FileTreeNode = React.memo(function FileTreeNode({
             autoFocus
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
+            onFocus={(e) => {
+              // Select filename without extension for easy overwrite
+              const dot = renameValue.lastIndexOf('.')
+              if (dot > 0 && !isDir) {
+                e.target.setSelectionRange(0, dot)
+              } else {
+                e.target.select()
+              }
+            }}
             onKeyDown={async (e) => {
               e.stopPropagation()
               if (e.key === 'Enter' && renameValue.trim()) {
@@ -382,15 +427,62 @@ const FileTreeNode = React.memo(function FileTreeNode({
         ) : (
           <span className="file-tree-name" data-entry-name>
             {name}
+            {isDir && !loading && itemCount !== undefined && (
+              <span className="file-tree-count">{itemCount}</span>
+            )}
           </span>
         )}
 
         {/* Loading spinner */}
         {loading && <SpinnerIcon />}
 
-        {/* Folder item count */}
-        {isDir && !loading && itemCount !== undefined && (
-          <span className="file-tree-count">{itemCount}</span>
+        {/* Folder action buttons: new file/folder + open terminal */}
+        {isDir && !loading && (
+          <span className="file-tree-actions">
+            <button
+              className="file-tree-action-btn"
+              title="New file or folder"
+              onClick={async (e) => {
+                e.stopPropagation()
+                const menuItems = [
+                  { id: 'new-file', label: 'New File' },
+                  { id: 'new-folder', label: 'New Folder' }
+                ]
+                const action = await window.electronAPI.contextMenuShow(menuItems)
+                if (action === 'new-file') {
+                  try {
+                    await window.electronAPI.fileCreate(`${path}/Untitled.md`)
+                    const entries = await window.electronAPI.folderReaddir(path)
+                    setChildren(entries)
+                    setExpanded(true)
+                    setNewChildRename('Untitled.md')
+                    bumpFsRefresh()
+                  } catch (err) { console.error('Create file failed:', err) }
+                } else if (action === 'new-folder') {
+                  try {
+                    await window.electronAPI.folderCreate(`${path}/New Folder`)
+                    const entries = await window.electronAPI.folderReaddir(path)
+                    setChildren(entries)
+                    setExpanded(true)
+                    setNewChildRename('New Folder')
+                    bumpFsRefresh()
+                  } catch (err) { console.error('Create folder failed:', err) }
+                }
+              }}
+            >
+              <Plus size={14} strokeWidth={1.8} />
+            </button>
+            <button
+              className="file-tree-action-btn"
+              title="Open terminal here"
+              onClick={(e) => {
+                e.stopPropagation()
+                useProjectStore.getState().openTerminalAt(path)
+              }}
+            >
+              <TerminalSquare size={14} strokeWidth={1.8} />
+            </button>
+          </span>
         )}
 
         {/* File modified date */}
@@ -411,6 +503,7 @@ const FileTreeNode = React.memo(function FileTreeNode({
               modifiedAt={child.modifiedAt}
               searchQuery={searchQuery}
               sortOrder={sortOrder}
+              startRenaming={newChildRename === child.name ? true : undefined}
             />
           ))}
         </div>
@@ -432,45 +525,20 @@ export function FileTree({
   searchQuery = '',
   sortOrder = 'alpha-asc'
 }: FileTreeProps): React.JSX.Element {
-  const [entries, setEntries] = useState<TreeEntry[] | null>(null)
-  const fsRefreshKey = useProjectStore((s) => s.fsRefreshKey)
-
-  useEffect(() => {
-    setEntries(null)
-    window.electronAPI.folderReaddir(rootPath).then((result) => {
-      setEntries(result)
-    })
-  }, [rootPath, fsRefreshKey])
-
-  const displayEntries = useMemo(() => {
-    if (!entries) return null
-    return sortEntries(filterEntries(entries, searchQuery), sortOrder)
-  }, [entries, searchQuery, sortOrder])
+  const rootName = rootPath.split('/').pop() || rootPath
 
   return (
     <div role="tree" aria-label="File tree" style={{ padding: '4px 0' }}>
-      {displayEntries === null ? (
-        <div className="file-tree-status">
-          <SpinnerIcon />
-          <span>Loading...</span>
-        </div>
-      ) : displayEntries.length === 0 ? (
-        <div className="file-tree-status">No matches</div>
-      ) : (
-        displayEntries.map((entry) => (
-          <FileTreeNode
-            key={`${rootPath}/${entry.name}`}
-            path={`${rootPath}/${entry.name}`}
-            name={entry.name}
-            isDir={entry.isDir}
-            depth={1}
-            itemCount={entry.itemCount}
-            modifiedAt={entry.modifiedAt}
-            searchQuery={searchQuery}
-            sortOrder={sortOrder}
-          />
-        ))
-      )}
+      <FileTreeNode
+        key={rootPath}
+        path={rootPath}
+        name={rootName}
+        isDir
+        depth={0}
+        searchQuery={searchQuery}
+        sortOrder={sortOrder}
+        defaultExpanded
+      />
     </div>
   )
 }

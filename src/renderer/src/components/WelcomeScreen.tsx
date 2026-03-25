@@ -106,33 +106,48 @@ export function WelcomeScreen({
         ) : (
           <div className="welcome-grid">
             {filtered.map((project) => (
-              <button
-                key={project.path}
-                className="welcome-card"
-                onClick={() => onSelectProject(project.path)}
-              >
-                <div className="welcome-card-icon">
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M1 3.5C1 2.67 1.67 2 2.5 2H6l1.5 1.5H13.5C14.33 3.5 15 4.17 15 5V12.5C15 13.33 14.33 14 13.5 14H2.5C1.67 14 1 13.33 1 12.5V3.5Z"
-                      fill="var(--fg-secondary)"
-                    />
+              <div key={project.path} className="welcome-card-wrapper">
+                <button
+                  className="welcome-card"
+                  onClick={() => onSelectProject(project.path)}
+                >
+                  <div className="welcome-card-icon">
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M1 3.5C1 2.67 1.67 2 2.5 2H6l1.5 1.5H13.5C14.33 3.5 15 4.17 15 5V12.5C15 13.33 14.33 14 13.5 14H2.5C1.67 14 1 13.33 1 12.5V3.5Z"
+                        fill="var(--fg-secondary)"
+                      />
+                    </svg>
+                  </div>
+                  <div className="welcome-card-name">{project.name}</div>
+                  <div className="welcome-card-path">{shortenPath(project.path)}</div>
+                  <div className="welcome-card-meta">
+                    {project.openCount} session{project.openCount !== 1 ? 's' : ''}
+                    <span className="welcome-card-dot">&middot;</span>
+                    {formatRelativeTime(project.lastOpened)}
+                  </div>
+                </button>
+                <button
+                  className="welcome-card-remove"
+                  aria-label={`Remove ${project.name} from recents`}
+                  onClick={async (e) => {
+                    e.stopPropagation()
+                    await window.electronAPI.projectsRemove(project.path)
+                    setProjects((prev) => prev.filter((p) => p.path !== project.path))
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                    <line x1="3.5" y1="3.5" x2="10.5" y2="10.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                    <line x1="10.5" y1="3.5" x2="3.5" y2="10.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
                   </svg>
-                </div>
-                <div className="welcome-card-name">{project.name}</div>
-                <div className="welcome-card-path">{shortenPath(project.path)}</div>
-                <div className="welcome-card-meta">
-                  {project.openCount} session{project.openCount !== 1 ? 's' : ''}
-                  <span className="welcome-card-dot">&middot;</span>
-                  {formatRelativeTime(project.lastOpened)}
-                </div>
-              </button>
+                </button>
+              </div>
             ))}
 
             {/* Select Folder card */}
