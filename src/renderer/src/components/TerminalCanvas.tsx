@@ -1162,6 +1162,8 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         const cur = state.panels[id]
         const prevPanel = prev.panels[id]
         if (prevPanel && (cur.title !== prevPanel.title || cur.color !== prevPanel.color || cur.noteContent !== prevPanel.noteContent)) {
+          // Redraw minimap when color changes
+          if (cur.color !== prevPanel.color) updateCanvasRef.current()
           if (folderPathRef.current) {
             scheduleSave(
               folderPathRef.current,
