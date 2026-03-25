@@ -30,13 +30,19 @@ export const lightColors = {
 } as const
 
 /** Panel preset colors for the color picker */
-export const PANEL_COLORS = [
-  colors.blue,
-  colors.green,
-  colors.red,
-  colors.yellow,
-  colors.purple,
-  colors.cyan
+export const PANEL_COLORS: readonly { hex: string; label: string }[] = [
+  { hex: colors.bgCard, label: 'Default' },
+  { hex: '#569cd6', label: 'Blue' },
+  { hex: '#4ec9b0', label: 'Teal' },
+  { hex: '#6a9955', label: 'Green' },
+  { hex: '#b5cea8', label: 'Mint' },
+  { hex: '#d7ba7d', label: 'Gold' },
+  { hex: '#ce9178', label: 'Peach' },
+  { hex: '#f44747', label: 'Red' },
+  { hex: '#c678dd', label: 'Purple' },
+  { hex: '#d16d9e', label: 'Pink' },
+  { hex: '#808080', label: 'Gray' },
+  { hex: '#dcdcaa', label: 'Cream' }
 ] as const
 
 export type AppearanceMode = 'dark' | 'light' | 'system'

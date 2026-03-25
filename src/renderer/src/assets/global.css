@@ -1118,38 +1118,80 @@ body.canvas-interacting .floating-card-inner {
 .panel-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200000;
+  animation: modal-fade-in 120ms ease-out;
+}
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-slide-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .panel-modal {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
-  border-radius: var(--card-radius);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-  padding: 16px;
-  min-width: 280px;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  padding: 0;
+  min-width: 260px;
+  max-width: 320px;
+  overflow: hidden;
+  animation: modal-slide-in 150ms ease-out;
+}
+
+.panel-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 8px;
 }
 
 .panel-modal-title {
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
+  color: var(--fg-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.panel-modal-close {
+  background: none;
+  border: none;
+  color: var(--fg-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  border-radius: 4px;
+  transition: color 100ms, background 100ms;
+}
+
+.panel-modal-close:hover {
   color: var(--fg-primary);
-  margin-bottom: 12px;
+  background: var(--hover-bg);
 }
 
 .panel-modal-input {
-  width: 100%;
+  width: calc(100% - 28px);
   background: var(--bg-canvas);
   border: 1px solid var(--border-subtle);
-  border-radius: 4px;
+  border-radius: 6px;
   color: var(--fg-primary);
   font-size: var(--text-sm);
-  padding: 6px 8px;
+  padding: 7px 10px;
+  margin: 0 14px 14px;
   outline: none;
+  transition: border-color 120ms;
 }
 
 .panel-modal-input:focus {
@@ -1160,16 +1202,17 @@ body.canvas-interacting .floating-card-inner {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 16px;
+  padding: 0 14px 14px;
 }
 
 .panel-modal-btn {
-  padding: 5px 14px;
-  border-radius: 4px;
+  padding: 6px 16px;
+  border-radius: 6px;
   font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
   cursor: pointer;
   border: none;
-  transition: background 150ms ease;
+  transition: background 120ms ease, box-shadow 120ms ease;
 }
 
 .panel-modal-btn--primary {
@@ -1191,29 +1234,86 @@ body.canvas-interacting .floating-card-inner {
   background: var(--hover-bg-strong);
 }
 
+/* Color preview strip */
+.panel-modal-color-preview {
+  height: 4px;
+  margin: 0 14px 12px;
+  border-radius: 2px;
+  transition: background 200ms ease;
+}
+
+/* Color grid */
 .panel-modal-colors {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 0 10px 12px;
 }
 
 .panel-modal-color-option {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   cursor: pointer;
-  padding: 0;
-  transition: transform 100ms, border-color 100ms;
+  background: none;
+  position: relative;
+  transition: background 100ms, border-color 100ms;
 }
 
 .panel-modal-color-option:hover {
-  transform: scale(1.15);
-  border-color: rgba(255, 255, 255, 0.4);
+  background: var(--hover-bg);
+  border-color: var(--border-subtle);
 }
 
 .panel-modal-color-option--selected {
-  border-color: rgba(255, 255, 255, 0.7);
+  background: var(--hover-bg-strong);
+  border-color: var(--border-subtle);
+}
+
+.panel-modal-color-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition: transform 100ms ease;
+}
+
+.panel-modal-color-option:hover .panel-modal-color-swatch {
+  transform: scale(1.1);
+}
+
+.panel-modal-color-check {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  pointer-events: none;
+}
+
+.panel-modal-color-label {
+  font-size: 10px;
+  color: var(--fg-secondary);
+  line-height: 1;
+  white-space: nowrap;
+  transition: color 100ms;
+}
+
+.panel-modal-color-option:hover .panel-modal-color-label,
+.panel-modal-color-option--selected .panel-modal-color-label {
+  color: var(--fg-primary);
 }
 
 /* ===== Panel Header ===== */
@@ -2708,7 +2808,7 @@ main > .sidebar-toggle-btn {
     animation: none;
   }
 
-  .panel-modal-color-option:hover {
+  .panel-modal-color-option:hover .panel-modal-color-swatch {
     transform: none;
   }
 

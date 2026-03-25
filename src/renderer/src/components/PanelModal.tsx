@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { usePanelStore } from '../store/panelStore'
 import { PANEL_COLORS } from '../tokens'
+import { Check } from 'lucide-react'
 
 interface Props {
   type: 'rename' | 'color'
@@ -14,6 +15,7 @@ export function PanelModal({ type, cardId, onDismiss }: Props): React.JSX.Elemen
   const setTitle = usePanelStore((s) => s.setTitle)
   const setColor = usePanelStore((s) => s.setColor)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [selectedColor, setSelectedColor] = useState<string | null>(null)
 
   useEffect(() => {
     if (type === 'rename') inputRef.current?.focus()
@@ -26,16 +28,32 @@ export function PanelModal({ type, cardId, onDismiss }: Props): React.JSX.Elemen
 
   if (!panel) return null
 
+  const activeColor = selectedColor ?? panel.color
+
   function handleSave(): void {
     if (inputRef.current) setTitle(cardId, inputRef.current.value)
     onDismiss()
   }
 
+  function handleColorSelect(hex: string): void {
+    setSelectedColor(hex)
+    setColor(cardId, hex)
+  }
+
   return createPortal(
     <div className="panel-modal-backdrop" onMouseDown={onDismiss}>
-      <div className="panel-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="panel-modal-title">
-          {type === 'rename' ? 'Rename terminal' : 'Change color'}
+      <div
+        className="panel-modal"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="panel-modal-header">
+          <span className="panel-modal-title">
+            {type === 'rename' ? 'Rename' : 'Color'}
+          </span>
+          <button className="panel-modal-close" onClick={onDismiss} aria-label="Close">
+            &times;
+          </button>
         </div>
 
         {type === 'rename' && (
@@ -61,20 +79,34 @@ export function PanelModal({ type, cardId, onDismiss }: Props): React.JSX.Elemen
         )}
 
         {type === 'color' && (
-          <div className="panel-modal-colors">
-            {PANEL_COLORS.map((hex) => (
-              <button
-                key={hex}
-                className={`panel-modal-color-option${hex === panel.color ? ' panel-modal-color-option--selected' : ''}`}
-                style={{ background: hex }}
-                onClick={() => {
-                  setColor(cardId, hex)
-                  onDismiss()
-                }}
-                aria-label={`Set color to ${hex}`}
-              />
-            ))}
-          </div>
+          <>
+            {/* Live preview strip */}
+            <div className="panel-modal-color-preview" style={{ background: activeColor }} />
+
+            {/* Color grid */}
+            <div className="panel-modal-colors">
+              {PANEL_COLORS.map(({ hex, label }) => {
+                const isActive = hex === activeColor
+                return (
+                  <button
+                    key={hex}
+                    className={`panel-modal-color-option${isActive ? ' panel-modal-color-option--selected' : ''}`}
+                    onClick={() => handleColorSelect(hex)}
+                    aria-label={`Set color to ${label}`}
+                    title={label}
+                  >
+                    <span className="panel-modal-color-swatch" style={{ background: hex }} />
+                    {isActive && (
+                      <span className="panel-modal-color-check">
+                        <Check size={12} strokeWidth={2.5} />
+                      </span>
+                    )}
+                    <span className="panel-modal-color-label">{label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </>
         )}
       </div>
     </div>,
