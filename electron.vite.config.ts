@@ -10,7 +10,7 @@ export default defineConfig({
   main: {
     build: {
       rollupOptions: {
-        external: ['node-pty', '@parcel/watcher', 'electron-updater'],
+        external: ['node-pty', '@parcel/watcher'],
         input: {
           index: resolve('src/main/index.ts'),
           'watcher-worker': resolve('src/main/watcher-worker.ts')

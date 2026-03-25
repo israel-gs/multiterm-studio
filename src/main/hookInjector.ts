@@ -35,7 +35,7 @@ process.stdin.on('end', () => {
         agent_name: ti.name || ti.description || 'agent',
         tool_use_id: data.tool_use_id || String(Date.now()),
         subagents_dir: subDir,
-        viewer_path: path.join(__dirname, 'multiterm-agent-viewer.js'),
+        viewer_path: path.join(__dirname, 'multiterm-agent-viewer.cjs'),
         pty_session_id: process.env.MULTITERM_PTY_SESSION_ID || '',
         cwd: data.cwd
       }
@@ -64,7 +64,7 @@ process.stdin.on('end', () => {
 function makeHookEntry(
   projectPath: string
 ): { _source: string; hooks: Array<{ type: string; command: string; timeout: number }> } {
-  const scriptPath = join(projectPath, '.claude', 'hooks', 'multiterm-notify.js')
+  const scriptPath = join(projectPath, '.claude', 'hooks', 'multiterm-notify.cjs')
   return {
     _source: HOOK_MARKER,
     hooks: [{ type: 'command', command: `node "${scriptPath}"`, timeout: 5 }]
@@ -78,7 +78,7 @@ function makePostToolUseEntry(
   matcher: string
   hooks: Array<{ type: string; command: string; timeout: number }>
 } {
-  const scriptPath = join(projectPath, '.claude', 'hooks', 'multiterm-notify.js')
+  const scriptPath = join(projectPath, '.claude', 'hooks', 'multiterm-notify.cjs')
   return {
     _source: HOOK_MARKER,
     matcher: 'Read|Write|Edit',
@@ -93,7 +93,7 @@ function makePreToolUseEntry(
   matcher: string
   hooks: Array<{ type: string; command: string; timeout: number }>
 } {
-  const scriptPath = join(projectPath, '.claude', 'hooks', 'multiterm-notify.js')
+  const scriptPath = join(projectPath, '.claude', 'hooks', 'multiterm-notify.cjs')
   return {
     _source: HOOK_MARKER,
     matcher: 'Agent',
@@ -152,8 +152,8 @@ export async function injectHooks(projectPath: string): Promise<void> {
   if (!existsSync(hooksDir)) {
     mkdirSync(hooksDir, { recursive: true })
   }
-  writeFileSync(join(hooksDir, 'multiterm-notify.js'), NOTIFY_SCRIPT, { mode: 0o755 })
-  writeFileSync(join(hooksDir, 'multiterm-agent-viewer.js'), VIEWER_SCRIPT, { mode: 0o755 })
+  writeFileSync(join(hooksDir, 'multiterm-notify.cjs'), NOTIFY_SCRIPT, { mode: 0o755 })
+  writeFileSync(join(hooksDir, 'multiterm-agent-viewer.cjs'), VIEWER_SCRIPT, { mode: 0o755 })
 
   const settingsPath = join(projectPath, '.claude', 'settings.json')
   let settings: Record<string, unknown> = {}
@@ -223,7 +223,7 @@ export async function removeHooks(projectPath: string): Promise<void> {
     }
   }
 
-  for (const name of ['multiterm-notify.js', 'multiterm-agent-viewer.js']) {
+  for (const name of ['multiterm-notify.cjs', 'multiterm-agent-viewer.cjs']) {
     try {
       unlinkSync(join(projectPath, '.claude', 'hooks', name))
     } catch {

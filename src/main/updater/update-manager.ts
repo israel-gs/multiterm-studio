@@ -1,5 +1,3 @@
-import electronUpdater from 'electron-updater'
-const { autoUpdater } = electronUpdater
 import { app, BrowserWindow, powerMonitor, shell } from 'electron'
 
 export type UpdateStatus =
@@ -23,6 +21,9 @@ const ERROR_RESET_DELAY_MS = 30_000
 const CHECK_INTERVAL_MS = 60 * 60 * 1000
 const INITIAL_CHECK_DELAY_MS = 5_000
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let autoUpdater: any = null
+
 class UpdateManager {
   private state: UpdateState = { status: 'idle' }
   private initialized = false
@@ -33,6 +34,23 @@ class UpdateManager {
   init(opts?: { onBeforeQuit?: () => Promise<void> }): void {
     if (this.initialized) return
     this.onBeforeQuit = opts?.onBeforeQuit ?? null
+
+    // Dynamic require — electron-updater may not be available in all builds
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const electronUpdater = require('electron-updater')
+      autoUpdater = electronUpdater.autoUpdater ?? electronUpdater.default?.autoUpdater
+    } catch (err) {
+      console.warn('[updater] electron-updater not available, auto-updates disabled:', (err as Error).message)
+      this.initialized = true
+      return
+    }
+
+    if (!autoUpdater) {
+      console.warn('[updater] autoUpdater not found in electron-updater module')
+      this.initialized = true
+      return
+    }
 
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true
@@ -49,7 +67,7 @@ class UpdateManager {
       this.setState({ status: 'checking' })
     })
 
-    autoUpdater.on('update-available', (info) => {
+    autoUpdater.on('update-available', (info: { version: string; releaseNotes?: string | unknown }) => {
       const releaseNotes =
         typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined
       // On macOS, skip the download step — quitAndInstall doesn't work without
@@ -73,14 +91,14 @@ class UpdateManager {
       this.setState({ status: 'idle' })
     })
 
-    autoUpdater.on('download-progress', (progress) => {
+    autoUpdater.on('download-progress', (progress: { percent: number }) => {
       this.setState({
         status: 'downloading',
         progress: Math.round(progress.percent)
       })
     })
 
-    autoUpdater.on('update-downloaded', (info) => {
+    autoUpdater.on('update-downloaded', (info: { version: string; releaseNotes?: string | unknown }) => {
       const releaseNotes =
         typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined
       this.setState({
@@ -90,7 +108,7 @@ class UpdateManager {
       })
     })
 
-    autoUpdater.on('error', (err) => {
+    autoUpdater.on('error', (err: Error) => {
       this.handleError(err.message)
     })
 
@@ -106,6 +124,7 @@ class UpdateManager {
   }
 
   async checkForUpdates(): Promise<void> {
+    if (!autoUpdater) return
     const s = this.state.status
     if (s === 'checking' || s === 'downloading') return
     if (s === 'available' || s === 'ready') return
@@ -120,6 +139,7 @@ class UpdateManager {
   }
 
   async downloadAvailableUpdate(): Promise<void> {
+    if (!autoUpdater) return
     if (this.state.status !== 'available') return
 
     try {
@@ -145,6 +165,8 @@ class UpdateManager {
       this.setState({ status: 'idle' })
       return
     }
+
+    if (!autoUpdater) return
 
     this.setState({ status: 'installing', version: this.state.version })
 
