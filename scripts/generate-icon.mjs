@@ -7,8 +7,8 @@
  * forming a unified shape that suggests multiplicity and space.
  * Purple (#c678dd) gradient on deep dark background.
  *
- * The icon uses a macOS-standard squircle (continuous corner) mask
- * baked into the PNG alpha channel, matching the system icon shape.
+ * The icon uses a superellipse (n=5) squircle mask baked into the
+ * alpha channel, matching the macOS system icon shape and grid.
  */
 
 import sharp from 'sharp'
@@ -21,26 +21,26 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const BUILD_DIR = join(__dirname, '..', 'build')
 const SIZE = 1024
 
-// macOS Big Sur squircle path for 1024x1024.
-// The icon content sits inside a ~844x844 squircle centered in the 1024 canvas,
-// with ~90px margin on each side — matching the standard macOS icon grid.
-const MARGIN = 90
-const S = SIZE - MARGIN * 2 // 844 — visible squircle size
-const R = 186 // corner radius scaled for the 844px shape (~22% of S)
-const OX = MARGIN // offset X
-const OY = MARGIN // offset Y
-const SQUIRCLE = `
-  M ${OX + R},${OY}
-  H ${OX + S - R}
-  C ${OX + S - R * 0.04},${OY} ${OX + S},${OY + R * 0.04} ${OX + S},${OY + R}
-  V ${OY + S - R}
-  C ${OX + S},${OY + S - R * 0.04} ${OX + S - R * 0.04},${OY + S} ${OX + S - R},${OY + S}
-  H ${OX + R}
-  C ${OX + R * 0.04},${OY + S} ${OX},${OY + S - R * 0.04} ${OX},${OY + S - R}
-  V ${OY + R}
-  C ${OX},${OY + R * 0.04} ${OX + R * 0.04},${OY} ${OX + R},${OY}
-  Z
-`
+/**
+ * Generate a superellipse (squircle) SVG path.
+ * |x/a|^n + |y/b|^n = 1 with n=5 matches Apple's continuous-corner shape.
+ */
+function superellipsePath(cx, cy, a, b, n = 5, steps = 200) {
+  const pts = []
+  for (let i = 0; i < steps; i++) {
+    const t = (2 * Math.PI * i) / steps
+    const cosT = Math.cos(t)
+    const sinT = Math.sin(t)
+    const x = cx + a * Math.sign(cosT) * Math.abs(cosT) ** (2 / n)
+    const y = cy - b * Math.sign(sinT) * Math.abs(sinT) ** (2 / n)
+    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`)
+  }
+  return `M ${pts[0]} L ${pts.slice(1).join(' L ')} Z`
+}
+
+// Squircle centered in the 1024 canvas with ~90px margin on each side,
+// matching the standard macOS icon grid (~82% fill).
+const SQUIRCLE = superellipsePath(512, 512, 417, 414)
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE}" width="${SIZE}" height="${SIZE}">
   <defs>
