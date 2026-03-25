@@ -22,19 +22,23 @@ const BUILD_DIR = join(__dirname, '..', 'build')
 const SIZE = 1024
 
 // macOS Big Sur squircle path for 1024x1024.
-// This is the standard continuous-corner superellipse used by macOS app icons.
-// Generated to match Apple's icon grid template.
-const R = 228 // corner radius matching Apple's spec (~22.3% of size)
+// The icon content sits inside a ~844x844 squircle centered in the 1024 canvas,
+// with ~90px margin on each side — matching the standard macOS icon grid.
+const MARGIN = 90
+const S = SIZE - MARGIN * 2 // 844 — visible squircle size
+const R = 186 // corner radius scaled for the 844px shape (~22% of S)
+const OX = MARGIN // offset X
+const OY = MARGIN // offset Y
 const SQUIRCLE = `
-  M ${R},0
-  H ${SIZE - R}
-  C ${SIZE - R * 0.04},0 ${SIZE},${R * 0.04} ${SIZE},${R}
-  V ${SIZE - R}
-  C ${SIZE},${SIZE - R * 0.04} ${SIZE - R * 0.04},${SIZE} ${SIZE - R},${SIZE}
-  H ${R}
-  C ${R * 0.04},${SIZE} 0,${SIZE - R * 0.04} 0,${SIZE - R}
-  V ${R}
-  C 0,${R * 0.04} ${R * 0.04},0 ${R},0
+  M ${OX + R},${OY}
+  H ${OX + S - R}
+  C ${OX + S - R * 0.04},${OY} ${OX + S},${OY + R * 0.04} ${OX + S},${OY + R}
+  V ${OY + S - R}
+  C ${OX + S},${OY + S - R * 0.04} ${OX + S - R * 0.04},${OY + S} ${OX + S - R},${OY + S}
+  H ${OX + R}
+  C ${OX + R * 0.04},${OY + S} ${OX},${OY + S - R * 0.04} ${OX},${OY + S - R}
+  V ${OY + R}
+  C ${OX},${OY + R * 0.04} ${OX + R * 0.04},${OY} ${OX + R},${OY}
   Z
 `
 
