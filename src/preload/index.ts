@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, clipboard } from 'electron'
 
 // Expose the electronAPI to the renderer via contextBridge
 // IMPORTANT: onPtyData uses the unsubscribe closure pattern (electron#33328)
@@ -354,5 +354,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ): void => callback(state)
     ipcRenderer.on('update:status', listener)
     return () => ipcRenderer.removeListener('update:status', listener)
-  }
+  },
+
+  // Clipboard
+  clipboardWriteText: (text: string): void => clipboard.writeText(text),
+  clipboardReadText: (): string => clipboard.readText()
 })

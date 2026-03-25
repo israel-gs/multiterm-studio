@@ -153,6 +153,7 @@ body {
   flex-direction: column;
   width: 100%;
   height: 100%;
+  user-select: none;
 }
 
 /* Infinite canvas viewport — no scroll, transform-based pan/zoom */
@@ -1304,6 +1305,7 @@ body.canvas-interacting .floating-card-inner {
   flex-direction: column;
   overflow: hidden;
   transition: width 200ms ease;
+  user-select: none;
 }
 
 body.sidebar-resizing .enhanced-sidebar {

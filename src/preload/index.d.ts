@@ -62,6 +62,8 @@ declare global {
       updateDownload: () => Promise<UpdateState>
       updateInstall: () => void
       onUpdateStatus: (callback: (state: UpdateState) => void) => () => void
+      clipboardWriteText: (text: string) => void
+      clipboardReadText: () => string
     }
   }
 

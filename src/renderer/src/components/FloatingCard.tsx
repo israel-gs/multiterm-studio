@@ -487,7 +487,7 @@ export function FloatingCard({
           ) : type === 'note' ? (
             <NotePanel sessionId={sessionId} />
           ) : (
-            <TerminalPanel sessionId={sessionId} cwd={cwd} />
+            <TerminalPanel sessionId={sessionId} cwd={cwd} zoomRef={zoomRef} />
           )}
         </div>
         {(!type || type === 'terminal') && (
