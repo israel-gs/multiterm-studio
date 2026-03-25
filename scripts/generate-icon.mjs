@@ -6,6 +6,10 @@
  * in a dynamic 2x2 formation with slight rotation and spacing,
  * forming a unified shape that suggests multiplicity and space.
  * Purple (#c678dd) gradient on deep dark background.
+ *
+ * macOS compliance: the icon is a full 1024x1024 square with NO
+ * baked-in rounded corners. macOS applies its own squircle mask
+ * at display time.
  */
 
 import sharp from 'sharp'
@@ -43,10 +47,6 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE
       <stop offset="100%" stop-color="#c070dd"/>
     </linearGradient>
 
-    <clipPath id="bg-clip">
-      <rect width="${SIZE}" height="${SIZE}" rx="228" ry="228"/>
-    </clipPath>
-
     <filter id="glow-ambient" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="45"/>
     </filter>
@@ -65,18 +65,16 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE
     </filter>
   </defs>
 
-  <!-- Background -->
-  <g clip-path="url(#bg-clip)">
-    <rect width="${SIZE}" height="${SIZE}" fill="url(#bg)"/>
-    <ellipse cx="512" cy="512" rx="260" ry="240" fill="#c678dd" opacity="0.05" filter="url(#glow-ambient)"/>
-  </g>
+  <!-- Background: full square, no rounded corners (macOS applies squircle mask) -->
+  <rect width="${SIZE}" height="${SIZE}" fill="url(#bg)"/>
+  <ellipse cx="512" cy="512" rx="260" ry="240" fill="#c678dd" opacity="0.05" filter="url(#glow-ambient)"/>
 
   <!--
     Mark: four rounded squares in a 2x2 grid with a gap between them.
     The whole group is slightly rotated for dynamism.
     Gap = 24px. Each square ~185px. Total mark ~394px centered.
   -->
-  <g clip-path="url(#bg-clip)" filter="url(#glow-mark)">
+  <g filter="url(#glow-mark)">
     <g transform="rotate(-6, 512, 512)">
       <!-- Top-left -->
       <rect x="303" y="303" width="185" height="185" rx="36"
@@ -96,17 +94,49 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE
 
 async function main() {
   console.log('Generating Multiterm Studio icon...')
-  const png = await sharp(Buffer.from(svg)).resize(1024,1024).png({quality:100}).toBuffer()
-  await sharp(png).toFile(join(BUILD_DIR,'icon.png'))
+  mkdirSync(BUILD_DIR, { recursive: true })
+
+  const png = await sharp(Buffer.from(svg)).resize(1024, 1024).png({ quality: 100 }).toBuffer()
+
+  await sharp(png).toFile(join(BUILD_DIR, 'icon.png'))
   console.log('  -> icon.png')
-  await sharp(png).resize(256,256).png().toFile(join(BUILD_DIR,'icon.ico'))
+
+  await sharp(png).resize(256, 256).png().toFile(join(BUILD_DIR, 'icon.ico'))
   console.log('  -> icon.ico')
-  const d = join(BUILD_DIR,'icon.iconset')
-  if(existsSync(d)) rmSync(d,{recursive:true})
-  mkdirSync(d,{recursive:true})
-  for(const[s,n]of[[16,'icon_16x16.png'],[32,'icon_16x16@2x.png'],[32,'icon_32x32.png'],[64,'icon_32x32@2x.png'],[128,'icon_128x128.png'],[256,'icon_128x128@2x.png'],[256,'icon_256x256.png'],[512,'icon_256x256@2x.png'],[512,'icon_512x512.png'],[1024,'icon_512x512@2x.png']])
-    await sharp(png).resize(s,s).png().toFile(join(d,n))
-  try{execSync(`iconutil -c icns "${d}" -o "${join(BUILD_DIR,'icon.icns')}"`);console.log('  -> icon.icns');rmSync(d,{recursive:true})}catch(e){console.warn('!!',e.message)}
+
+  // Generate macOS .iconset with all required sizes
+  const iconsetDir = join(BUILD_DIR, 'icon.iconset')
+  if (existsSync(iconsetDir)) rmSync(iconsetDir, { recursive: true })
+  mkdirSync(iconsetDir, { recursive: true })
+
+  const sizes = [
+    [16, 'icon_16x16.png'],
+    [32, 'icon_16x16@2x.png'],
+    [32, 'icon_32x32.png'],
+    [64, 'icon_32x32@2x.png'],
+    [128, 'icon_128x128.png'],
+    [256, 'icon_128x128@2x.png'],
+    [256, 'icon_256x256.png'],
+    [512, 'icon_256x256@2x.png'],
+    [512, 'icon_512x512.png'],
+    [1024, 'icon_512x512@2x.png']
+  ]
+
+  for (const [size, name] of sizes) {
+    await sharp(png).resize(size, size).png().toFile(join(iconsetDir, name))
+  }
+  console.log('  -> icon.iconset (10 sizes)')
+
+  // Convert to .icns using macOS iconutil
+  try {
+    execSync(`iconutil -c icns "${iconsetDir}" -o "${join(BUILD_DIR, 'icon.icns')}"`)
+    console.log('  -> icon.icns')
+    rmSync(iconsetDir, { recursive: true })
+  } catch (e) {
+    console.warn('!! Failed to create .icns:', e.message)
+  }
+
   console.log('\nDone!')
 }
+
 main().catch(console.error)
