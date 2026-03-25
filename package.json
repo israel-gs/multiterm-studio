@@ -1,6 +1,6 @@
 {
   "name": "multiterm-studio",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A project-scoped multi-terminal workspace with tiling layout, session persistence, and output attention detection",
   "main": "./out/main/index.js",
   "author": "",
@@ -65,6 +65,7 @@
     "prettier": "^3.7.4",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "sharp": "^0.34.5",
     "typescript": "^5.9.3",
     "vite": "^7.2.6",
     "vite-plugin-monaco-editor": "^1.1.0",
