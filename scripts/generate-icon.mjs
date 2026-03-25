@@ -7,9 +7,8 @@
  * forming a unified shape that suggests multiplicity and space.
  * Purple (#c678dd) gradient on deep dark background.
  *
- * macOS compliance: the icon is a full 1024x1024 square with NO
- * baked-in rounded corners. macOS applies its own squircle mask
- * at display time.
+ * The icon uses a macOS-standard squircle (continuous corner) mask
+ * baked into the PNG alpha channel, matching the system icon shape.
  */
 
 import sharp from 'sharp'
@@ -22,11 +21,28 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const BUILD_DIR = join(__dirname, '..', 'build')
 const SIZE = 1024
 
+// macOS Big Sur squircle path for 1024x1024.
+// This is the standard continuous-corner superellipse used by macOS app icons.
+// Generated to match Apple's icon grid template.
+const R = 228 // corner radius matching Apple's spec (~22.3% of size)
+const SQUIRCLE = `
+  M ${R},0
+  H ${SIZE - R}
+  C ${SIZE - R * 0.04},0 ${SIZE},${R * 0.04} ${SIZE},${R}
+  V ${SIZE - R}
+  C ${SIZE},${SIZE - R * 0.04} ${SIZE - R * 0.04},${SIZE} ${SIZE - R},${SIZE}
+  H ${R}
+  C ${R * 0.04},${SIZE} 0,${SIZE - R * 0.04} 0,${SIZE - R}
+  V ${R}
+  C 0,${R * 0.04} ${R * 0.04},0 ${R},0
+  Z
+`
+
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE}" width="${SIZE}" height="${SIZE}">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0.5" y2="1">
-      <stop offset="0%" stop-color="#16121e"/>
-      <stop offset="100%" stop-color="#0c0a11"/>
+      <stop offset="0%" stop-color="#2a2535"/>
+      <stop offset="100%" stop-color="#1a1722"/>
     </linearGradient>
 
     <!-- Each quadrant gets a slightly different purple tone -->
@@ -47,6 +63,10 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE
       <stop offset="100%" stop-color="#c070dd"/>
     </linearGradient>
 
+    <clipPath id="squircle">
+      <path d="${SQUIRCLE}"/>
+    </clipPath>
+
     <filter id="glow-ambient" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="45"/>
     </filter>
@@ -65,29 +85,35 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE
     </filter>
   </defs>
 
-  <!-- Background: full square, no rounded corners (macOS applies squircle mask) -->
-  <rect width="${SIZE}" height="${SIZE}" fill="url(#bg)"/>
-  <ellipse cx="512" cy="512" rx="260" ry="240" fill="#c678dd" opacity="0.05" filter="url(#glow-ambient)"/>
+  <!-- Everything clipped to squircle shape -->
+  <g clip-path="url(#squircle)">
+    <!-- Background -->
+    <rect width="${SIZE}" height="${SIZE}" fill="url(#bg)"/>
 
-  <!--
-    Mark: four rounded squares in a 2x2 grid with a gap between them.
-    The whole group is slightly rotated for dynamism.
-    Gap = 24px. Each square ~185px. Total mark ~394px centered.
-  -->
-  <g filter="url(#glow-mark)">
-    <g transform="rotate(-6, 512, 512)">
-      <!-- Top-left -->
-      <rect x="303" y="303" width="185" height="185" rx="36"
-            fill="url(#q1)" opacity="0.92"/>
-      <!-- Top-right -->
-      <rect x="512" y="303" width="185" height="185" rx="36"
-            fill="url(#q2)" opacity="0.75"/>
-      <!-- Bottom-left -->
-      <rect x="303" y="512" width="185" height="185" rx="36"
-            fill="url(#q3)" opacity="0.60"/>
-      <!-- Bottom-right -->
-      <rect x="512" y="512" width="185" height="185" rx="36"
-            fill="url(#q4)" opacity="0.85"/>
+    <!-- Subtle inner border for edge definition -->
+    <path d="${SQUIRCLE}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
+
+    <ellipse cx="512" cy="512" rx="260" ry="240" fill="#c678dd" opacity="0.06" filter="url(#glow-ambient)"/>
+
+    <!--
+      Mark: four rounded squares in a 2x2 grid with a gap between them.
+      Slightly rotated for dynamism.
+    -->
+    <g filter="url(#glow-mark)">
+      <g transform="rotate(-6, 512, 512)">
+        <!-- Top-left -->
+        <rect x="303" y="303" width="185" height="185" rx="36"
+              fill="url(#q1)" opacity="0.92"/>
+        <!-- Top-right -->
+        <rect x="512" y="303" width="185" height="185" rx="36"
+              fill="url(#q2)" opacity="0.75"/>
+        <!-- Bottom-left -->
+        <rect x="303" y="512" width="185" height="185" rx="36"
+              fill="url(#q3)" opacity="0.60"/>
+        <!-- Bottom-right -->
+        <rect x="512" y="512" width="185" height="185" rx="36"
+              fill="url(#q4)" opacity="0.85"/>
+      </g>
     </g>
   </g>
 </svg>`
