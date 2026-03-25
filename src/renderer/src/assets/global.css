@@ -317,7 +317,7 @@ body {
   overflow: hidden;
   outline: none;
   opacity: 0.85;
-  transition: box-shadow 0.15s ease, opacity 0.15s;
+  transition: box-shadow 0.15s ease;
   animation: card-enter 150ms ease-out;
   pointer-events: all;
 }

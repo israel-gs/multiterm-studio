@@ -200,6 +200,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   const handleClosePanelRef = useRef<(id: string) => void>(() => { })
   const zoomToFitAllRef = useRef<() => void>(() => { })
   const handleSpatialNavRef = useRef<(dir: 'left' | 'right' | 'up' | 'down') => void>(() => { })
+  const panToTileRef = useRef<(id: string) => void>(() => { })
   const handleTidyRef = useRef<() => void>(() => { })
   const handleDuplicateRef = useRef<(id: string) => void>(() => { })
 
@@ -690,6 +691,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
       panAnimRaf = requestAnimationFrame(step)
     }
+    panToTileRef.current = panToTile
 
     // --- Wheel: pan + zoom ---
     function handleWheel(e: WheelEvent): void {
@@ -1703,8 +1705,8 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     if (bestId) {
       setFocusedCardId(bestId)
       handleBringToFront(bestId)
-      // Auto-pan to make the tile visible
-      zoomToFitIds([bestId])
+      // Smooth animated pan to the target tile
+      panToTileRef.current(bestId)
     }
   }
 
