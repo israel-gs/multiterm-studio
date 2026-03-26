@@ -1612,115 +1612,401 @@ main > .sidebar-toggle-btn {
 
 /* ===== Git Branch Section ===== */
 
-.sidebar-git-section {
+/* ===== Branch Manager (bottom bar popover) ===== */
+
+.sidebar-branch-manager {
   position: relative;
-  border-bottom: 1px solid var(--border-subtle);
+  flex: 1;
+  min-width: 0;
 }
 
-.sidebar-git-toggle {
+.sidebar-branch-trigger {
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 8px 12px;
+  gap: 5px;
+  max-width: 100%;
+  padding: 4px 8px;
   background: none;
   border: none;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
+  border-radius: 6px;
+  color: var(--fg-secondary);
   font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
 }
 
-.sidebar-git-toggle:hover {
-  background: rgba(255, 255, 255, 0.03);
+.sidebar-branch-trigger:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
 }
 
-.sidebar-git-icon {
-  flex-shrink: 0;
+.sidebar-branch-trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
-.sidebar-git-branch-name {
-  flex: 1;
+.sidebar-branch-trigger-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--fg-primary);
-  font-weight: var(--weight-medium);
 }
 
-.sidebar-git-branch-name--detached {
+.sidebar-branch-trigger-name--detached {
   color: var(--color-yellow);
 }
 
-.sidebar-git-chevron {
+.sidebar-branch-trigger-chevron {
   flex-shrink: 0;
   transition: transform 150ms ease;
 }
 
-.sidebar-git-chevron--open {
+.sidebar-branch-trigger-chevron--open {
   transform: rotate(180deg);
 }
 
-.sidebar-git-error {
-  padding: 4px 12px 6px;
+.sidebar-branch-error {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  padding: 4px 12px;
   font-size: var(--text-xs);
   color: var(--color-red);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  margin-bottom: 4px;
 }
 
-.sidebar-git-dropdown {
-  max-height: 200px;
+/* Popover — opens upward from bottom bar */
+.sidebar-branch-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: -6px;
+  width: calc(100% + 42px); /* extend to cover settings icon area */
+  max-height: 340px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow-elevated);
+  overflow: hidden;
+  z-index: 100;
+  animation: branch-popover-in 120ms ease-out;
+}
+
+@keyframes branch-popover-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Popover header */
+.sidebar-branch-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--hover-bg);
+}
+
+.sidebar-branch-popover-current {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--fg-secondary);
+}
+
+.sidebar-branch-popover-current-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--fg-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-branch-popover-current-badge {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-secondary);
+  background: var(--hover-bg-strong);
+  border-radius: 4px;
+}
+
+.sidebar-branch-popover-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.sidebar-branch-popover-close-btn:hover {
+  background: var(--hover-bg-strong);
+  color: var(--fg-primary);
+}
+
+/* Section label */
+.sidebar-branch-popover-section {
+  padding: 8px 10px 0;
+}
+
+.sidebar-branch-popover-section-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--fg-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Create branch */
+.sidebar-branch-popover-create {
+  display: flex;
+  gap: 6px;
+}
+
+.sidebar-branch-popover-input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--fg-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+.sidebar-branch-popover-input:focus {
+  border-color: var(--accent);
+}
+
+.sidebar-branch-popover-input::placeholder {
+  color: var(--fg-secondary);
+  opacity: 0.6;
+}
+
+.sidebar-branch-popover-create-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+
+.sidebar-branch-popover-create-btn:hover {
+  background: var(--accent-hover);
+}
+
+.sidebar-branch-popover-create-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Search */
+.sidebar-branch-popover-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  transition: border-color 0.12s ease;
+}
+
+.sidebar-branch-popover-search:focus-within {
+  border-color: var(--accent);
+}
+
+.sidebar-branch-popover-search-icon {
+  flex-shrink: 0;
+  color: var(--fg-secondary);
+}
+
+.sidebar-branch-popover-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0;
+  background: transparent;
+  border: none;
+  color: var(--fg-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  outline: none;
+  box-shadow: none;
+}
+
+.sidebar-branch-popover-search-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.sidebar-branch-popover-search-input::placeholder {
+  color: var(--fg-secondary);
+  opacity: 0.6;
+}
+
+/* Branch list header */
+.sidebar-branch-popover-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px 2px;
+  font-size: var(--text-2xs);
+  color: var(--fg-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Branch list */
+.sidebar-branch-popover-list {
+  flex: 1;
   overflow-y: auto;
+  padding: 4px 6px 6px;
   scrollbar-width: thin;
   scrollbar-color: var(--border-subtle) transparent;
 }
 
-.sidebar-git-dropdown::-webkit-scrollbar {
+.sidebar-branch-popover-list::-webkit-scrollbar {
   width: 6px;
 }
 
-.sidebar-git-dropdown::-webkit-scrollbar-track {
+.sidebar-branch-popover-list::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.sidebar-git-dropdown::-webkit-scrollbar-thumb {
+.sidebar-branch-popover-list::-webkit-scrollbar-thumb {
   background: var(--border-subtle);
   border-radius: 3px;
 }
 
-.sidebar-git-branch-item {
+.sidebar-branch-popover-item {
   display: flex;
   align-items: center;
-  gap: 6px;
   width: 100%;
-  padding: 5px 12px;
+  border-radius: 8px;
+  transition: background 0.12s ease;
+}
+
+.sidebar-branch-popover-item:hover:not(.sidebar-branch-popover-item--current) {
+  background: var(--hover-bg);
+}
+
+.sidebar-branch-popover-item--current {
+  color: var(--fg-primary);
+  font-weight: var(--weight-medium);
+}
+
+.sidebar-branch-popover-item-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
   background: none;
   border: none;
-  color: var(--fg-primary);
+  border-radius: 8px;
+  color: var(--fg-secondary);
   font-size: var(--text-sm);
+  font-family: var(--font-sans);
   text-align: left;
   cursor: pointer;
 }
 
-.sidebar-git-branch-item:hover {
-  background: var(--hover-bg);
+.sidebar-branch-popover-item--current .sidebar-branch-popover-item-btn {
+  color: var(--fg-primary);
+  cursor: default;
 }
 
-.sidebar-git-branch-item--current {
-  color: var(--accent);
+.sidebar-branch-popover-item-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
-.sidebar-git-current-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
+.sidebar-branch-popover-item-icon {
   flex-shrink: 0;
+  color: var(--fg-secondary);
 }
 
-.sidebar-git-branch-item-name {
+.sidebar-branch-popover-item-icon--check {
+  color: var(--color-green);
+}
+
+.sidebar-branch-popover-item-name {
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sidebar-branch-popover-item-badge {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--fg-secondary);
+}
+
+/* Delete button */
+.sidebar-branch-popover-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-right: 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s, color 0.1s;
+}
+
+.sidebar-branch-popover-item:hover .sidebar-branch-popover-delete-btn {
+  opacity: 1;
+}
+
+.sidebar-branch-popover-delete-btn:hover {
+  background: rgba(255, 59, 48, 0.12);
+  color: var(--color-red);
+}
+
+.sidebar-branch-popover-empty {
+  padding: 12px 8px;
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--fg-secondary);
+  font-style: italic;
 }
 
 .sidebar-search {
@@ -1823,29 +2109,33 @@ main > .sidebar-toggle-btn {
 
 /* ===== Sidebar Settings Bar ===== */
 
-.sidebar-settings-bar {
+/* ===== Bottom bar (branch + settings icon) ===== */
+
+.sidebar-bottom-bar {
   flex-shrink: 0;
-  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
   border-top: 1px solid var(--border-subtle);
 }
 
-.sidebar-settings-btn {
+.sidebar-settings-icon-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 6px 8px;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
   color: var(--fg-secondary);
-  font-size: var(--text-sm);
-  font-family: var(--font-sans);
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
 }
 
-.sidebar-settings-btn:hover {
+.sidebar-settings-icon-btn:hover {
   background: var(--hover-bg-strong);
   color: var(--fg-primary);
 }
@@ -2828,8 +3118,12 @@ main > .sidebar-toggle-btn {
     transition: none;
   }
 
-  .sidebar-git-chevron {
+  .sidebar-branch-trigger-chevron {
     transition: none;
+  }
+
+  .sidebar-branch-popover {
+    animation: none;
   }
 
   .sidebar-project-chevron-icon,

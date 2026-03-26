@@ -66,4 +66,38 @@ export function registerGitHandlers(): void {
       }
     }
   )
+
+  ipcMain.handle(
+    'git:create-branch',
+    async (
+      _event,
+      folderPath: string,
+      branchName: string
+    ): Promise<{ ok: boolean; error?: string }> => {
+      try {
+        await runGit(['checkout', '-b', branchName], folderPath)
+        return { ok: true }
+      } catch (err: unknown) {
+        const stderr = (err as { stderr?: string }).stderr ?? 'Failed to create branch'
+        return { ok: false, error: stderr }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:delete-branch',
+    async (
+      _event,
+      folderPath: string,
+      branchName: string
+    ): Promise<{ ok: boolean; error?: string }> => {
+      try {
+        await runGit(['branch', '-d', branchName], folderPath)
+        return { ok: true }
+      } catch (err: unknown) {
+        const stderr = (err as { stderr?: string }).stderr ?? 'Failed to delete branch'
+        return { ok: false, error: stderr }
+      }
+    }
+  )
 }

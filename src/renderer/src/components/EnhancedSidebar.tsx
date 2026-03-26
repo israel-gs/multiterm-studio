@@ -135,9 +135,6 @@ export function EnhancedSidebar({
         )}
       </div>
 
-      {/* Git branch switcher */}
-      <GitBranchSection folderPath={folderPath} />
-
       {/* Search bar */}
       <div className="sidebar-search">
         <Search
@@ -188,15 +185,15 @@ export function EnhancedSidebar({
         <FileTree rootPath={folderPath} searchQuery={searchQuery} sortOrder={sortOrder} />
       </div>
 
-      {/* Settings button — pinned to bottom */}
-      <div className="sidebar-settings-bar">
+      {/* Bottom bar — branch + settings icon */}
+      <div className="sidebar-bottom-bar">
+        <GitBranchSection folderPath={folderPath} />
         <button
-          className="sidebar-settings-btn"
+          className="sidebar-settings-icon-btn"
           onClick={() => setSettingsOpen(true)}
           aria-label="Open settings"
         >
-          <Settings size={14} strokeWidth={1.5} aria-hidden="true" />
-          Settings
+          <Settings size={15} strokeWidth={1.5} aria-hidden="true" />
         </button>
       </div>
 

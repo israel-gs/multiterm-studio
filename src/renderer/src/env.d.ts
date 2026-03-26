@@ -32,6 +32,14 @@ interface Window {
       folderPath: string,
       branch: string
     ) => Promise<{ ok: boolean; error?: string }>
+    gitCreateBranch: (
+      folderPath: string,
+      branchName: string
+    ) => Promise<{ ok: boolean; error?: string }>
+    gitDeleteBranch: (
+      folderPath: string,
+      branchName: string
+    ) => Promise<{ ok: boolean; error?: string }>
     onAgentSpawning: (
       callback: (data: {
         agentName: string

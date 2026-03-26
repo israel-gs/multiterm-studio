@@ -134,6 +134,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('git:checkout', folderPath, branch),
 
+  gitCreateBranch: (
+    folderPath: string,
+    branchName: string
+  ): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('git:create-branch', folderPath, branchName),
+
+  gitDeleteBranch: (
+    folderPath: string,
+    branchName: string
+  ): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('git:delete-branch', folderPath, branchName),
+
   // Agent spawning push channel (PreToolUse:Agent → create panel per agent)
   onAgentSpawning: (
     callback: (data: {
