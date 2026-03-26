@@ -1359,6 +1359,9 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         setMaximizedId(newId)
         setFocusedCardId(newId)
       })
+    } else {
+      setFocusedCardId(newId)
+      requestAnimationFrame(() => panToTileRef.current(newId))
     }
   }
 
@@ -1874,6 +1877,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       return next
     })
     setFocusedCardId(newId)
+    requestAnimationFrame(() => panToTileRef.current(newId))
   }
 
   function handleToggleMaximize(id: string): void {
@@ -1917,6 +1921,8 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       return next
     })
     setFocusedCardId(newId)
+    // Animate canvas to center on the new tile
+    requestAnimationFrame(() => panToTileRef.current(newId))
   }
 
   function handleMove(id: string, x: number, y: number): void {

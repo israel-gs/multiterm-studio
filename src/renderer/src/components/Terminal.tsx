@@ -116,9 +116,9 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
         }
       }
       if (mod && e.key === 'v') {
-        const text = window.electronAPI.clipboardReadText()
-        if (text) term.paste(text)
-        return false
+        // Let the browser's native paste event handle this.
+        // xterm.js intercepts the paste event and feeds it through onData → ptyWrite.
+        return true
       }
       return true
     })

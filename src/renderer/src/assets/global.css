@@ -226,7 +226,7 @@ body {
   bottom: 126px;
   right: 16px;
   background: rgba(0, 0, 0, 0.6);
-  color: var(--fg-primary);
+  color: #fff;
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   padding: 4px 10px;
@@ -346,7 +346,7 @@ body {
   left: 50%;
   transform: translate(-50%, -50%);
   background: rgba(0, 0, 0, 0.8);
-  color: var(--fg-primary);
+  color: #fff;
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 500;
