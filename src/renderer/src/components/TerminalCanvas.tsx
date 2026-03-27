@@ -2035,19 +2035,42 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         onDrop={(e) => {
           e.preventDefault()
           viewportRef.current?.classList.remove('canvas-drop-target')
-          const raw = e.dataTransfer.getData('application/x-multiterm-file')
-          if (!raw) return
-          const data = JSON.parse(raw) as { path: string; name: string; isDir: boolean }
-          if (data.isDir) return
+
           const vpRect = viewportRef.current!.getBoundingClientRect()
           const scale = scaleRef.current
-          const cx = (e.clientX - vpRect.left - canvasXRef.current) / scale
-          const cy = (e.clientY - vpRect.top - canvasYRef.current) / scale
-          const tileType = inferTileType(data.path)
-          if (tileType === 'image') {
-            handleAddImage(data.path, cx, cy)
-          } else {
-            handleOpenFileAt(data.path, cx, cy)
+          const baseCx = (e.clientX - vpRect.left - canvasXRef.current) / scale
+          const baseCy = (e.clientY - vpRect.top - canvasYRef.current) / scale
+
+          // Internal drag from sidebar
+          const raw = e.dataTransfer.getData('application/x-multiterm-file')
+          if (raw) {
+            const data = JSON.parse(raw) as { path: string; name: string; isDir: boolean }
+            if (data.isDir) return
+            const tileType = inferTileType(data.path)
+            if (tileType === 'image') {
+              handleAddImage(data.path, baseCx, baseCy)
+            } else {
+              handleOpenFileAt(data.path, baseCx, baseCy)
+            }
+            return
+          }
+
+          // Native file drop from Finder/desktop
+          const files = e.dataTransfer.files
+          if (files.length > 0) {
+            for (let i = 0; i < files.length; i++) {
+              const file = files[i]
+              const filePath = (file as File & { path?: string }).path
+              if (!filePath) continue
+              const offsetX = baseCx + i * 30
+              const offsetY = baseCy + i * 30
+              const tileType = inferTileType(filePath)
+              if (tileType === 'image') {
+                handleAddImage(filePath, offsetX, offsetY)
+              } else {
+                handleOpenFileAt(filePath, offsetX, offsetY)
+              }
+            }
           }
         }}
       >
