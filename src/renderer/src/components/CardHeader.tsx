@@ -1,4 +1,5 @@
-import { Eye, Code, Maximize2, Minimize2, X, Zap } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import { Eye, Code, Maximize2, Minimize2, X, Zap, Copy, Check } from 'lucide-react'
 import { usePanelStore } from '../store/panelStore'
 import { colors } from '../tokens'
 
@@ -31,6 +32,16 @@ function isSvgFile(filePath?: string): boolean {
 }
 
 export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: Props): React.JSX.Element {
+  const [copied, setCopied] = useState(false)
+  const handleCopyPath = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    const fp = usePanelStore.getState().panels[sessionId]?.filePath
+    if (!fp) return
+    navigator.clipboard.writeText(fp)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }, [sessionId])
+
   const panel =
     usePanelStore((s) => s.panels[sessionId]) ?? {
       title: 'Terminal',
@@ -120,6 +131,18 @@ export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: 
           aria-label={panel.previewMode ? 'Show image' : 'Edit SVG code'}
         >
           {panel.previewMode ? <Eye size={14} strokeWidth={1.5} /> : <Code size={14} strokeWidth={1.5} />}
+        </button>
+      )}
+
+      {(isEditor || isImage) && panel.filePath && (
+        <button
+          className="panel-header-btn"
+          style={{ color: fgColor }}
+          title={copied ? 'Copied!' : 'Copy path'}
+          onClick={handleCopyPath}
+          aria-label="Copy file path"
+        >
+          {copied ? <Check size={12} strokeWidth={2} /> : <Copy size={12} strokeWidth={1.5} />}
         </button>
       )}
 
