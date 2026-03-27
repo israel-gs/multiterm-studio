@@ -10,7 +10,7 @@ import { registerRecentProjectsHandlers } from './recentProjectsManager'
 import { saveLayout, saveLayoutSync, loadLayout, ensureGitignore } from './layoutManager'
 import type { LayoutSnapshot } from './layoutManager'
 import { startRpcServer } from './rpcServer'
-import { injectHooks, removeHooks, injectOpenCodeHooks, removeOpenCodeHooks } from './hookInjector'
+import { injectHooks, removeHooks, injectOpenCodeHooks, removeOpenCodeHooks, injectCodexHooks, removeCodexHooks, injectGeminiHooks, removeGeminiHooks } from './hookInjector'
 import { startFileWatcher, stopFileWatcher } from './fileWatcher'
 import { installCli } from './cliInstaller'
 import { loadWorkspaceConfig, saveWorkspaceConfig } from './workspaceConfig'
@@ -118,13 +118,21 @@ function createWindow(): void {
 
     // Hooks IPC handlers
     ipcMain.handle('hooks:inject', async (_event, folderPath: string) => {
-      await injectHooks(folderPath)
-      await injectOpenCodeHooks(folderPath)
+      await Promise.all([
+        injectHooks(folderPath),
+        injectOpenCodeHooks(folderPath),
+        injectCodexHooks(folderPath),
+        injectGeminiHooks(folderPath)
+      ])
       if (mainWindow) startFileWatcher(folderPath, mainWindow)
     })
     ipcMain.handle('hooks:remove', async (_event, folderPath: string) => {
-      await removeHooks(folderPath)
-      await removeOpenCodeHooks(folderPath)
+      await Promise.all([
+        removeHooks(folderPath),
+        removeOpenCodeHooks(folderPath),
+        removeCodexHooks(folderPath),
+        removeGeminiHooks(folderPath)
+      ])
       stopFileWatcher()
     })
 

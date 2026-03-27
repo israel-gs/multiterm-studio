@@ -336,3 +336,71 @@ export async function removeOpenCodeHooks(projectPath: string): Promise<void> {
     // ignore
   }
 }
+
+// --- Codex CLI integration ---
+
+const CODEX_INSTRUCTION_FILE = 'multiterm-studio.md'
+
+const CODEX_INSTRUCTION = `# Multiterm Studio Integration
+
+When running inside Multiterm Studio, the environment variable
+\`MULTITERM_PTY_SESSION_ID\` identifies the terminal session.
+
+A JSON-RPC 2.0 server is available at the Unix socket path stored in
+\`~/.multiterm-studio/socket-path\`. You can send notifications:
+
+- \`agent.sessionStart\` — announce your session
+- \`agent.fileTouched\` — log file read/write
+- \`agent.sessionEnd\` — signal completion
+
+Use \`pane.split\` to open new terminal panes, \`pane.sendText\` to type
+into them, and \`pane.focus\` to bring a pane to front.
+`
+
+function isCodexAvailable(): boolean {
+  const home = homedir()
+  if (existsSync(join(home, '.codex'))) return true
+  try {
+    const paths = (process.env.PATH ?? '').split(':')
+    return paths.some((p) => existsSync(join(p, 'codex')))
+  } catch {
+    return false
+  }
+}
+
+export async function injectCodexHooks(projectPath: string): Promise<void> {
+  if (!isCodexAvailable()) return
+  const dir = join(projectPath, '.codex', 'instructions')
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, CODEX_INSTRUCTION_FILE), CODEX_INSTRUCTION, 'utf-8')
+}
+
+export async function removeCodexHooks(projectPath: string): Promise<void> {
+  try { unlinkSync(join(projectPath, '.codex', 'instructions', CODEX_INSTRUCTION_FILE)) } catch { /* ignore */ }
+}
+
+// --- Gemini CLI integration ---
+
+const GEMINI_INSTRUCTION_FILE = 'multiterm-studio.md'
+
+function isGeminiAvailable(): boolean {
+  const home = homedir()
+  if (existsSync(join(home, '.gemini'))) return true
+  try {
+    const paths = (process.env.PATH ?? '').split(':')
+    return paths.some((p) => existsSync(join(p, 'gemini')))
+  } catch {
+    return false
+  }
+}
+
+export async function injectGeminiHooks(projectPath: string): Promise<void> {
+  if (!isGeminiAvailable()) return
+  const dir = join(projectPath, '.gemini', 'instructions')
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, GEMINI_INSTRUCTION_FILE), CODEX_INSTRUCTION, 'utf-8')
+}
+
+export async function removeGeminiHooks(projectPath: string): Promise<void> {
+  try { unlinkSync(join(projectPath, '.gemini', 'instructions', GEMINI_INSTRUCTION_FILE)) } catch { /* ignore */ }
+}
