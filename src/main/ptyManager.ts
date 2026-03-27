@@ -250,14 +250,11 @@ export function registerPtyHandlers(win: BrowserWindow): void {
       }
     } else {
       if (initialCommand) {
-        // Pass the entire command as a single shell-quoted string so that
-        // tmux's internal sh -c parsing preserves the full command with args.
-        // Without quoting, "zsh -l -c claude --flag" makes zsh treat --flag
-        // as $0 instead of part of the command.
-        // Use login+interactive shell (-lic) so both .zprofile AND .zshrc are
-        // sourced. This is critical because tools like claude are installed in
-        // ~/.local/bin which is typically added to PATH in .zshrc, not .zprofile.
-        const fullCmd = `${shell} -lic ${shellQuote(initialCommand)}`
+        // Run the command inside a login shell, then fall back to an
+        // interactive login shell when it exits.  Without the trailing
+        // `exec $SHELL -l` the tmux pane would show "[exited]" because
+        // the pane's only process has terminated.
+        const fullCmd = `${shell} -lic ${shellQuote(initialCommand + '; exec $SHELL -l')}`
         tmuxExec(
           'new-session', '-d', '-s', tmuxName,
           '-c', safeCwd,
