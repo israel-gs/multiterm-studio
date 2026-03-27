@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, readdirSync } from 'fs'
 import { join } from 'path'
+import { homedir } from 'os'
 
 const HOOK_MARKER = 'multiterm-studio'
 
@@ -229,5 +230,109 @@ export async function removeHooks(projectPath: string): Promise<void> {
     } catch {
       // ignore
     }
+  }
+}
+
+// --- OpenCode integration ---
+
+const OPENCODE_PLUGIN_NAME = 'multiterm-studio.js'
+
+const OPENCODE_PLUGIN_SCRIPT = `// multiterm-studio plugin for OpenCode
+// Sends session and tool events to the Multiterm Studio RPC server
+const fs = require('fs')
+const net = require('net')
+const os = require('os')
+const path = require('path')
+
+function getSocketPath() {
+  try {
+    return fs.readFileSync(path.join(os.homedir(), '.multiterm-studio', 'socket-path'), 'utf-8').trim()
+  } catch { return null }
+}
+
+function sendRpc(method, params) {
+  const socketPath = getSocketPath()
+  if (!socketPath) return
+  const msg = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) + '\\n'
+  try {
+    const client = net.createConnection(socketPath, () => { client.write(msg); client.end() })
+    client.on('error', () => {})
+  } catch {}
+}
+
+module.exports = function(ctx) {
+  const ptySessionId = process.env.MULTITERM_PTY_SESSION_ID || ''
+  return {
+    session: {
+      onCreated(session) {
+        sendRpc('agent.sessionStart', {
+          session_id: session.id || String(Date.now()),
+          cwd: ctx.directory || process.cwd(),
+          pty_session_id: ptySessionId
+        })
+      },
+      onError() {},
+      onFinished(session) {
+        sendRpc('agent.sessionEnd', {
+          session_id: session.id || String(Date.now())
+        })
+      }
+    },
+    tool: {
+      onCallStart(tool) {
+        if (['read', 'write', 'edit'].includes((tool.name || '').toLowerCase())) {
+          sendRpc('agent.fileTouched', {
+            session_id: tool.sessionId || '',
+            tool_name: tool.name || '',
+            file_path: (tool.input && (tool.input.file_path || tool.input.path)) || null
+          })
+        }
+      }
+    }
+  }
+}
+`
+
+/** Check if OpenCode is available on this system */
+export function isOpenCodeAvailable(): boolean {
+  const home = homedir()
+  if (existsSync(join(home, '.opencode'))) return true
+  try {
+    const paths = (process.env.PATH ?? '').split(':')
+    return paths.some((p) => existsSync(join(p, 'opencode')))
+  } catch {
+    return false
+  }
+}
+
+/** Inject the multiterm-studio plugin into an OpenCode project */
+export async function injectOpenCodeHooks(projectPath: string): Promise<void> {
+  if (!isOpenCodeAvailable()) return
+
+  const pluginsDir = join(projectPath, '.opencode', 'plugins')
+  if (!existsSync(pluginsDir)) {
+    mkdirSync(pluginsDir, { recursive: true })
+  }
+
+  writeFileSync(join(pluginsDir, OPENCODE_PLUGIN_NAME), OPENCODE_PLUGIN_SCRIPT, { mode: 0o644 })
+}
+
+/** Remove the multiterm-studio plugin from an OpenCode project */
+export async function removeOpenCodeHooks(projectPath: string): Promise<void> {
+  const pluginPath = join(projectPath, '.opencode', 'plugins', OPENCODE_PLUGIN_NAME)
+  try {
+    unlinkSync(pluginPath)
+  } catch {
+    // ignore
+  }
+
+  // Clean up empty plugins dir
+  const pluginsDir = join(projectPath, '.opencode', 'plugins')
+  try {
+    if (existsSync(pluginsDir) && readdirSync(pluginsDir).length === 0) {
+      unlinkSync(pluginsDir)
+    }
+  } catch {
+    // ignore
   }
 }
