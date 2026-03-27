@@ -126,7 +126,7 @@ function deleteSessionMeta(id: string): void {
 export function cleanupOrphanSessions(knownPanelIds: string[]): void {
   let tmuxNames: string[]
   try {
-    const raw = tmuxExec('list-sessions', '-F', '#{session_name}')
+    const raw = tmuxExec('list-sessions', '-F', '#' + '{session_name}')
     tmuxNames = raw.split('\n').filter(Boolean)
   } catch {
     tmuxNames = []
@@ -340,10 +340,9 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     const session = sessions.get(id)
     if (!session) return []
     try {
-      const raw = tmuxExec(
-        'list-panes', '-t', session.tmuxName,
-        '-F', '#{pane_index}\t#{pane_current_command}\t#{pane_active}\t#{pane_pid}\t#{pane_title}'
-      )
+      const fmt = ['pane_index', 'pane_current_command', 'pane_active', 'pane_pid', 'pane_title']
+        .map((k) => '#' + '{' + k + '}').join('\t')
+      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', fmt)
       return raw.split('\n').filter(Boolean).map((line) => {
         const [index, command, active, pid, ...titleParts] = line.split('\t')
         const title = titleParts.join('\t')
@@ -388,7 +387,7 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     const session = sessions.get(id)
     if (!session) return null
     try {
-      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', '#{pane_current_path}')
+      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', '#' + '{pane_current_path}')
       return raw.split('\n')[0]?.trim() || null
     } catch {
       return null
@@ -399,7 +398,8 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     const session = sessions.get(id)
     if (!session) return { hasProcess: false, processName: null }
     try {
-      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', '#{pane_current_command}\t#{pane_pid}')
+      const fmt = ['pane_current_command', 'pane_pid'].map((k) => '#' + '{' + k + '}').join('\t')
+      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', fmt)
       const parts = raw.split('\n')[0]?.split('\t') ?? []
       const cmd = (parts[0] ?? '').trim()
       const panePid = (parts[1] ?? '').trim()
