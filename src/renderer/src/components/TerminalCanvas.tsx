@@ -1031,15 +1031,12 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         return
       }
 
-      // Delete/Backspace: remove selected cards
+      // Delete/Backspace: remove selected cards (with confirmation)
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedIdsRef.current.size === 0) return
-        if (
-          selectedIdsRef.current.size > 1 &&
-          !window.confirm(`Close ${selectedIdsRef.current.size} terminals?`)
-        ) {
-          return
-        }
+        const count = selectedIdsRef.current.size
+        const label = count === 1 ? 'Close this tile?' : `Close ${count} tiles?`
+        if (!window.confirm(label)) return
         for (const id of selectedIdsRef.current) {
           handleClosePanelRef.current(id)
         }
