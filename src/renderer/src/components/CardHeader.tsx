@@ -87,7 +87,9 @@ export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: 
       )}
 
       {panel.hasProcess && (
-        <Zap size={12} strokeWidth={1.5} style={{ color: '#e5a84b', flexShrink: 0 }} />
+        <span title={panel.processName ? `Running: ${panel.processName}` : 'Process running'}>
+          <Zap size={12} strokeWidth={1.5} style={{ color: '#e5a84b', flexShrink: 0 }} />
+        </span>
       )}
 
       {isEditor && panel.dirty && (

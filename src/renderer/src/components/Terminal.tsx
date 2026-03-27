@@ -202,12 +202,15 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
 
     // Poll for CWD and running process indicator via tmux
     const processInterval = setInterval(async () => {
-      const [has, cwd] = await Promise.all([
+      const [result, cwd] = await Promise.all([
         window.electronAPI.ptyHasProcess(sessionId),
         window.electronAPI.ptyGetCwd(sessionId)
       ])
       const store = usePanelStore.getState()
-      store.setHasProcess(sessionId, has)
+      // Support both old boolean and new {hasProcess, processName} return
+      const has = typeof result === 'object' && result !== null ? result.hasProcess : !!result
+      const processName = typeof result === 'object' && result !== null ? result.processName : null
+      store.setHasProcess(sessionId, has, processName)
       if (cwd) store.setCwd(sessionId, cwd)
     }, 3000)
 

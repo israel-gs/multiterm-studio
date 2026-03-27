@@ -397,14 +397,34 @@ export function registerPtyHandlers(win: BrowserWindow): void {
 
   ipcMain.handle('pty:has-process', (_event, id: string) => {
     const session = sessions.get(id)
-    if (!session) return false
+    if (!session) return { hasProcess: false, processName: null }
     try {
-      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', '#{pane_current_command}')
-      const cmd = raw.split('\n')[0]?.trim() ?? ''
+      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', '#{pane_current_command}\t#{pane_pid}')
+      const parts = raw.split('\n')[0]?.split('\t') ?? []
+      const cmd = (parts[0] ?? '').trim()
+      const panePid = (parts[1] ?? '').trim()
       const shells = ['zsh', 'bash', 'sh', 'fish']
-      return !shells.includes(cmd.toLowerCase())
+      const isShell = shells.includes(cmd.toLowerCase())
+
+      if (isShell) return { hasProcess: false, processName: null }
+
+      // Try to get the actual foreground process name via ps
+      let processName = cmd
+      if (panePid) {
+        try {
+          const psOut = execFileSync('ps', ['-o', 'comm=', '-p', panePid], {
+            encoding: 'utf-8',
+            timeout: 2_000
+          }).trim()
+          if (psOut) processName = psOut.split('/').pop() ?? psOut
+        } catch {
+          // fall back to tmux command name
+        }
+      }
+
+      return { hasProcess: true, processName }
     } catch {
-      return false
+      return { hasProcess: false, processName: null }
     }
   })
 
