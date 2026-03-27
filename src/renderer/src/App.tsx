@@ -11,12 +11,14 @@ import type { AppearanceMode } from './tokens'
 
 function App(): React.JSX.Element {
   const folderPath = useProjectStore((s) => s.folderPath)
+  const folderPaths = useProjectStore((s) => s.folderPaths)
+  const workspaceFilePath = useProjectStore((s) => s.workspaceFilePath)
   const setFolderPath = useProjectStore((s) => s.setFolderPath)
   const setAttention = usePanelStore((s) => s.setAttention)
   const clearAttention = usePanelStore((s) => s.clearAttention)
 
-  // Track previous project path to remove hooks on project switch
-  const prevFolderRef = useRef<string | null>(null)
+  // Track previous folders for hook cleanup
+  const prevFolderPathsRef = useRef<string[]>([])
 
   // Use a ref for savedLayout so it's available synchronously when TerminalCanvas mounts.
   // TerminalCanvas reads savedLayout only on its first render via a ref — React state would
@@ -30,31 +32,103 @@ function App(): React.JSX.Element {
   const prevWidthRef = useRef(300)
   const toggleSidebarRef = useRef(() => {})
 
-  // Open a project by path: load layout, track in recent, set as current
+  // Open a single project by path: load layout, track in recent, set as current
   const openProject = useCallback(
     async (path: string) => {
-      // Remove hooks from previous project
-      if (prevFolderRef.current && prevFolderRef.current !== path) {
-        void window.electronAPI.hooksRemove(prevFolderRef.current)
+      // Remove hooks from all previous folders
+      if (prevFolderPathsRef.current.length > 0) {
+        void window.electronAPI.hooksRemoveAll(prevFolderPathsRef.current)
       }
       const layout = await window.electronAPI.layoutLoad(path)
-      // Set ref BEFORE triggering re-render so TerminalCanvas reads the correct layout on mount
       savedLayoutRef.current = (layout as SavedLayoutShape) ?? null
       setFolderPath(path)
-      prevFolderRef.current = path
-      // Track in recent projects (non-blocking)
+      prevFolderPathsRef.current = [path]
       void window.electronAPI.projectsAdd(path)
-      // Load workspace config (expanded dirs, selected file)
       window.electronAPI.workspaceLoad(path).then((wsConfig) => {
         if (wsConfig.expanded_dirs.length > 0) {
           useProjectStore.getState().setExpandedDirs(new Set(wsConfig.expanded_dirs))
         }
       })
-      // Inject Claude Code hooks for agent auto-spawn
       void window.electronAPI.hooksInject(path)
     },
     [setFolderPath]
   )
+
+  // Open a workspace file: restore all folders + layout + expanded dirs
+  const openWorkspace = useCallback(
+    async (filePath: string) => {
+      if (prevFolderPathsRef.current.length > 0) {
+        void window.electronAPI.hooksRemoveAll(prevFolderPathsRef.current)
+      }
+      const ws = await window.electronAPI.workspaceFileLoad(filePath) as {
+        version: number
+        folders: Array<{ path: string }>
+        layout: SavedLayoutShape | null
+        expandedDirs: Record<string, string[]>
+      } | null
+      if (!ws || ws.folders.length === 0) return
+
+      const paths = ws.folders.map((f) => f.path)
+      savedLayoutRef.current = ws.layout ?? null
+
+      // Merge all expanded dirs
+      const allExpanded = new Set<string>()
+      for (const dirs of Object.values(ws.expandedDirs ?? {})) {
+        for (const d of dirs) allExpanded.add(d)
+      }
+
+      const store = useProjectStore.getState()
+      store.setFolderPaths(paths)
+      store.setWorkspaceFilePath(filePath)
+      store.setExpandedDirs(allExpanded)
+      prevFolderPathsRef.current = paths
+
+      void window.electronAPI.projectsAdd(filePath)
+      void window.electronAPI.hooksInjectAll(paths)
+    },
+    []
+  )
+
+  // Add a folder to the current workspace
+  const addFolderToWorkspace = useCallback(async () => {
+    const selected = await window.electronAPI.folderOpen()
+    if (!selected) return
+    const store = useProjectStore.getState()
+    if (store.folderPaths.includes(selected)) return
+    store.addFolderPath(selected)
+    prevFolderPathsRef.current = store.folderPaths
+    void window.electronAPI.hooksInjectAll(store.folderPaths)
+  }, [])
+
+  // Remove a folder from the current workspace
+  const removeFolderFromWorkspace = useCallback((path: string) => {
+    const store = useProjectStore.getState()
+    void window.electronAPI.hooksRemove(path)
+    store.removeFolderPath(path)
+    prevFolderPathsRef.current = store.folderPaths
+    if (store.folderPaths.length > 0) {
+      void window.electronAPI.hooksInjectAll(store.folderPaths)
+    }
+  }, [])
+
+  // Save current state as a workspace file
+  const saveWorkspace = useCallback(async () => {
+    const filePath = await window.electronAPI.workspaceFileSaveDialog()
+    if (!filePath) return
+    const store = useProjectStore.getState()
+    const expandedDirs: Record<string, string[]> = {}
+    const allExpanded = Array.from(store.expandedDirs)
+    for (const fp of store.folderPaths) {
+      expandedDirs[fp] = allExpanded.filter((d) => d.startsWith(fp))
+    }
+    await window.electronAPI.workspaceFileSave(filePath, {
+      version: 1,
+      folders: store.folderPaths.map((p) => ({ path: p })),
+      layout: savedLayoutRef.current,
+      expandedDirs
+    })
+    store.setWorkspaceFilePath(filePath)
+  }, [])
 
   // Wire attention events: main process -> panelStore badge
   // Wire agent session events: RPC server -> panelStore agentActive indicator
@@ -103,17 +177,23 @@ function App(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Save workspace config (expanded dirs) when they change — debounced
+  // Save expanded dirs when they change — to workspace file or per-folder config
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null
     const unsubscribe = useProjectStore.subscribe((state, prev) => {
-      if (state.expandedDirs !== prev.expandedDirs && state.folderPath) {
+      if (state.expandedDirs !== prev.expandedDirs && state.folderPaths.length > 0) {
         if (timer) clearTimeout(timer)
         timer = setTimeout(() => {
-          window.electronAPI.workspaceSave(state.folderPath!, {
-            selected_file: null,
-            expanded_dirs: Array.from(state.expandedDirs)
-          })
+          if (state.workspaceFilePath) {
+            // Workspace mode: save into workspace file (layout:save-workspace handles it)
+            // expandedDirs are saved alongside layout on each layout save
+          } else if (state.folderPath) {
+            // Single-folder mode: save to per-folder workspace config
+            window.electronAPI.workspaceSave(state.folderPath, {
+              selected_file: null,
+              expanded_dirs: Array.from(state.expandedDirs)
+            })
+          }
         }, 1000)
       }
     })
@@ -190,9 +270,16 @@ function App(): React.JSX.Element {
   useEffect(() => {
     const unsub = window.electronAPI.onMenuAction((action) => {
       if (action === 'toggle-sidebar') toggleSidebarRef.current()
+      else if (action === 'add-folder') void addFolderToWorkspace()
+      else if (action === 'save-workspace') void saveWorkspace()
+      else if (action === 'open-workspace') {
+        window.electronAPI.workspaceFileOpenDialog().then((fp) => {
+          if (fp) void openWorkspace(fp)
+        })
+      }
     })
     return unsub
-  }, [])
+  }, [addFolderToWorkspace, saveWorkspace, openWorkspace])
 
   // Sidebar drag-to-resize
   function handleSidebarResizeStart(e: React.MouseEvent): void {
@@ -249,6 +336,11 @@ function App(): React.JSX.Element {
         <WelcomeScreen
           onSelectProject={(path) => void openProject(path)}
           onPickFolder={() => void handlePickFolder()}
+          onOpenWorkspace={() => {
+            window.electronAPI.workspaceFileOpenDialog().then((fp) => {
+              if (fp) void openWorkspace(fp)
+            })
+          }}
         />
       </>
     )
@@ -280,7 +372,11 @@ function App(): React.JSX.Element {
         <>
           <EnhancedSidebar
             folderPath={folderPath}
+            folderPaths={folderPaths}
             onSwitchProject={(path) => void openProject(path)}
+            onAddFolder={addFolderToWorkspace}
+            onRemoveFolder={removeFolderFromWorkspace}
+            onSaveWorkspace={saveWorkspace}
             onToggleSidebar={toggleSidebar}
           />
           <div
@@ -306,7 +402,7 @@ function App(): React.JSX.Element {
             </svg>
           </button>
         )}
-        <TerminalCanvas key={folderPath} savedLayout={savedLayoutRef.current} />
+        <TerminalCanvas key={workspaceFilePath ?? folderPath} savedLayout={savedLayoutRef.current} />
       </main>
     </div>
   )
