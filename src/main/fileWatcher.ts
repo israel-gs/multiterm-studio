@@ -6,7 +6,7 @@ const MAX_RESTARTS = 5
 let worker: UtilityProcess | null = null
 let restartCount = 0
 let stopping = false
-let currentFolder: string | null = null
+let currentFolders: string[] = []
 let currentWin: BrowserWindow | null = null
 
 function workerPath(): string {
@@ -38,25 +38,35 @@ function spawnWorker(): void {
     restartCount++
     spawnWorker()
     // Re-start watching after respawn
-    if (currentFolder) {
-      worker?.postMessage({ type: 'start', folderPath: currentFolder })
+    if (currentFolders.length > 1) {
+      worker?.postMessage({ type: 'start-multi', folderPaths: currentFolders })
+    } else if (currentFolders.length === 1) {
+      worker?.postMessage({ type: 'start', folderPath: currentFolders[0] })
     }
   })
 }
 
 export function startFileWatcher(folderPath: string, win: BrowserWindow): void {
+  startMultiFileWatcher([folderPath], win)
+}
+
+export function startMultiFileWatcher(folderPaths: string[], win: BrowserWindow): void {
   stopFileWatcher()
-  currentFolder = folderPath
+  currentFolders = folderPaths
   currentWin = win
   restartCount = 0
 
   spawnWorker()
-  worker?.postMessage({ type: 'start', folderPath })
+  if (folderPaths.length > 1) {
+    worker?.postMessage({ type: 'start-multi', folderPaths })
+  } else if (folderPaths.length === 1) {
+    worker?.postMessage({ type: 'start', folderPath: folderPaths[0] })
+  }
 }
 
 export function stopFileWatcher(): void {
   stopping = true
-  currentFolder = null
+  currentFolders = []
   if (worker) {
     worker.postMessage({ type: 'stop' })
     worker.kill()

@@ -20,12 +20,10 @@ const IGNORE_PATTERNS = [
   '**/*.map'
 ]
 
-let subscription: AsyncSubscription | null = null
+const subscriptions = new Map<string, AsyncSubscription>()
 
-async function startWatching(folderPath: string): Promise<void> {
-  if (subscription) await subscription.unsubscribe()
-
-  subscription = await subscribe(
+function subscribeFolder(folderPath: string): Promise<void> {
+  return subscribe(
     folderPath,
     (err, events) => {
       if (err) {
@@ -44,23 +42,39 @@ async function startWatching(folderPath: string): Promise<void> {
       }
     },
     { ignore: IGNORE_PATTERNS }
-  )
+  ).then((sub) => {
+    subscriptions.set(folderPath, sub)
+  })
 }
 
-async function stopWatching(): Promise<void> {
-  if (subscription) {
-    await subscription.unsubscribe()
-    subscription = null
+async function stopAll(): Promise<void> {
+  for (const [, sub] of subscriptions) {
+    await sub.unsubscribe()
   }
+  subscriptions.clear()
+}
+
+async function startWatching(folderPath: string): Promise<void> {
+  await stopAll()
+  await subscribeFolder(folderPath)
+}
+
+async function startWatchingMulti(folderPaths: string[]): Promise<void> {
+  await stopAll()
+  await Promise.all(folderPaths.map((fp) => subscribeFolder(fp)))
 }
 
 process.parentPort!.on('message', (e: MessageEvent) => {
-  const msg = e.data as { type: string; folderPath?: string }
+  const msg = e.data as { type: string; folderPath?: string; folderPaths?: string[] }
   if (msg.type === 'start' && msg.folderPath) {
     startWatching(msg.folderPath).catch((err) => {
       process.parentPort!.postMessage({ type: 'error', error: String(err) })
     })
+  } else if (msg.type === 'start-multi' && msg.folderPaths) {
+    startWatchingMulti(msg.folderPaths).catch((err) => {
+      process.parentPort!.postMessage({ type: 'error', error: String(err) })
+    })
   } else if (msg.type === 'stop') {
-    stopWatching()
+    stopAll()
   }
 })
