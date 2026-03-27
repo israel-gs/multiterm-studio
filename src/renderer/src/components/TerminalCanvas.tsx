@@ -975,10 +975,21 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       }
     }
 
-    // --- Edge indicator click (event delegation) ---
+    // --- Edge indicator click (event delegation) → pan + highlight ---
     function handleEdgeClick(e: MouseEvent): void {
       const dot = (e.target as HTMLElement).closest('.edge-dot') as HTMLElement | null
-      if (dot?.dataset.tileId) panToTile(dot.dataset.tileId)
+      if (dot?.dataset.tileId) {
+        const tileId = dot.dataset.tileId
+        panToTile(tileId)
+        // Highlight the tile after pan animation completes
+        setTimeout(() => {
+          const el = document.querySelector(`[data-card-id="${tileId}"]`) as HTMLElement | null
+          if (el) {
+            el.classList.add('floating-card--highlight')
+            setTimeout(() => el.classList.remove('floating-card--highlight'), 1200)
+          }
+        }, 360) // slightly after 350ms pan animation
+      }
     }
 
     // --- Keyboard shortcuts ---

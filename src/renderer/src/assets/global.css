@@ -340,6 +340,15 @@ body {
   transition: none;
 }
 
+.floating-card--highlight {
+  box-shadow: 0 0 0 2px rgba(100, 180, 255, 0.6), var(--card-shadow-elevated);
+  transition: box-shadow 0.2s ease-out;
+}
+
+.floating-card--highlight:not(.floating-card--highlight) {
+  transition: box-shadow 0.6s ease-out;
+}
+
 .floating-card-resize-indicator {
   position: absolute;
   top: 50%;
