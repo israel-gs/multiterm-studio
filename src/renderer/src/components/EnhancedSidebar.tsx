@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { PanelLeft, ChevronDown, Plus, Search, Settings } from 'lucide-react'
-import { FileTree, SortMode } from './FileTree'
+import { FileTree, MultiRootFileTree, SortMode } from './FileTree'
 import { GitBranchSection } from './GitBranchSection'
 import { SettingsPanel } from './SettingsPanel'
 import { useProjectStore } from '../store/projectStore'
@@ -14,7 +14,11 @@ interface RecentProject {
 
 interface EnhancedSidebarProps {
   folderPath: string
+  folderPaths?: string[]
   onSwitchProject?: (path: string) => void
+  onAddFolder?: () => void
+  onRemoveFolder?: (path: string) => void
+  onSaveWorkspace?: () => void
   onToggleSidebar?: () => void
 }
 
@@ -24,9 +28,15 @@ function shortenPath(fullPath: string): string {
 
 export function EnhancedSidebar({
   folderPath,
+  folderPaths,
   onSwitchProject,
+  onAddFolder,
+  onRemoveFolder,
+  onSaveWorkspace,
   onToggleSidebar
 }: EnhancedSidebarProps): React.JSX.Element {
+  const effectivePaths = folderPaths && folderPaths.length > 0 ? folderPaths : [folderPath]
+  const isMultiRoot = effectivePaths.length > 1
   const setFolderPath = useProjectStore((s) => s.setFolderPath)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOrder, setSortOrder] = useState<SortMode>('alpha-asc')
@@ -129,8 +139,25 @@ export function EnhancedSidebar({
               onClick={() => void handleAddWorkspace()}
             >
               <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
-              Add workspace...
+              Open folder...
             </button>
+            {onAddFolder && (
+              <button
+                className="sidebar-project-dropdown-item sidebar-project-dropdown-item--add"
+                onClick={() => { setDropdownOpen(false); onAddFolder() }}
+              >
+                <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
+                Add folder to workspace...
+              </button>
+            )}
+            {onSaveWorkspace && (
+              <button
+                className="sidebar-project-dropdown-item sidebar-project-dropdown-item--add"
+                onClick={() => { setDropdownOpen(false); onSaveWorkspace() }}
+              >
+                Save workspace as...
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -182,7 +209,11 @@ export function EnhancedSidebar({
 
       {/* File tree */}
       <div className="sidebar-tree-container">
-        <FileTree rootPath={folderPath} searchQuery={searchQuery} sortOrder={sortOrder} />
+        {isMultiRoot ? (
+          <MultiRootFileTree rootPaths={effectivePaths} searchQuery={searchQuery} sortOrder={sortOrder} />
+        ) : (
+          <FileTree rootPath={folderPath} searchQuery={searchQuery} sortOrder={sortOrder} />
+        )}
       </div>
 
       {/* Bottom bar — branch + settings icon */}

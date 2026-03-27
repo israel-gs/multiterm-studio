@@ -542,3 +542,37 @@ export function FileTree({
     </div>
   )
 }
+
+interface MultiRootFileTreeProps {
+  rootPaths: string[]
+  searchQuery?: string
+  sortOrder?: SortMode
+}
+
+export function MultiRootFileTree({
+  rootPaths,
+  searchQuery = '',
+  sortOrder = 'alpha-asc'
+}: MultiRootFileTreeProps): React.JSX.Element {
+  return (
+    <div role="tree" aria-label="File tree" style={{ padding: '4px 0' }}>
+      {rootPaths.map((rootPath, i) => {
+        const rootName = rootPath.split('/').pop() || rootPath
+        return (
+          <div key={rootPath} className="file-tree-root-section">
+            {i > 0 && <div className="file-tree-root-separator" />}
+            <FileTreeNode
+              path={rootPath}
+              name={rootName}
+              isDir
+              depth={0}
+              searchQuery={searchQuery}
+              sortOrder={sortOrder}
+              defaultExpanded
+            />
+          </div>
+        )
+      })}
+    </div>
+  )
+}

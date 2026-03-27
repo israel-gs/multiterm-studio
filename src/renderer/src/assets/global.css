@@ -2493,6 +2493,16 @@ main > .sidebar-toggle-btn {
 
 /* ===== File Tree ===== */
 
+.file-tree-root-separator {
+  height: 1px;
+  margin: 6px 12px;
+  background: var(--border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+[data-theme="light"] .file-tree-root-separator {
+  background: rgba(0, 0, 0, 0.08);
+}
+
 .file-tree-node {
   display: flex;
   align-items: center;
