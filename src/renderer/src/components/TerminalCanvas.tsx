@@ -2043,6 +2043,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
                 onToggleMaximize={handleToggleMaximize}
                 onGroupDragContext={getGroupDragContext}
                 onGroupMove={handleGroupMove}
+                onCenterTile={(id) => panToTileRef.current(id)}
               />
             )
           })}
