@@ -249,33 +249,25 @@ export function registerPtyHandlers(win: BrowserWindow): void {
         // ignore
       }
     } else {
-      if (initialCommand) {
-        // Run the command inside a login shell, then fall back to an
-        // interactive login shell when it exits.  Without the trailing
-        // `exec $SHELL -l` the tmux pane would show "[exited]" because
-        // the pane's only process has terminated.
-        const fullCmd = `${shell} -lic ${shellQuote(initialCommand + '; exec $SHELL -l')}`
-        tmuxExec(
-          'new-session', '-d', '-s', tmuxName,
-          '-c', safeCwd,
-          '-x', '80', '-y', '24',
-          fullCmd
-        )
-      } else {
-        // Use login shell for regular terminals too so PATH is correct
-        tmuxExec(
-          'new-session', '-d', '-s', tmuxName,
-          '-c', safeCwd,
-          '-x', '80', '-y', '24',
-          shell, '-l'
-        )
-      }
+      // Always start with a login shell so the pane stays alive after
+      // any command exits. If there's an initial command, send it as
+      // keystrokes after the session is created.
+      tmuxExec(
+        'new-session', '-d', '-s', tmuxName,
+        '-c', safeCwd,
+        '-x', '80', '-y', '24',
+        shell, '-l'
+      )
       tmuxExec('set-option', '-t', tmuxName, 'status', 'off')
       tmuxExec('set-option', '-g', 'mouse', tmuxMouseEnabled ? 'on' : 'off')
       tmuxExec('set-environment', '-t', tmuxName, 'MULTITERM_PTY_SESSION_ID', id)
       tmuxExec('set-environment', '-t', tmuxName, 'SHELL', shell)
       tmuxExec('set-environment', '-t', tmuxName, 'TERM_PROGRAM', 'multiterm-studio')
       writeSessionMeta(id, { shell, cwd: safeCwd, createdAt: new Date().toISOString() })
+
+      if (initialCommand) {
+        tmuxExec('send-keys', '-t', tmuxName, initialCommand, 'Enter')
+      }
     }
 
     // Attach to tmux session via node-pty
