@@ -96,7 +96,7 @@ export function EnhancedSidebar({
           aria-label="Switch project"
         >
           <span className="sidebar-project-label">
-            {shortPath.replace(/\/[^/]+$/, '/')}
+            <span className="sidebar-project-label-prefix">{shortPath.replace(/\/[^/]+$/, '/')}</span>
             <strong>{folderName}</strong>
           </span>
           <ChevronDown

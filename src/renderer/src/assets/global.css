@@ -1507,14 +1507,21 @@ main > .sidebar-toggle-btn {
 .sidebar-project-label {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-project-label-prefix {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex-shrink: 1;
 }
 
 .sidebar-project-label strong {
   color: var(--fg-primary);
   font-weight: var(--weight-semibold);
+  flex-shrink: 0;
 }
 
 .sidebar-project-chevron-icon {
@@ -1578,8 +1585,6 @@ main > .sidebar-toggle-btn {
   text-align: left;
   cursor: pointer;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   border-radius: 4px;
   margin: 0 4px;
 }
@@ -1590,10 +1595,15 @@ main > .sidebar-toggle-btn {
 
 .sidebar-project-dropdown-path {
   color: var(--fg-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
 }
 
 .sidebar-project-dropdown-item strong {
   font-weight: var(--weight-semibold);
+  flex-shrink: 0;
 }
 
 .sidebar-project-dropdown-item--add {
