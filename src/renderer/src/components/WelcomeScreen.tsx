@@ -10,6 +10,7 @@ interface RecentProject {
 interface WelcomeScreenProps {
   onSelectProject: (folderPath: string) => void
   onPickFolder: () => void
+  onOpenWorkspace?: () => void
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -33,7 +34,8 @@ function shortenPath(fullPath: string): string {
 
 export function WelcomeScreen({
   onSelectProject,
-  onPickFolder
+  onPickFolder,
+  onOpenWorkspace
 }: WelcomeScreenProps): React.JSX.Element {
   const [projects, setProjects] = useState<RecentProject[]>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -186,6 +188,20 @@ export function WelcomeScreen({
               </div>
               <div className="welcome-card-name">Select Folder</div>
             </button>
+
+            {/* Open Workspace card */}
+            {onOpenWorkspace && (
+              <button className="welcome-card welcome-card--add" onClick={onOpenWorkspace}>
+                <div className="welcome-card-icon">
+                  <svg width="24" height="24" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <rect x="1" y="2" width="6" height="5" rx="1" stroke="var(--fg-secondary)" strokeWidth="1" fill="none" />
+                    <rect x="9" y="2" width="6" height="5" rx="1" stroke="var(--fg-secondary)" strokeWidth="1" fill="none" />
+                    <rect x="5" y="9" width="6" height="5" rx="1" stroke="var(--fg-secondary)" strokeWidth="1" fill="none" />
+                  </svg>
+                </div>
+                <div className="welcome-card-name">Open Workspace</div>
+              </button>
+            )}
           </div>
         )}
 
