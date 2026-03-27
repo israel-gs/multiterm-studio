@@ -316,6 +316,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
   hooksRemove: (folderPath: string): Promise<void> =>
     ipcRenderer.invoke('hooks:remove', folderPath),
 
+  // Multi-folder hooks
+  hooksInjectAll: (folderPaths: string[]): Promise<void> =>
+    ipcRenderer.invoke('hooks:inject-all', folderPaths),
+
+  hooksRemoveAll: (folderPaths: string[]): Promise<void> =>
+    ipcRenderer.invoke('hooks:remove-all', folderPaths),
+
+  // Workspace file operations
+  workspaceFileSaveDialog: (): Promise<string | null> =>
+    ipcRenderer.invoke('workspace-file:save-dialog'),
+
+  workspaceFileOpenDialog: (): Promise<string | null> =>
+    ipcRenderer.invoke('workspace-file:open-dialog'),
+
+  workspaceFileLoad: (filePath: string): Promise<unknown> =>
+    ipcRenderer.invoke('workspace-file:load', filePath),
+
+  workspaceFileSave: (filePath: string, data: unknown): Promise<void> =>
+    ipcRenderer.invoke('workspace-file:save', filePath, data),
+
+  // Save layout into workspace file
+  layoutSaveWorkspace: (wsFilePath: string, layout: unknown, expandedDirs: Record<string, string[]>): Promise<void> =>
+    ipcRenderer.invoke('layout:save-workspace', wsFilePath, layout, expandedDirs),
+
   // Auto-update API
   updateGetStatus: (): Promise<{
     status: string

@@ -11,9 +11,11 @@ import { saveLayout, saveLayoutSync, loadLayout, ensureGitignore } from './layou
 import type { LayoutSnapshot } from './layoutManager'
 import { startRpcServer } from './rpcServer'
 import { injectHooks, removeHooks, injectOpenCodeHooks, removeOpenCodeHooks, injectCodexHooks, removeCodexHooks, injectGeminiHooks, removeGeminiHooks } from './hookInjector'
-import { startFileWatcher, stopFileWatcher } from './fileWatcher'
+import { startFileWatcher, startMultiFileWatcher, stopFileWatcher } from './fileWatcher'
 import { installCli } from './cliInstaller'
 import { loadWorkspaceConfig, saveWorkspaceConfig } from './workspaceConfig'
+import { loadWorkspaceFile, saveWorkspaceFile } from './workspaceFileManager'
+import type { MultiTermWorkspace } from './workspaceFileManager'
 import { setupUpdateIPC, updateManager } from './updater'
 
 // Set app name early — used by macOS menu bar
@@ -26,7 +28,10 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 // Cache the most-recent save data so before-quit can do a synchronous flush
-let lastSaveData: { folderPath: string; layout: LayoutSnapshot } | null = null
+let lastSaveData:
+  | { mode?: 'folder'; folderPath: string; layout: LayoutSnapshot }
+  | { mode: 'workspace'; wsFilePath: string; layout: LayoutSnapshot; expandedDirs: Record<string, string[]>; folders: Array<{ path: string }> }
+  | null = null
 let rpcCleanup: (() => void) | null = null
 let mainWindow: BrowserWindow | null = null
 let inlineHandlersRegistered = false
@@ -136,6 +141,63 @@ function createWindow(): void {
       stopFileWatcher()
     })
 
+    // Multi-folder hooks inject/remove
+    ipcMain.handle('hooks:inject-all', async (_event, folderPaths: string[]) => {
+      await Promise.all(folderPaths.map((fp) => Promise.all([
+        injectHooks(fp),
+        injectOpenCodeHooks(fp),
+        injectCodexHooks(fp),
+        injectGeminiHooks(fp)
+      ])))
+      if (mainWindow) startMultiFileWatcher(folderPaths, mainWindow)
+    })
+    ipcMain.handle('hooks:remove-all', async (_event, folderPaths: string[]) => {
+      await Promise.all(folderPaths.map((fp) => Promise.all([
+        removeHooks(fp),
+        removeOpenCodeHooks(fp),
+        removeCodexHooks(fp),
+        removeGeminiHooks(fp)
+      ])))
+      stopFileWatcher()
+    })
+
+    // Workspace file operations
+    ipcMain.handle('workspace-file:save-dialog', async () => {
+      if (!mainWindow) return null
+      const { dialog } = await import('electron')
+      const result = await dialog.showSaveDialog(mainWindow, {
+        filters: [{ name: 'Multiterm Workspace', extensions: ['multiterm-workspace'] }],
+        defaultPath: 'workspace.multiterm-workspace'
+      })
+      return result.canceled ? null : result.filePath
+    })
+    ipcMain.handle('workspace-file:open-dialog', async () => {
+      if (!mainWindow) return null
+      const { dialog } = await import('electron')
+      const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openFile'],
+        filters: [{ name: 'Multiterm Workspace', extensions: ['multiterm-workspace'] }]
+      })
+      return result.canceled ? null : result.filePaths[0] ?? null
+    })
+    ipcMain.handle('workspace-file:load', async (_event, filePath: string) => {
+      return loadWorkspaceFile(filePath)
+    })
+    ipcMain.handle('workspace-file:save', async (_event, filePath: string, data: MultiTermWorkspace) => {
+      await saveWorkspaceFile(filePath, data)
+    })
+
+    // Save layout into workspace file
+    ipcMain.handle('layout:save-workspace', async (_event, wsFilePath: string, layout: LayoutSnapshot, expandedDirs: Record<string, string[]>) => {
+      const existing = await loadWorkspaceFile(wsFilePath)
+      if (existing) {
+        existing.layout = layout
+        existing.expandedDirs = expandedDirs
+        lastSaveData = { mode: 'workspace', wsFilePath, layout, expandedDirs, folders: existing.folders }
+        await saveWorkspaceFile(wsFilePath, existing)
+      }
+    })
+
     // Native UI zoom (Cmd+= / Cmd+- / Cmd+0) and fullscreen (Shift+Cmd+F)
     ipcMain.on('zoom:in', () => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.zoomLevel = Math.min(mainWindow.webContents.zoomLevel + 0.5, 5)
@@ -180,7 +242,7 @@ ipcMain.handle('workspace:save', async (_event, folderPath: string, config: unkn
 
 // Layout persistence IPC handlers
 ipcMain.handle('layout:save', async (_event, folderPath: string, layout: LayoutSnapshot) => {
-  lastSaveData = { folderPath, layout }
+  lastSaveData = { mode: 'folder', folderPath, layout }
   await saveLayout(folderPath, layout)
   await ensureGitignore(folderPath)
 })
@@ -198,7 +260,17 @@ ipcMain.handle('layout:load', async (_event, folderPath: string) => {
 // Synchronous save on quit to capture any last-second changes
 app.on('before-quit', () => {
   if (lastSaveData !== null) {
-    saveLayoutSync(lastSaveData.folderPath, lastSaveData.layout)
+    if (lastSaveData.mode === 'workspace') {
+      const { saveWorkspaceFileSync } = require('./workspaceFileManager') as typeof import('./workspaceFileManager')
+      saveWorkspaceFileSync(lastSaveData.wsFilePath, {
+        version: 1,
+        folders: lastSaveData.folders,
+        layout: lastSaveData.layout,
+        expandedDirs: lastSaveData.expandedDirs
+      })
+    } else {
+      saveLayoutSync(lastSaveData.folderPath, lastSaveData.layout)
+    }
   }
   stopFileWatcher()
   if (rpcCleanup) {
