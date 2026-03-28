@@ -1763,6 +1763,13 @@ main > .sidebar-toggle-btn {
   color: var(--color-yellow);
 }
 
+.sidebar-branch-trigger-name--no-git {
+  font-size: var(--text-sm);
+  color: var(--fg-tertiary, rgba(255,255,255,0.3));
+  font-style: italic;
+  padding: 4px 6px;
+}
+
 .sidebar-branch-trigger-chevron {
   flex-shrink: 0;
   transition: transform 150ms ease;

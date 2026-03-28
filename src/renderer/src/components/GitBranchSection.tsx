@@ -113,7 +113,9 @@ export function GitBranchSection({ folderPath, folderPaths }: GitBranchSectionPr
     }
   }, [dropdownOpen])
 
-  if (!isRepo) return null
+  // Single folder: hide entirely if not a git repo
+  // Multi folder: show the folder picker so user can switch to a repo
+  if (!isRepo && !isMulti) return null
 
   async function handleCheckout(branch: string): Promise<void> {
     setDropdownOpen(false)
@@ -217,25 +219,31 @@ export function GitBranchSection({ folderPath, folderPaths }: GitBranchSectionPr
             )}
           </div>
         )}
-        <button
-          className="sidebar-branch-trigger"
-          onClick={handleToggleDropdown}
-          aria-expanded={dropdownOpen}
-          aria-label="Switch git branch"
-          disabled={loading}
-        >
-          <GitBranch size={12} strokeWidth={1.8} aria-hidden="true" />
-          <span className={`sidebar-branch-trigger-name${detached ? ' sidebar-branch-trigger-name--detached' : ''}`}>
-            {loading ? 'Loading...' : currentBranch}
-            {detached && ' (detached)'}
+        {isRepo ? (
+          <button
+            className="sidebar-branch-trigger"
+            onClick={handleToggleDropdown}
+            aria-expanded={dropdownOpen}
+            aria-label="Switch git branch"
+            disabled={loading}
+          >
+            <GitBranch size={12} strokeWidth={1.8} aria-hidden="true" />
+            <span className={`sidebar-branch-trigger-name${detached ? ' sidebar-branch-trigger-name--detached' : ''}`}>
+              {loading ? 'Loading...' : currentBranch}
+              {detached && ' (detached)'}
+            </span>
+            <ChevronDown
+              className={`sidebar-branch-trigger-chevron${dropdownOpen ? ' sidebar-branch-trigger-chevron--open' : ''}`}
+              size={10}
+              strokeWidth={1.8}
+              aria-hidden="true"
+            />
+          </button>
+        ) : (
+          <span className="sidebar-branch-trigger-name sidebar-branch-trigger-name--no-git">
+            no git
           </span>
-          <ChevronDown
-            className={`sidebar-branch-trigger-chevron${dropdownOpen ? ' sidebar-branch-trigger-chevron--open' : ''}`}
-            size={10}
-            strokeWidth={1.8}
-            aria-hidden="true"
-          />
-        </button>
+        )}
       </div>
 
       {error && <div className="sidebar-branch-error">{error}</div>}
