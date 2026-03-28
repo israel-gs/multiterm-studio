@@ -1,6 +1,6 @@
 import { mkdir, writeFile, rename, readFile, unlink } from 'fs/promises'
 import { mkdirSync, writeFileSync, renameSync, unlinkSync, existsSync } from 'fs'
-import { dirname } from 'path'
+import { dirname, resolve, isAbsolute } from 'path'
 import { randomUUID } from 'crypto'
 import type { LayoutSnapshot } from './layoutManager'
 
@@ -11,14 +11,48 @@ export interface MultiTermWorkspace {
   expandedDirs: Record<string, string[]>
 }
 
+/** VS Code .code-workspace format */
+interface VSCodeWorkspace {
+  folders: Array<{ path: string; name?: string }>
+  settings?: Record<string, unknown>
+}
+
+function isVSCodeWorkspace(data: unknown): data is VSCodeWorkspace {
+  if (!data || typeof data !== 'object') return false
+  const obj = data as Record<string, unknown>
+  return Array.isArray(obj.folders) && !('version' in obj)
+}
+
+function convertVSCodeWorkspace(data: VSCodeWorkspace, wsFilePath: string): MultiTermWorkspace {
+  const wsDir = dirname(wsFilePath)
+  const folders = data.folders
+    .map((f) => ({
+      path: isAbsolute(f.path) ? f.path : resolve(wsDir, f.path)
+    }))
+    .filter((f) => existsSync(f.path))
+  return {
+    version: 1,
+    folders,
+    layout: null,
+    expandedDirs: {}
+  }
+}
+
 export async function loadWorkspaceFile(filePath: string): Promise<MultiTermWorkspace | null> {
   try {
     const raw = await readFile(filePath, 'utf-8')
-    const parsed = JSON.parse(raw) as MultiTermWorkspace
-    if (parsed.version !== 1) return null
-    // Filter out folders that no longer exist
-    parsed.folders = parsed.folders.filter((f) => existsSync(f.path))
-    return parsed
+    const parsed = JSON.parse(raw)
+
+    // VS Code .code-workspace format
+    if (isVSCodeWorkspace(parsed)) {
+      return convertVSCodeWorkspace(parsed, filePath)
+    }
+
+    // Native .multiterm-workspace format
+    const ws = parsed as MultiTermWorkspace
+    if (ws.version !== 1) return null
+    ws.folders = ws.folders.filter((f) => existsSync(f.path))
+    return ws
   } catch {
     return null
   }

@@ -176,7 +176,11 @@ function createWindow(): void {
       const { dialog } = await import('electron')
       const result = await dialog.showOpenDialog(mainWindow, {
         properties: ['openFile'],
-        filters: [{ name: 'Multiterm Workspace', extensions: ['multiterm-workspace'] }]
+        filters: [
+          { name: 'Workspace Files', extensions: ['multiterm-workspace', 'code-workspace'] },
+          { name: 'Multiterm Workspace', extensions: ['multiterm-workspace'] },
+          { name: 'VS Code Workspace', extensions: ['code-workspace'] }
+        ]
       })
       return result.canceled ? null : result.filePaths[0] ?? null
     })

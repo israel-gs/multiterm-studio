@@ -47,7 +47,7 @@ export function WelcomeScreen({
     window.electronAPI.projectsRecent().then(async (list) => {
       // Backfill type and folderNames for workspace entries that predate the metadata fields
       const enriched = await Promise.all(list.map(async (p) => {
-        const isWsPath = p.path.endsWith('.multiterm-workspace')
+        const isWsPath = p.path.endsWith('.multiterm-workspace') || p.path.endsWith('.code-workspace')
         if (isWsPath && (!p.type || !p.folderNames)) {
           const ws = await window.electronAPI.workspaceFileLoad(p.path) as {
             folders?: Array<{ path: string }>
@@ -126,9 +126,9 @@ export function WelcomeScreen({
         ) : (
           <div className="welcome-grid">
             {filtered.map((project) => {
-              const isWs = project.type === 'workspace' || project.path.endsWith('.multiterm-workspace')
+              const isWs = project.type === 'workspace' || project.path.endsWith('.multiterm-workspace') || project.path.endsWith('.code-workspace')
               const displayName = isWs
-                ? project.name.replace(/\.multiterm-workspace$/, '')
+                ? project.name.replace(/\.(multiterm-workspace|code-workspace)$/, '')
                 : project.name
               return (
                 <div key={project.path} className="welcome-card-wrapper">

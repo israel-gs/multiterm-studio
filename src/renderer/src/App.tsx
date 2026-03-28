@@ -342,7 +342,7 @@ function App(): React.JSX.Element {
         />
         <WelcomeScreen
           onSelectProject={(path) => {
-            if (path.endsWith('.multiterm-workspace')) {
+            if (path.endsWith('.multiterm-workspace') || path.endsWith('.code-workspace')) {
               void openWorkspace(path)
             } else {
               void openProject(path)
