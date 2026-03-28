@@ -273,7 +273,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'menu:new-terminal', 'menu:new-note', 'menu:duplicate', 'menu:close-tile',
       'menu:zoom-fit-all', 'menu:zoom-fit-focused', 'menu:tidy',
       'menu:toggle-sidebar', 'menu:settings',
-      'menu:nav-left', 'menu:nav-right', 'menu:nav-up', 'menu:nav-down'
+      'menu:nav-left', 'menu:nav-right', 'menu:nav-up', 'menu:nav-down',
+      'menu:add-folder', 'menu:save-workspace', 'menu:open-workspace'
     ]
     const listener = (event: Electron.IpcRendererEvent): void => {
       const ch = (event as unknown as { channel?: string }).channel

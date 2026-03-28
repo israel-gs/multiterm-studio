@@ -333,7 +333,11 @@ app.whenReady().then(() => {
         { type: 'separator' },
         { label: 'Duplicate', accelerator: 'CmdOrCtrl+Shift+D', click: () => sendToRenderer('menu:duplicate') },
         { type: 'separator' },
-        { label: 'Close Tile', accelerator: 'CmdOrCtrl+W', click: () => sendToRenderer('menu:close-tile') }
+        { label: 'Close Tile', accelerator: 'CmdOrCtrl+W', click: () => sendToRenderer('menu:close-tile') },
+        { type: 'separator' },
+        { label: 'Add Folder to Workspace...', accelerator: 'CmdOrCtrl+Shift+A', click: () => sendToRenderer('menu:add-folder') },
+        { label: 'Save Workspace As...', click: () => sendToRenderer('menu:save-workspace') },
+        { label: 'Open Workspace...', click: () => sendToRenderer('menu:open-workspace') }
       ]
     },
     {
