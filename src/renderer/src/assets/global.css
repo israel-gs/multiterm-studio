@@ -1648,9 +1648,14 @@ main > .sidebar-toggle-btn {
   max-width: 100%;
 }
 
+.sidebar-branch-folder-picker-wrap {
+  position: relative;
+}
+
 .sidebar-branch-folder-picker {
   display: flex;
   align-items: center;
+  gap: 3px;
   padding: 4px 8px;
   background: none;
   border: none;
@@ -1663,7 +1668,7 @@ main > .sidebar-toggle-btn {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
+  max-width: 140px;
   transition: background 0.1s, color 0.1s;
 }
 
@@ -1675,6 +1680,48 @@ main > .sidebar-toggle-btn {
 .sidebar-branch-folder-name {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.sidebar-branch-folder-dropdown {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  min-width: 160px;
+  max-width: 260px;
+  background: var(--bg-popover, var(--bg-card));
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  z-index: 100;
+}
+
+.sidebar-branch-folder-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: var(--fg-secondary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-branch-folder-dropdown-item:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.sidebar-branch-folder-dropdown-item--current {
+  color: var(--fg-primary);
 }
 
 .sidebar-branch-trigger {

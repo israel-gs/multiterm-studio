@@ -36,6 +36,7 @@ export function GitBranchSection({ folderPath, folderPaths }: GitBranchSectionPr
   } = useGitStore()
 
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [folderDropdownOpen, setFolderDropdownOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [newBranchName, setNewBranchName] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -94,15 +95,16 @@ export function GitBranchSection({ folderPath, folderPaths }: GitBranchSectionPr
   }, [error, setError])
 
   useEffect(() => {
-    if (!dropdownOpen) return
+    if (!dropdownOpen && !folderDropdownOpen) return
     function handleClick(e: MouseEvent): void {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setDropdownOpen(false)
+        setFolderDropdownOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [dropdownOpen])
+  }, [dropdownOpen, folderDropdownOpen])
 
   useEffect(() => {
     if (!dropdownOpen) {
@@ -170,17 +172,50 @@ export function GitBranchSection({ folderPath, folderPaths }: GitBranchSectionPr
     <div className="sidebar-branch-manager" ref={containerRef}>
       <div className="sidebar-branch-trigger-row">
         {isMulti && (
-          <button
-            className="sidebar-branch-folder-picker"
-            onClick={(e) => {
-              e.stopPropagation()
-              setActiveFolderIdx((prev) => (prev + 1) % effectivePaths.length)
-            }}
-            title={activeFolder}
-            aria-label={`Git repo: ${activeFolderName}`}
-          >
-            <span className="sidebar-branch-folder-name">{activeFolderName}</span>
-          </button>
+          <div className="sidebar-branch-folder-picker-wrap">
+            <button
+              className="sidebar-branch-folder-picker"
+              onClick={(e) => {
+                e.stopPropagation()
+                setFolderDropdownOpen((prev) => !prev)
+                setDropdownOpen(false)
+              }}
+              title={activeFolder}
+              aria-label={`Git repo: ${activeFolderName}`}
+              aria-expanded={folderDropdownOpen}
+            >
+              <span className="sidebar-branch-folder-name">{activeFolderName}</span>
+              <ChevronDown
+                className={`sidebar-branch-trigger-chevron${folderDropdownOpen ? ' sidebar-branch-trigger-chevron--open' : ''}`}
+                size={8}
+                strokeWidth={1.8}
+                aria-hidden="true"
+              />
+            </button>
+            {folderDropdownOpen && (
+              <div className="sidebar-branch-folder-dropdown" role="listbox" aria-label="Select project">
+                {effectivePaths.map((fp, idx) => {
+                  const name = fp.split('/').pop() ?? fp
+                  const isCurrent = idx === activeFolderIdx
+                  return (
+                    <button
+                      key={fp}
+                      className={`sidebar-branch-folder-dropdown-item${isCurrent ? ' sidebar-branch-folder-dropdown-item--current' : ''}`}
+                      role="option"
+                      aria-selected={isCurrent}
+                      onClick={() => {
+                        setActiveFolderIdx(idx)
+                        setFolderDropdownOpen(false)
+                      }}
+                    >
+                      {isCurrent && <Check size={10} strokeWidth={2} aria-hidden="true" />}
+                      <span>{name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         )}
         <button
           className="sidebar-branch-trigger"
