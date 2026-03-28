@@ -194,9 +194,20 @@ export function WelcomeScreen({
               <button className="welcome-card welcome-card--add" onClick={onOpenWorkspace}>
                 <div className="welcome-card-icon">
                   <svg width="24" height="24" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <rect x="1" y="2" width="6" height="5" rx="1" stroke="var(--fg-secondary)" strokeWidth="1" fill="none" />
-                    <rect x="9" y="2" width="6" height="5" rx="1" stroke="var(--fg-secondary)" strokeWidth="1" fill="none" />
-                    <rect x="5" y="9" width="6" height="5" rx="1" stroke="var(--fg-secondary)" strokeWidth="1" fill="none" />
+                    {/* Two overlapping folders representing multi-folder workspace */}
+                    <path
+                      d="M3 5.5C3 4.67 3.67 4 4.5 4H7l1 1H12.5C13.33 5 14 5.67 14 6.5V11.5C14 12.33 13.33 13 12.5 13H4.5C3.67 13 3 12.33 3 11.5V5.5Z"
+                      stroke="var(--fg-secondary)"
+                      strokeWidth="1"
+                      fill="none"
+                    />
+                    <path
+                      d="M1 3.5C1 2.67 1.67 2 2.5 2H5l1 1H10.5C11.33 3 12 3.67 12 4.5"
+                      stroke="var(--fg-secondary)"
+                      strokeWidth="1"
+                      fill="none"
+                      opacity="0.5"
+                    />
                   </svg>
                 </div>
                 <div className="welcome-card-name">Open Workspace</div>

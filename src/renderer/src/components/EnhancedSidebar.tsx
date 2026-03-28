@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { PanelLeft, ChevronDown, Plus, Search, Settings } from 'lucide-react'
+import { PanelLeft, ChevronDown, Plus, Search, Settings, FolderPlus, Save, FolderOpen } from 'lucide-react'
 import { FileTree, MultiRootFileTree, SortMode } from './FileTree'
 import { GitBranchSection } from './GitBranchSection'
 import { SettingsPanel } from './SettingsPanel'
@@ -134,19 +134,22 @@ export function EnhancedSidebar({
                 </button>
               )
             })}
+            {otherProjects.length > 0 && <div className="sidebar-project-dropdown-separator" />}
             <button
               className="sidebar-project-dropdown-item sidebar-project-dropdown-item--add"
               onClick={() => void handleAddWorkspace()}
+              aria-label="Open folder"
             >
-              <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
+              <FolderOpen size={12} strokeWidth={1.5} aria-hidden="true" />
               Open folder...
             </button>
             {onAddFolder && (
               <button
                 className="sidebar-project-dropdown-item sidebar-project-dropdown-item--add"
                 onClick={() => { setDropdownOpen(false); onAddFolder() }}
+                aria-label="Add folder to workspace"
               >
-                <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
+                <FolderPlus size={12} strokeWidth={1.5} aria-hidden="true" />
                 Add folder to workspace...
               </button>
             )}
@@ -154,7 +157,9 @@ export function EnhancedSidebar({
               <button
                 className="sidebar-project-dropdown-item sidebar-project-dropdown-item--add"
                 onClick={() => { setDropdownOpen(false); onSaveWorkspace() }}
+                aria-label="Save workspace"
               >
+                <Save size={12} strokeWidth={1.5} aria-hidden="true" />
                 Save workspace as...
               </button>
             )}

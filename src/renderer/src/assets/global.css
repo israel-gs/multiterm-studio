@@ -1615,14 +1615,15 @@ main > .sidebar-toggle-btn {
   flex-shrink: 0;
 }
 
+.sidebar-project-dropdown-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
 .sidebar-project-dropdown-item--add {
   color: var(--fg-secondary);
   gap: 6px;
-  margin-top: 2px;
-  border-top: 1px solid var(--border-subtle);
-  border-radius: 0 0 4px 4px;
-  padding-top: 8px;
-  margin-top: 4px;
 }
 
 .sidebar-project-dropdown-item--add:hover {
@@ -2495,12 +2496,12 @@ main > .sidebar-toggle-btn {
 
 .file-tree-root-separator {
   height: 1px;
-  margin: 6px 12px;
-  background: var(--border-subtle, rgba(255, 255, 255, 0.06));
+  margin: 8px 12px 4px;
+  background: var(--border-subtle, rgba(255, 255, 255, 0.08));
 }
 
 [data-theme="light"] .file-tree-root-separator {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .file-tree-node {
