@@ -381,27 +381,26 @@ function App(): React.JSX.Element {
           pointerEvents: 'auto'
         } as React.CSSProperties}
       />
-      {!sidebarCollapsed && (
-        <>
-          <EnhancedSidebar
-            folderPath={folderPath}
-            folderPaths={folderPaths}
-            onSwitchProject={(path) => void openProject(path)}
-            onAddFolder={addFolderToWorkspace}
-            onRemoveFolder={removeFolderFromWorkspace}
-            onSaveWorkspace={saveWorkspace}
-            onToggleSidebar={toggleSidebar}
-          />
-          <div
-            className="sidebar-resize-handle"
-            onMouseDown={handleSidebarResizeStart}
-            onDoubleClick={toggleSidebar}
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize sidebar"
-          />
-        </>
-      )}
+      {/* Sidebar stays mounted to preserve FileTree state — hidden via CSS when collapsed */}
+      <div className={`sidebar-mount${sidebarCollapsed ? ' sidebar-mount--hidden' : ''}`}>
+        <EnhancedSidebar
+          folderPath={folderPath}
+          folderPaths={folderPaths}
+          onSwitchProject={(path) => void openProject(path)}
+          onAddFolder={addFolderToWorkspace}
+          onRemoveFolder={removeFolderFromWorkspace}
+          onSaveWorkspace={saveWorkspace}
+          onToggleSidebar={toggleSidebar}
+        />
+        <div
+          className="sidebar-resize-handle"
+          onMouseDown={handleSidebarResizeStart}
+          onDoubleClick={toggleSidebar}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+        />
+      </div>
       <main style={{ flex: 1, minWidth: 0, height: '100vh', position: 'relative' }}>
         {sidebarCollapsed && (
           <button

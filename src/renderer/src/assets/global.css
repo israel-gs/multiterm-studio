@@ -1404,6 +1404,14 @@ body.canvas-interacting .floating-card-inner {
 
 /* ===== Enhanced Sidebar ===== */
 
+.sidebar-mount {
+  display: contents;
+}
+
+.sidebar-mount--hidden {
+  display: none;
+}
+
 .enhanced-sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
