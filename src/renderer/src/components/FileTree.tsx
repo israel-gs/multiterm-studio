@@ -581,7 +581,7 @@ export function MultiRootFileTree({
         const rootName = rootPath.split('/').pop() || rootPath
         return (
           <div key={rootPath} className="file-tree-root-section">
-            {i > 0 && <div className="file-tree-root-separator" />}
+            {/* no separator — roots are visually distinct by their top-level folder style */}
             <FileTreeNode
               path={rootPath}
               name={rootName}
