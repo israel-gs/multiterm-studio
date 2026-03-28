@@ -332,11 +332,12 @@ export function registerPtyHandlers(win: BrowserWindow): void {
       const fmt = ['pane_index', 'pane_current_command', 'pane_active', 'pane_pid', 'pane_title']
         .map((k) => '#' + '{' + k + '}').join('\t')
       const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', fmt)
-      return raw.split('\n').filter(Boolean).map((line) => {
+      return raw.split('\n').filter(Boolean).map((line, i) => {
         const [index, command, active, pid, ...titleParts] = line.split('\t')
         const title = titleParts.join('\t')
+        const parsedIndex = parseInt(index, 10)
         return {
-          index: Number(index),
+          index: Number.isNaN(parsedIndex) ? i : parsedIndex,
           command: command ?? '',
           title: title ?? '',
           active: active === '1',
@@ -350,7 +351,7 @@ export function registerPtyHandlers(win: BrowserWindow): void {
 
   ipcMain.handle('pty:select-pane', (_event, id: string, paneIndex: number) => {
     const session = sessions.get(id)
-    if (!session) return
+    if (!session || Number.isNaN(paneIndex)) return
     try {
       tmuxExec('select-pane', '-t', `${session.tmuxName}.${paneIndex}`)
     } catch {
