@@ -44,8 +44,24 @@ export function WelcomeScreen({
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    window.electronAPI.projectsRecent().then((list) => {
-      setProjects(list)
+    window.electronAPI.projectsRecent().then(async (list) => {
+      // Backfill type and folderNames for workspace entries that predate the metadata fields
+      const enriched = await Promise.all(list.map(async (p) => {
+        const isWsPath = p.path.endsWith('.multiterm-workspace')
+        if (isWsPath && (!p.type || !p.folderNames)) {
+          const ws = await window.electronAPI.workspaceFileLoad(p.path) as {
+            folders?: Array<{ path: string }>
+          } | null
+          return {
+            ...p,
+            type: 'workspace' as const,
+            folderNames: ws?.folders?.map((f) => f.path.split('/').pop() ?? f.path) ?? []
+          }
+        }
+        if (isWsPath && !p.type) return { ...p, type: 'workspace' as const }
+        return p
+      }))
+      setProjects(enriched)
       setLoading(false)
     })
   }, [])
@@ -110,7 +126,7 @@ export function WelcomeScreen({
         ) : (
           <div className="welcome-grid">
             {filtered.map((project) => {
-              const isWs = project.type === 'workspace'
+              const isWs = project.type === 'workspace' || project.path.endsWith('.multiterm-workspace')
               const displayName = isWs
                 ? project.name.replace(/\.multiterm-workspace$/, '')
                 : project.name
