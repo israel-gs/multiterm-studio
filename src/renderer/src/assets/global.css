@@ -1626,7 +1626,7 @@ main > .sidebar-toggle-btn {
 .sidebar-project-dropdown-separator {
   height: 1px;
   margin: 4px 8px;
-  background: var(--border-subtle, rgba(255, 255, 255, 0.08));
+  background: var(--border-subtle);
 }
 
 .sidebar-project-dropdown-item--add {
@@ -1668,7 +1668,7 @@ main > .sidebar-toggle-btn {
   background: none;
   border: none;
   border-radius: 6px;
-  color: var(--fg-tertiary, rgba(255,255,255,0.4));
+  color: var(--fg-secondary);
   font-size: var(--text-sm);
   font-family: var(--font-sans);
   font-weight: var(--weight-medium);
@@ -1682,7 +1682,7 @@ main > .sidebar-toggle-btn {
 
 .sidebar-branch-folder-picker:hover {
   background: var(--hover-bg);
-  color: var(--fg-secondary);
+  color: var(--fg-primary);
 }
 
 .sidebar-branch-folder-name {
@@ -1700,7 +1700,7 @@ main > .sidebar-toggle-btn {
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   padding: 4px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  box-shadow: var(--card-shadow-elevated, 0 4px 16px rgba(0,0,0,0.15));
   z-index: 100;
 }
 
@@ -1773,7 +1773,8 @@ main > .sidebar-toggle-btn {
 
 .sidebar-branch-trigger-name--no-git {
   font-size: var(--text-sm);
-  color: var(--fg-tertiary, rgba(255,255,255,0.3));
+  color: var(--fg-secondary);
+  opacity: 0.5;
   font-style: italic;
   padding: 4px 6px;
 }
@@ -2596,11 +2597,7 @@ main > .sidebar-toggle-btn {
 .file-tree-root-separator {
   height: 1px;
   margin: 8px 12px 4px;
-  background: var(--border-subtle, rgba(255, 255, 255, 0.08));
-}
-
-[data-theme="light"] .file-tree-root-separator {
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--border-subtle);
 }
 
 .file-tree-node {
@@ -3218,7 +3215,8 @@ main > .sidebar-toggle-btn {
 }
 
 .welcome-card-folder-tag--more {
-  color: var(--fg-tertiary, rgba(255,255,255,0.35));
+  color: var(--fg-secondary);
+  opacity: 0.6;
 }
 
 .welcome-empty {
