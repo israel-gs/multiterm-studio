@@ -16,6 +16,8 @@ interface EnhancedSidebarProps {
   folderPath: string
   folderPaths?: string[]
   onSwitchProject?: (path: string) => void
+  onOpenWorkspace?: (path: string) => void
+  onOpenWorkspaceDialog?: () => void
   onAddFolder?: () => void
   onRemoveFolder?: (path: string) => void
   onSaveWorkspace?: () => void
@@ -30,6 +32,8 @@ export function EnhancedSidebar({
   folderPath,
   folderPaths,
   onSwitchProject,
+  onOpenWorkspace,
+  onOpenWorkspaceDialog,
   onAddFolder,
   onRemoveFolder,
   onSaveWorkspace,
@@ -56,7 +60,10 @@ export function EnhancedSidebar({
   function handleSelectProject(path: string): void {
     setDropdownOpen(false)
     if (path === folderPath) return
-    if (onSwitchProject) {
+    const isWs = path.endsWith('.multiterm-workspace') || path.endsWith('.code-workspace')
+    if (isWs && onOpenWorkspace) {
+      onOpenWorkspace(path)
+    } else if (onSwitchProject) {
       onSwitchProject(path)
     } else {
       setFolderPath(path)
@@ -151,6 +158,16 @@ export function EnhancedSidebar({
               >
                 <FolderPlus size={12} strokeWidth={1.5} aria-hidden="true" />
                 Add folder to workspace...
+              </button>
+            )}
+            {onOpenWorkspaceDialog && (
+              <button
+                className="sidebar-project-dropdown-item sidebar-project-dropdown-item--add"
+                onClick={() => { setDropdownOpen(false); onOpenWorkspaceDialog() }}
+                aria-label="Open workspace file"
+              >
+                <FolderOpen size={12} strokeWidth={1.5} aria-hidden="true" />
+                Open workspace...
               </button>
             )}
             {onSaveWorkspace && (

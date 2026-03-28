@@ -387,6 +387,12 @@ function App(): React.JSX.Element {
           folderPath={folderPath}
           folderPaths={folderPaths}
           onSwitchProject={(path) => void openProject(path)}
+          onOpenWorkspace={(path) => void openWorkspace(path)}
+          onOpenWorkspaceDialog={() => {
+            window.electronAPI.workspaceFileOpenDialog().then((fp) => {
+              if (fp) void openWorkspace(fp)
+            })
+          }}
           onAddFolder={addFolderToWorkspace}
           onRemoveFolder={removeFolderFromWorkspace}
           onSaveWorkspace={saveWorkspace}
