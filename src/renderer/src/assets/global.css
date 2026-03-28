@@ -3083,6 +3083,44 @@ main > .sidebar-toggle-btn {
   margin: 0 4px;
 }
 
+/* Workspace card variant */
+.welcome-card--workspace {
+  border-color: rgba(139, 92, 246, 0.15);
+}
+
+.welcome-card--workspace:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.welcome-card-folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.welcome-card-folder-tag {
+  display: inline-block;
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--fg-secondary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="light"] .welcome-card-folder-tag {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.welcome-card-folder-tag--more {
+  color: var(--fg-tertiary, rgba(255,255,255,0.35));
+}
+
 .welcome-empty {
   color: var(--fg-secondary);
   font-size: var(--text-base);

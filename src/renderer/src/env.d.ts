@@ -19,8 +19,9 @@ interface Window {
       Array<{ path: string; name: string; lastOpened: number; openCount: number }>
     >
     projectsAdd: (
-      folderPath: string
-    ) => Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number }>>
+      folderPath: string,
+      meta?: { type?: 'folder' | 'workspace'; folderNames?: string[] }
+    ) => Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number; type?: string; folderNames?: string[] }>>
     projectsRemove: (
       folderPath: string
     ) => Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number }>>

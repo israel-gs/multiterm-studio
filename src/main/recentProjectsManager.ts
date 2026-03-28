@@ -8,6 +8,8 @@ export interface RecentProject {
   name: string
   lastOpened: number // timestamp ms
   openCount: number
+  type?: 'folder' | 'workspace'
+  folderNames?: string[] // workspace only: names of contained folders
 }
 
 function dataPath(): string {
@@ -44,19 +46,23 @@ export function registerRecentProjectsHandlers(): void {
     return loadRecent()
   })
 
-  ipcMain.handle('projects:add', async (_event, folderPath: string) => {
+  ipcMain.handle('projects:add', async (_event, folderPath: string, meta?: { type?: 'folder' | 'workspace'; folderNames?: string[] }) => {
     const projects = await loadRecent()
     const name = folderPath.split('/').pop() ?? folderPath
     const existing = projects.find((p) => p.path === folderPath)
     if (existing) {
       existing.lastOpened = Date.now()
       existing.openCount += 1
+      if (meta?.type) existing.type = meta.type
+      if (meta?.folderNames) existing.folderNames = meta.folderNames
     } else {
       projects.unshift({
         path: folderPath,
         name,
         lastOpened: Date.now(),
-        openCount: 1
+        openCount: 1,
+        type: meta?.type ?? 'folder',
+        folderNames: meta?.folderNames
       })
     }
     // Sort by most recently opened, keep max 20

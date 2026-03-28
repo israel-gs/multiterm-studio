@@ -83,7 +83,10 @@ function App(): React.JSX.Element {
       store.setExpandedDirs(allExpanded)
       prevFolderPathsRef.current = paths
 
-      void window.electronAPI.projectsAdd(filePath)
+      void window.electronAPI.projectsAdd(filePath, {
+        type: 'workspace',
+        folderNames: paths.map((p) => p.split('/').pop() ?? p)
+      })
       void window.electronAPI.hooksInjectAll(paths)
     },
     []
@@ -128,6 +131,10 @@ function App(): React.JSX.Element {
       expandedDirs
     })
     store.setWorkspaceFilePath(filePath)
+    void window.electronAPI.projectsAdd(filePath, {
+      type: 'workspace',
+      folderNames: store.folderPaths.map((p) => p.split('/').pop() ?? p)
+    })
   }, [])
 
   // Wire attention events: main process -> panelStore badge
@@ -334,7 +341,13 @@ function App(): React.JSX.Element {
           } as React.CSSProperties}
         />
         <WelcomeScreen
-          onSelectProject={(path) => void openProject(path)}
+          onSelectProject={(path) => {
+            if (path.endsWith('.multiterm-workspace')) {
+              void openWorkspace(path)
+            } else {
+              void openProject(path)
+            }
+          }}
           onPickFolder={() => void handlePickFolder()}
           onOpenWorkspace={() => {
             window.electronAPI.workspaceFileOpenDialog().then((fp) => {

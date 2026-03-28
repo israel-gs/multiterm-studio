@@ -110,9 +110,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   > => ipcRenderer.invoke('projects:recent'),
 
   projectsAdd: (
-    folderPath: string
-  ): Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number }>> =>
-    ipcRenderer.invoke('projects:add', folderPath),
+    folderPath: string,
+    meta?: { type?: 'folder' | 'workspace'; folderNames?: string[] }
+  ): Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number; type?: string; folderNames?: string[] }>> =>
+    ipcRenderer.invoke('projects:add', folderPath, meta),
 
   projectsRemove: (
     folderPath: string
