@@ -340,6 +340,15 @@ body {
   transition: none;
 }
 
+.floating-card--highlight {
+  box-shadow: 0 0 0 2px rgba(100, 180, 255, 0.6), var(--card-shadow-elevated);
+  transition: box-shadow 0.2s ease-out;
+}
+
+.floating-card--highlight:not(.floating-card--highlight) {
+  transition: box-shadow 0.6s ease-out;
+}
+
 .floating-card-resize-indicator {
   position: absolute;
   top: 50%;
@@ -1395,6 +1404,14 @@ body.canvas-interacting .floating-card-inner {
 
 /* ===== Enhanced Sidebar ===== */
 
+.sidebar-mount {
+  display: contents;
+}
+
+.sidebar-mount--hidden {
+  display: none;
+}
+
 .enhanced-sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
@@ -1606,14 +1623,15 @@ main > .sidebar-toggle-btn {
   flex-shrink: 0;
 }
 
+.sidebar-project-dropdown-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
 .sidebar-project-dropdown-item--add {
   color: var(--fg-secondary);
   gap: 6px;
-  margin-top: 2px;
-  border-top: 1px solid var(--border-subtle);
-  border-radius: 0 0 4px 4px;
-  padding-top: 8px;
-  margin-top: 4px;
 }
 
 .sidebar-project-dropdown-item--add:hover {
@@ -1628,6 +1646,90 @@ main > .sidebar-toggle-btn {
   position: relative;
   flex: 1;
   min-width: 0;
+}
+
+.sidebar-branch-trigger-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sidebar-branch-folder-picker-wrap {
+  position: relative;
+}
+
+.sidebar-branch-folder-picker {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--fg-tertiary, rgba(255,255,255,0.4));
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+  transition: background 0.1s, color 0.1s;
+}
+
+.sidebar-branch-folder-picker:hover {
+  background: var(--hover-bg);
+  color: var(--fg-secondary);
+}
+
+.sidebar-branch-folder-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-branch-folder-dropdown {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  min-width: 160px;
+  max-width: 260px;
+  background: var(--bg-popover, var(--bg-card));
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  z-index: 100;
+}
+
+.sidebar-branch-folder-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: var(--fg-secondary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-branch-folder-dropdown-item:hover {
+  background: var(--hover-bg);
+  color: var(--fg-primary);
+}
+
+.sidebar-branch-folder-dropdown-item--current {
+  color: var(--fg-primary);
 }
 
 .sidebar-branch-trigger {
@@ -1667,6 +1769,13 @@ main > .sidebar-toggle-btn {
 
 .sidebar-branch-trigger-name--detached {
   color: var(--color-yellow);
+}
+
+.sidebar-branch-trigger-name--no-git {
+  font-size: var(--text-sm);
+  color: var(--fg-tertiary, rgba(255,255,255,0.3));
+  font-style: italic;
+  padding: 4px 6px;
 }
 
 .sidebar-branch-trigger-chevron {
@@ -2484,6 +2593,16 @@ main > .sidebar-toggle-btn {
 
 /* ===== File Tree ===== */
 
+.file-tree-root-separator {
+  height: 1px;
+  margin: 8px 12px 4px;
+  background: var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+[data-theme="light"] .file-tree-root-separator {
+  background: rgba(0, 0, 0, 0.1);
+}
+
 .file-tree-node {
   display: flex;
   align-items: center;
@@ -2987,6 +3106,7 @@ main > .sidebar-toggle-btn {
 
 .welcome-card-wrapper .welcome-card {
   width: 100%;
+  height: 100%;
 }
 
 .welcome-card-remove {
@@ -3061,6 +3181,44 @@ main > .sidebar-toggle-btn {
 
 .welcome-card-dot {
   margin: 0 4px;
+}
+
+/* Workspace card variant */
+.welcome-card--workspace {
+  border-color: rgba(139, 92, 246, 0.15);
+}
+
+.welcome-card--workspace:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.welcome-card-folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.welcome-card-folder-tag {
+  display: inline-block;
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--fg-secondary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="light"] .welcome-card-folder-tag {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.welcome-card-folder-tag--more {
+  color: var(--fg-tertiary, rgba(255,255,255,0.35));
 }
 
 .welcome-empty {

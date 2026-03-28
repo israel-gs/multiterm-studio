@@ -110,9 +110,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   > => ipcRenderer.invoke('projects:recent'),
 
   projectsAdd: (
-    folderPath: string
-  ): Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number }>> =>
-    ipcRenderer.invoke('projects:add', folderPath),
+    folderPath: string,
+    meta?: { type?: 'folder' | 'workspace'; folderNames?: string[] }
+  ): Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number; type?: string; folderNames?: string[] }>> =>
+    ipcRenderer.invoke('projects:add', folderPath, meta),
 
   projectsRemove: (
     folderPath: string
@@ -273,7 +274,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'menu:new-terminal', 'menu:new-note', 'menu:duplicate', 'menu:close-tile',
       'menu:zoom-fit-all', 'menu:zoom-fit-focused', 'menu:tidy',
       'menu:toggle-sidebar', 'menu:settings',
-      'menu:nav-left', 'menu:nav-right', 'menu:nav-up', 'menu:nav-down'
+      'menu:nav-left', 'menu:nav-right', 'menu:nav-up', 'menu:nav-down',
+      'menu:add-folder', 'menu:save-workspace', 'menu:open-workspace'
     ]
     const listener = (event: Electron.IpcRendererEvent): void => {
       const ch = (event as unknown as { channel?: string }).channel
@@ -315,6 +317,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   hooksRemove: (folderPath: string): Promise<void> =>
     ipcRenderer.invoke('hooks:remove', folderPath),
+
+  // Multi-folder hooks
+  hooksInjectAll: (folderPaths: string[]): Promise<void> =>
+    ipcRenderer.invoke('hooks:inject-all', folderPaths),
+
+  hooksRemoveAll: (folderPaths: string[]): Promise<void> =>
+    ipcRenderer.invoke('hooks:remove-all', folderPaths),
+
+  // Workspace file operations
+  workspaceFileSaveDialog: (): Promise<string | null> =>
+    ipcRenderer.invoke('workspace-file:save-dialog'),
+
+  workspaceFileOpenDialog: (): Promise<string | null> =>
+    ipcRenderer.invoke('workspace-file:open-dialog'),
+
+  workspaceFileLoad: (filePath: string): Promise<unknown> =>
+    ipcRenderer.invoke('workspace-file:load', filePath),
+
+  workspaceFileSave: (filePath: string, data: unknown): Promise<void> =>
+    ipcRenderer.invoke('workspace-file:save', filePath, data),
+
+  // Save layout into workspace file
+  layoutSaveWorkspace: (wsFilePath: string, layout: unknown, expandedDirs: Record<string, string[]>): Promise<void> =>
+    ipcRenderer.invoke('layout:save-workspace', wsFilePath, layout, expandedDirs),
 
   // Auto-update API
   updateGetStatus: (): Promise<{
@@ -366,6 +392,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ): void => callback(state)
     ipcRenderer.on('update:status', listener)
     return () => ipcRenderer.removeListener('update:status', listener)
+  },
+
+  // Shell integration
+  shellShowItemInFolder: (fullPath: string): void => {
+    ipcRenderer.send('shell:show-item-in-folder', fullPath)
   },
 
   // Clipboard

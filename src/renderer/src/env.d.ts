@@ -19,8 +19,9 @@ interface Window {
       Array<{ path: string; name: string; lastOpened: number; openCount: number }>
     >
     projectsAdd: (
-      folderPath: string
-    ) => Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number }>>
+      folderPath: string,
+      meta?: { type?: 'folder' | 'workspace'; folderNames?: string[] }
+    ) => Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number; type?: string; folderNames?: string[] }>>
     projectsRemove: (
       folderPath: string
     ) => Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number }>>
@@ -64,5 +65,49 @@ interface Window {
     ) => () => void
     hooksInject: (folderPath: string) => Promise<void>
     hooksRemove: (folderPath: string) => Promise<void>
+    hooksInjectAll: (folderPaths: string[]) => Promise<void>
+    hooksRemoveAll: (folderPaths: string[]) => Promise<void>
+    workspaceFileSaveDialog: () => Promise<string | null>
+    workspaceFileOpenDialog: () => Promise<string | null>
+    workspaceFileLoad: (filePath: string) => Promise<unknown>
+    workspaceFileSave: (filePath: string, data: unknown) => Promise<void>
+    layoutSaveWorkspace: (wsFilePath: string, layout: unknown, expandedDirs: Record<string, string[]>) => Promise<void>
+    onPtyScrollback: (id: string, callback: (data: string) => void) => () => void
+    ptySendKeys: (id: string, text: string, enter?: boolean) => Promise<void>
+    ptyListPanes: (id: string) => Promise<Array<{ index: number; command: string; title: string; active: boolean; pid: number }>>
+    ptySelectPane: (id: string, paneIndex: number) => Promise<void>
+    ptyGetCwd: (id: string) => Promise<string | null>
+    ptyHasProcess: (id: string) => Promise<unknown>
+    fileOpenDialog: (filters?: { name: string; extensions: string[] }[]) => Promise<string | null>
+    fileRename: (oldPath: string, newName: string) => Promise<string>
+    fileMove: (sourcePath: string, targetFolder: string) => Promise<string>
+    fileTrash: (filePath: string) => Promise<void>
+    fileCreate: (filePath: string, content?: string) => Promise<void>
+    folderCreate: (folderPath: string) => Promise<void>
+    onPaneCreate: (callback: (data: { sessionId: string; cwd: string; title?: string; parentSessionId?: string }) => void) => () => void
+    onPaneFocus: (callback: (data: { sessionId: string }) => void) => () => void
+    paneCreated: (sessionId: string) => void
+    onFsChanged: (callback: (changes: Array<{ path: string; relativePath: string; type: string }>) => void) => () => void
+    contextMenuShow: (items: Array<{ id: string; label?: string; enabled?: boolean }>) => Promise<string | null>
+    canvasForwardPinch: (deltaY: number) => void
+    onCanvasPinch: (callback: (deltaY: number) => void) => () => void
+    onMenuAction: (callback: (action: string) => void) => () => void
+    zoomIn: () => void
+    zoomOut: () => void
+    zoomReset: () => void
+    fullscreenToggle: () => void
+    workspaceLoad: (folderPath: string) => Promise<{ selected_file: string | null; expanded_dirs: string[] }>
+    workspaceSave: (folderPath: string, config: { selected_file: string | null; expanded_dirs: string[] }) => Promise<void>
+    settingsGet: (key: string) => Promise<unknown>
+    settingsSet: (key: string, value: unknown) => Promise<void>
+    terminalSetMouseMode: (enabled: boolean) => Promise<void>
+    updateGetStatus: () => Promise<{ status: string; progress?: number; version?: string; releaseNotes?: string; error?: string }>
+    updateCheck: () => Promise<{ status: string; progress?: number; version?: string; releaseNotes?: string; error?: string }>
+    updateDownload: () => Promise<{ status: string; progress?: number; version?: string; releaseNotes?: string; error?: string }>
+    updateInstall: () => void
+    onUpdateStatus: (callback: (state: { status: string; progress?: number; version?: string; releaseNotes?: string; error?: string }) => void) => () => void
+    shellShowItemInFolder: (fullPath: string) => void
+    clipboardWriteText: (text: string) => void
+    clipboardReadText: () => string
   }
 }

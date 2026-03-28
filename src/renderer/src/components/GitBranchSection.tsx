@@ -4,9 +4,24 @@ import { useGitStore } from '../store/gitStore'
 
 interface GitBranchSectionProps {
   folderPath: string
+  folderPaths?: string[]
 }
 
-export function GitBranchSection({ folderPath }: GitBranchSectionProps): React.JSX.Element | null {
+export function GitBranchSection({ folderPath, folderPaths }: GitBranchSectionProps): React.JSX.Element | null {
+  const effectivePaths = folderPaths && folderPaths.length > 0 ? folderPaths : [folderPath]
+  const isMulti = effectivePaths.length > 1
+  const [activeFolderIdx, setActiveFolderIdx] = useState(0)
+  const activeFolder = effectivePaths[activeFolderIdx] ?? effectivePaths[0]
+  const activeFolderName = activeFolder.split('/').pop() ?? activeFolder
+
+  // Reset index if folderPaths change
+  useEffect(() => {
+    setActiveFolderIdx(0)
+  }, [folderPaths?.length])
+
+  // Override folderPath with activeFolder for all git operations below
+  // eslint-disable-next-line no-param-reassign
+  folderPath = activeFolder
   const {
     isRepo,
     currentBranch,
@@ -21,6 +36,7 @@ export function GitBranchSection({ folderPath }: GitBranchSectionProps): React.J
   } = useGitStore()
 
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [folderDropdownOpen, setFolderDropdownOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [newBranchName, setNewBranchName] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -79,15 +95,16 @@ export function GitBranchSection({ folderPath }: GitBranchSectionProps): React.J
   }, [error, setError])
 
   useEffect(() => {
-    if (!dropdownOpen) return
+    if (!dropdownOpen && !folderDropdownOpen) return
     function handleClick(e: MouseEvent): void {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setDropdownOpen(false)
+        setFolderDropdownOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [dropdownOpen])
+  }, [dropdownOpen, folderDropdownOpen])
 
   useEffect(() => {
     if (!dropdownOpen) {
@@ -96,7 +113,9 @@ export function GitBranchSection({ folderPath }: GitBranchSectionProps): React.J
     }
   }, [dropdownOpen])
 
-  if (!isRepo) return null
+  // Single folder: hide entirely if not a git repo
+  // Multi folder: show the folder picker so user can switch to a repo
+  if (!isRepo && !isMulti) return null
 
   async function handleCheckout(branch: string): Promise<void> {
     setDropdownOpen(false)
@@ -153,25 +172,79 @@ export function GitBranchSection({ folderPath }: GitBranchSectionProps): React.J
 
   return (
     <div className="sidebar-branch-manager" ref={containerRef}>
-      <button
-        className="sidebar-branch-trigger"
-        onClick={handleToggleDropdown}
-        aria-expanded={dropdownOpen}
-        aria-label="Switch git branch"
-        disabled={loading}
-      >
-        <GitBranch size={12} strokeWidth={1.8} aria-hidden="true" />
-        <span className={`sidebar-branch-trigger-name${detached ? ' sidebar-branch-trigger-name--detached' : ''}`}>
-          {loading ? 'Loading...' : currentBranch}
-          {detached && ' (detached)'}
-        </span>
-        <ChevronDown
-          className={`sidebar-branch-trigger-chevron${dropdownOpen ? ' sidebar-branch-trigger-chevron--open' : ''}`}
-          size={10}
-          strokeWidth={1.8}
-          aria-hidden="true"
-        />
-      </button>
+      <div className="sidebar-branch-trigger-row">
+        {isMulti && (
+          <div className="sidebar-branch-folder-picker-wrap">
+            <button
+              className="sidebar-branch-folder-picker"
+              onClick={(e) => {
+                e.stopPropagation()
+                setFolderDropdownOpen((prev) => !prev)
+                setDropdownOpen(false)
+              }}
+              title={activeFolder}
+              aria-label={`Git repo: ${activeFolderName}`}
+              aria-expanded={folderDropdownOpen}
+            >
+              <span className="sidebar-branch-folder-name">{activeFolderName}</span>
+              <ChevronDown
+                className={`sidebar-branch-trigger-chevron${folderDropdownOpen ? ' sidebar-branch-trigger-chevron--open' : ''}`}
+                size={8}
+                strokeWidth={1.8}
+                aria-hidden="true"
+              />
+            </button>
+            {folderDropdownOpen && (
+              <div className="sidebar-branch-folder-dropdown" role="listbox" aria-label="Select project">
+                {effectivePaths.map((fp, idx) => {
+                  const name = fp.split('/').pop() ?? fp
+                  const isCurrent = idx === activeFolderIdx
+                  return (
+                    <button
+                      key={fp}
+                      className={`sidebar-branch-folder-dropdown-item${isCurrent ? ' sidebar-branch-folder-dropdown-item--current' : ''}`}
+                      role="option"
+                      aria-selected={isCurrent}
+                      onClick={() => {
+                        setActiveFolderIdx(idx)
+                        setFolderDropdownOpen(false)
+                      }}
+                    >
+                      {isCurrent && <Check size={10} strokeWidth={2} aria-hidden="true" />}
+                      <span>{name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+        {isRepo ? (
+          <button
+            className="sidebar-branch-trigger"
+            onClick={handleToggleDropdown}
+            aria-expanded={dropdownOpen}
+            aria-label="Switch git branch"
+            disabled={loading}
+          >
+            <GitBranch size={12} strokeWidth={1.8} aria-hidden="true" />
+            <span className={`sidebar-branch-trigger-name${detached ? ' sidebar-branch-trigger-name--detached' : ''}`}>
+              {loading ? 'Loading...' : currentBranch}
+              {detached && ' (detached)'}
+            </span>
+            <ChevronDown
+              className={`sidebar-branch-trigger-chevron${dropdownOpen ? ' sidebar-branch-trigger-chevron--open' : ''}`}
+              size={10}
+              strokeWidth={1.8}
+              aria-hidden="true"
+            />
+          </button>
+        ) : (
+          <span className="sidebar-branch-trigger-name sidebar-branch-trigger-name--no-git">
+            no git
+          </span>
+        )}
+      </div>
 
       {error && <div className="sidebar-branch-error">{error}</div>}
 

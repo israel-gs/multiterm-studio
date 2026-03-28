@@ -38,6 +38,7 @@ interface Props {
   onToggleMaximize?: (id: string) => void
   onGroupDragContext?: (id: string) => Array<{ id: string; x: number; y: number }> | null
   onGroupMove?: (moves: Array<{ id: string; x: number; y: number }>) => void
+  onCenterTile?: (id: string) => void
 }
 
 const MIN_W = 300
@@ -67,7 +68,8 @@ export function FloatingCard({
   maximized,
   onToggleMaximize,
   onGroupDragContext,
-  onGroupMove
+  onGroupMove,
+  onCenterTile
 }: Props): React.JSX.Element {
   const cardRef = useRef<HTMLDivElement>(null)
   const clearAttention = usePanelStore((s) => s.clearAttention)
@@ -460,7 +462,10 @@ export function FloatingCard({
       onKeyDown={handleKeyDown}
     >
       {/* Drag handle wraps the header */}
-      <div data-drag-handle onMouseDown={handleDragStart}>
+      <div data-drag-handle onMouseDown={handleDragStart} onDoubleClick={(e) => {
+        e.stopPropagation()
+        onCenterTile?.(sessionId)
+      }}>
         <CardHeader
           sessionId={sessionId}
           maximized={maximized}

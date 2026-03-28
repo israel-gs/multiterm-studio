@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { PanelLeft, ChevronDown, Plus, Search, Settings } from 'lucide-react'
-import { FileTree, SortMode } from './FileTree'
+import { PanelLeft, ChevronDown, Plus, Search, Settings, FolderPlus, Save, FolderOpen } from 'lucide-react'
+import { FileTree, MultiRootFileTree, SortMode } from './FileTree'
 import { GitBranchSection } from './GitBranchSection'
 import { SettingsPanel } from './SettingsPanel'
 import { useProjectStore } from '../store/projectStore'
@@ -14,7 +14,11 @@ interface RecentProject {
 
 interface EnhancedSidebarProps {
   folderPath: string
+  folderPaths?: string[]
   onSwitchProject?: (path: string) => void
+  onAddFolder?: () => void
+  onRemoveFolder?: (path: string) => void
+  onSaveWorkspace?: () => void
   onToggleSidebar?: () => void
 }
 
@@ -24,9 +28,15 @@ function shortenPath(fullPath: string): string {
 
 export function EnhancedSidebar({
   folderPath,
+  folderPaths,
   onSwitchProject,
+  onAddFolder,
+  onRemoveFolder,
+  onSaveWorkspace,
   onToggleSidebar
 }: EnhancedSidebarProps): React.JSX.Element {
+  const effectivePaths = folderPaths && folderPaths.length > 0 ? folderPaths : [folderPath]
+  const isMultiRoot = effectivePaths.length > 1
   const setFolderPath = useProjectStore((s) => s.setFolderPath)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortOrder, setSortOrder] = useState<SortMode>('alpha-asc')
@@ -124,13 +134,35 @@ export function EnhancedSidebar({
                 </button>
               )
             })}
+            {otherProjects.length > 0 && <div className="sidebar-project-dropdown-separator" />}
             <button
               className="sidebar-project-dropdown-item sidebar-project-dropdown-item--add"
               onClick={() => void handleAddWorkspace()}
+              aria-label="Open folder"
             >
-              <Plus size={12} strokeWidth={1.5} aria-hidden="true" />
-              Add workspace...
+              <FolderOpen size={12} strokeWidth={1.5} aria-hidden="true" />
+              Open folder...
             </button>
+            {onAddFolder && (
+              <button
+                className="sidebar-project-dropdown-item sidebar-project-dropdown-item--add"
+                onClick={() => { setDropdownOpen(false); onAddFolder() }}
+                aria-label="Add folder to workspace"
+              >
+                <FolderPlus size={12} strokeWidth={1.5} aria-hidden="true" />
+                Add folder to workspace...
+              </button>
+            )}
+            {onSaveWorkspace && (
+              <button
+                className="sidebar-project-dropdown-item sidebar-project-dropdown-item--add"
+                onClick={() => { setDropdownOpen(false); onSaveWorkspace() }}
+                aria-label="Save workspace"
+              >
+                <Save size={12} strokeWidth={1.5} aria-hidden="true" />
+                Save workspace as...
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -181,13 +213,53 @@ export function EnhancedSidebar({
       </div>
 
       {/* File tree */}
-      <div className="sidebar-tree-container">
-        <FileTree rootPath={folderPath} searchQuery={searchQuery} sortOrder={sortOrder} />
+      <div
+        className="sidebar-tree-container"
+        onContextMenu={async (e) => {
+          // Only show background context menu if click is on the container itself
+          if ((e.target as HTMLElement).closest('.file-tree-node')) return
+          e.preventDefault()
+          const items = [
+            { id: 'new-file', label: 'New File' },
+            { id: 'new-folder', label: 'New Folder' },
+            { id: 'separator', label: '' },
+            { id: 'reveal-finder', label: 'Reveal in Finder' },
+            ...(onAddFolder ? [
+              { id: 'separator', label: '' },
+              { id: 'add-folder', label: 'Add folder to workspace...' }
+            ] : [])
+          ]
+          const action = await window.electronAPI.contextMenuShow(items)
+          if (!action) return
+          const targetPath = folderPath
+          if (action === 'new-file') {
+            await window.electronAPI.fileCreate(`${targetPath}/Untitled.md`)
+            useProjectStore.getState().bumpFsRefresh()
+          } else if (action === 'new-folder') {
+            await window.electronAPI.folderCreate(`${targetPath}/New Folder`)
+            useProjectStore.getState().bumpFsRefresh()
+          } else if (action === 'reveal-finder') {
+            window.electronAPI.shellShowItemInFolder(targetPath)
+          } else if (action === 'add-folder') {
+            onAddFolder?.()
+          }
+        }}
+      >
+        {isMultiRoot ? (
+          <MultiRootFileTree
+            rootPaths={effectivePaths}
+            searchQuery={searchQuery}
+            sortOrder={sortOrder}
+            onRemoveFromWorkspace={onRemoveFolder}
+          />
+        ) : (
+          <FileTree rootPath={folderPath} searchQuery={searchQuery} sortOrder={sortOrder} />
+        )}
       </div>
 
       {/* Bottom bar — branch + settings icon */}
       <div className="sidebar-bottom-bar">
-        <GitBranchSection folderPath={folderPath} />
+        <GitBranchSection folderPath={folderPath} folderPaths={effectivePaths} />
         <button
           className="sidebar-settings-icon-btn"
           onClick={() => setSettingsOpen(true)}

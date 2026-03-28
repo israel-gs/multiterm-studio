@@ -126,7 +126,7 @@ function deleteSessionMeta(id: string): void {
 export function cleanupOrphanSessions(knownPanelIds: string[]): void {
   let tmuxNames: string[]
   try {
-    const raw = tmuxExec('list-sessions', '-F', '#{session_name}')
+    const raw = tmuxExec('list-sessions', '-F', '#' + '{session_name}')
     tmuxNames = raw.split('\n').filter(Boolean)
   } catch {
     tmuxNames = []
@@ -249,36 +249,25 @@ export function registerPtyHandlers(win: BrowserWindow): void {
         // ignore
       }
     } else {
-      if (initialCommand) {
-        // Pass the entire command as a single shell-quoted string so that
-        // tmux's internal sh -c parsing preserves the full command with args.
-        // Without quoting, "zsh -l -c claude --flag" makes zsh treat --flag
-        // as $0 instead of part of the command.
-        // Use login+interactive shell (-lic) so both .zprofile AND .zshrc are
-        // sourced. This is critical because tools like claude are installed in
-        // ~/.local/bin which is typically added to PATH in .zshrc, not .zprofile.
-        const fullCmd = `${shell} -lic ${shellQuote(initialCommand)}`
-        tmuxExec(
-          'new-session', '-d', '-s', tmuxName,
-          '-c', safeCwd,
-          '-x', '80', '-y', '24',
-          fullCmd
-        )
-      } else {
-        // Use login shell for regular terminals too so PATH is correct
-        tmuxExec(
-          'new-session', '-d', '-s', tmuxName,
-          '-c', safeCwd,
-          '-x', '80', '-y', '24',
-          shell, '-l'
-        )
-      }
+      // Always start with a login shell so the pane stays alive after
+      // any command exits. If there's an initial command, send it as
+      // keystrokes after the session is created.
+      tmuxExec(
+        'new-session', '-d', '-s', tmuxName,
+        '-c', safeCwd,
+        '-x', '80', '-y', '24',
+        shell, '-l'
+      )
       tmuxExec('set-option', '-t', tmuxName, 'status', 'off')
       tmuxExec('set-option', '-g', 'mouse', tmuxMouseEnabled ? 'on' : 'off')
       tmuxExec('set-environment', '-t', tmuxName, 'MULTITERM_PTY_SESSION_ID', id)
       tmuxExec('set-environment', '-t', tmuxName, 'SHELL', shell)
       tmuxExec('set-environment', '-t', tmuxName, 'TERM_PROGRAM', 'multiterm-studio')
       writeSessionMeta(id, { shell, cwd: safeCwd, createdAt: new Date().toISOString() })
+
+      if (initialCommand) {
+        tmuxExec('send-keys', '-t', tmuxName, initialCommand, 'Enter')
+      }
     }
 
     // Attach to tmux session via node-pty
@@ -340,10 +329,9 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     const session = sessions.get(id)
     if (!session) return []
     try {
-      const raw = tmuxExec(
-        'list-panes', '-t', session.tmuxName,
-        '-F', '#{pane_index}\t#{pane_current_command}\t#{pane_active}\t#{pane_pid}\t#{pane_title}'
-      )
+      const fmt = ['pane_index', 'pane_current_command', 'pane_active', 'pane_pid', 'pane_title']
+        .map((k) => '#' + '{' + k + '}').join('\t')
+      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', fmt)
       return raw.split('\n').filter(Boolean).map((line) => {
         const [index, command, active, pid, ...titleParts] = line.split('\t')
         const title = titleParts.join('\t')
@@ -388,7 +376,7 @@ export function registerPtyHandlers(win: BrowserWindow): void {
     const session = sessions.get(id)
     if (!session) return null
     try {
-      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', '#{pane_current_path}')
+      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', '#' + '{pane_current_path}')
       return raw.split('\n')[0]?.trim() || null
     } catch {
       return null
@@ -397,14 +385,35 @@ export function registerPtyHandlers(win: BrowserWindow): void {
 
   ipcMain.handle('pty:has-process', (_event, id: string) => {
     const session = sessions.get(id)
-    if (!session) return false
+    if (!session) return { hasProcess: false, processName: null }
     try {
-      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', '#{pane_current_command}')
-      const cmd = raw.split('\n')[0]?.trim() ?? ''
+      const fmt = ['pane_current_command', 'pane_pid'].map((k) => '#' + '{' + k + '}').join('\t')
+      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', fmt)
+      const parts = raw.split('\n')[0]?.split('\t') ?? []
+      const cmd = (parts[0] ?? '').trim()
+      const panePid = (parts[1] ?? '').trim()
       const shells = ['zsh', 'bash', 'sh', 'fish']
-      return !shells.includes(cmd.toLowerCase())
+      const isShell = shells.includes(cmd.toLowerCase())
+
+      if (isShell) return { hasProcess: false, processName: null }
+
+      // Try to get the actual foreground process name via ps
+      let processName = cmd
+      if (panePid) {
+        try {
+          const psOut = execFileSync('ps', ['-o', 'comm=', '-p', panePid], {
+            encoding: 'utf-8',
+            timeout: 2_000
+          }).trim()
+          if (psOut) processName = psOut.split('/').pop() ?? psOut
+        } catch {
+          // fall back to tmux command name
+        }
+      }
+
+      return { hasProcess: true, processName }
     } catch {
-      return false
+      return { hasProcess: false, processName: null }
     }
   })
 

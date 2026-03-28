@@ -5,11 +5,14 @@ interface RecentProject {
   name: string
   lastOpened: number
   openCount: number
+  type?: 'folder' | 'workspace'
+  folderNames?: string[]
 }
 
 interface WelcomeScreenProps {
   onSelectProject: (folderPath: string) => void
   onPickFolder: () => void
+  onOpenWorkspace?: () => void
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -33,15 +36,32 @@ function shortenPath(fullPath: string): string {
 
 export function WelcomeScreen({
   onSelectProject,
-  onPickFolder
+  onPickFolder,
+  onOpenWorkspace
 }: WelcomeScreenProps): React.JSX.Element {
   const [projects, setProjects] = useState<RecentProject[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    window.electronAPI.projectsRecent().then((list) => {
-      setProjects(list)
+    window.electronAPI.projectsRecent().then(async (list) => {
+      // Backfill type and folderNames for workspace entries that predate the metadata fields
+      const enriched = await Promise.all(list.map(async (p) => {
+        const isWsPath = p.path.endsWith('.multiterm-workspace') || p.path.endsWith('.code-workspace')
+        if (isWsPath && (!p.type || !p.folderNames)) {
+          const ws = await window.electronAPI.workspaceFileLoad(p.path) as {
+            folders?: Array<{ path: string }>
+          } | null
+          return {
+            ...p,
+            type: 'workspace' as const,
+            folderNames: ws?.folders?.map((f) => f.path.split('/').pop() ?? f.path) ?? []
+          }
+        }
+        if (isWsPath && !p.type) return { ...p, type: 'workspace' as const }
+        return p
+      }))
+      setProjects(enriched)
       setLoading(false)
     })
   }, [])
@@ -105,50 +125,79 @@ export function WelcomeScreen({
           <div className="welcome-empty">Loading...</div>
         ) : (
           <div className="welcome-grid">
-            {filtered.map((project) => (
-              <div key={project.path} className="welcome-card-wrapper">
-                <button
-                  className="welcome-card"
-                  onClick={() => onSelectProject(project.path)}
-                >
-                  <div className="welcome-card-icon">
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M1 3.5C1 2.67 1.67 2 2.5 2H6l1.5 1.5H13.5C14.33 3.5 15 4.17 15 5V12.5C15 13.33 14.33 14 13.5 14H2.5C1.67 14 1 13.33 1 12.5V3.5Z"
-                        fill="var(--fg-secondary)"
-                      />
+            {filtered.map((project) => {
+              const isWs = project.type === 'workspace' || project.path.endsWith('.multiterm-workspace') || project.path.endsWith('.code-workspace')
+              const displayName = isWs
+                ? project.name.replace(/\.(multiterm-workspace|code-workspace)$/, '')
+                : project.name
+              return (
+                <div key={project.path} className="welcome-card-wrapper">
+                  <button
+                    className={`welcome-card${isWs ? ' welcome-card--workspace' : ''}`}
+                    onClick={() => onSelectProject(project.path)}
+                  >
+                    <div className="welcome-card-icon">
+                      {isWs ? (
+                        <svg width="24" height="24" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                          <path
+                            d="M3 5.5C3 4.67 3.67 4 4.5 4H7l1 1H12.5C13.33 5 14 5.67 14 6.5V11.5C14 12.33 13.33 13 12.5 13H4.5C3.67 13 3 12.33 3 11.5V5.5Z"
+                            fill="var(--fg-secondary)"
+                          />
+                          <path
+                            d="M1 3.5C1 2.67 1.67 2 2.5 2H5l1 1H10.5C11.33 3 12 3.67 12 4.5"
+                            stroke="var(--fg-secondary)"
+                            strokeWidth="1"
+                            fill="none"
+                            opacity="0.5"
+                          />
+                        </svg>
+                      ) : (
+                        <svg width="24" height="24" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                          <path
+                            d="M1 3.5C1 2.67 1.67 2 2.5 2H6l1.5 1.5H13.5C14.33 3.5 15 4.17 15 5V12.5C15 13.33 14.33 14 13.5 14H2.5C1.67 14 1 13.33 1 12.5V3.5Z"
+                            fill="var(--fg-secondary)"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="welcome-card-name">{displayName}</div>
+                    {isWs && project.folderNames && project.folderNames.length > 0 ? (
+                      <div className="welcome-card-folders">
+                        {project.folderNames.slice(0, 3).map((fn, i) => (
+                          <span key={i} className="welcome-card-folder-tag">{fn}</span>
+                        ))}
+                        {project.folderNames.length > 3 && (
+                          <span className="welcome-card-folder-tag welcome-card-folder-tag--more">
+                            +{project.folderNames.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="welcome-card-path">{shortenPath(project.path)}</div>
+                    )}
+                    <div className="welcome-card-meta">
+                      {project.openCount} session{project.openCount !== 1 ? 's' : ''}
+                      <span className="welcome-card-dot">&middot;</span>
+                      {formatRelativeTime(project.lastOpened)}
+                    </div>
+                  </button>
+                  <button
+                    className="welcome-card-remove"
+                    aria-label={`Remove ${displayName} from recents`}
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      await window.electronAPI.projectsRemove(project.path)
+                      setProjects((prev) => prev.filter((p) => p.path !== project.path))
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                      <line x1="3.5" y1="3.5" x2="10.5" y2="10.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                      <line x1="10.5" y1="3.5" x2="3.5" y2="10.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
                     </svg>
-                  </div>
-                  <div className="welcome-card-name">{project.name}</div>
-                  <div className="welcome-card-path">{shortenPath(project.path)}</div>
-                  <div className="welcome-card-meta">
-                    {project.openCount} session{project.openCount !== 1 ? 's' : ''}
-                    <span className="welcome-card-dot">&middot;</span>
-                    {formatRelativeTime(project.lastOpened)}
-                  </div>
-                </button>
-                <button
-                  className="welcome-card-remove"
-                  aria-label={`Remove ${project.name} from recents`}
-                  onClick={async (e) => {
-                    e.stopPropagation()
-                    await window.electronAPI.projectsRemove(project.path)
-                    setProjects((prev) => prev.filter((p) => p.path !== project.path))
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                    <line x1="3.5" y1="3.5" x2="10.5" y2="10.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                    <line x1="10.5" y1="3.5" x2="3.5" y2="10.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                  </svg>
-                </button>
-              </div>
-            ))}
+                  </button>
+                </div>
+              )
+            })}
 
             {/* Select Folder card */}
             <button className="welcome-card welcome-card--add" onClick={onPickFolder}>
@@ -186,6 +235,31 @@ export function WelcomeScreen({
               </div>
               <div className="welcome-card-name">Select Folder</div>
             </button>
+
+            {/* Open Workspace card */}
+            {onOpenWorkspace && (
+              <button className="welcome-card welcome-card--add" onClick={onOpenWorkspace}>
+                <div className="welcome-card-icon">
+                  <svg width="24" height="24" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    {/* Two overlapping folders representing multi-folder workspace */}
+                    <path
+                      d="M3 5.5C3 4.67 3.67 4 4.5 4H7l1 1H12.5C13.33 5 14 5.67 14 6.5V11.5C14 12.33 13.33 13 12.5 13H4.5C3.67 13 3 12.33 3 11.5V5.5Z"
+                      stroke="var(--fg-secondary)"
+                      strokeWidth="1"
+                      fill="none"
+                    />
+                    <path
+                      d="M1 3.5C1 2.67 1.67 2 2.5 2H5l1 1H10.5C11.33 3 12 3.67 12 4.5"
+                      stroke="var(--fg-secondary)"
+                      strokeWidth="1"
+                      fill="none"
+                      opacity="0.5"
+                    />
+                  </svg>
+                </div>
+                <div className="welcome-card-name">Open Workspace</div>
+              </button>
+            )}
           </div>
         )}
 

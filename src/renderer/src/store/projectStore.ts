@@ -15,6 +15,14 @@ export interface PaneCreateRequest {
 }
 
 export interface ProjectStore {
+  // Multi-folder workspace support
+  folderPaths: string[]
+  workspaceFilePath: string | null
+  setFolderPaths: (paths: string[]) => void
+  addFolderPath: (path: string) => void
+  removeFolderPath: (path: string) => void
+  setWorkspaceFilePath: (path: string | null) => void
+  // Backwards-compat: derived from folderPaths[0]
   folderPath: string | null
   setFolderPath: (path: string) => void
   pendingFileOpen: string | null
@@ -36,9 +44,25 @@ export interface ProjectStore {
   toggleExpandedDir: (dir: string) => void
 }
 
-export const useProjectStore = create<ProjectStore>((set) => ({
+export const useProjectStore = create<ProjectStore>((set, get) => ({
+  // Multi-folder workspace
+  folderPaths: [],
+  workspaceFilePath: null,
+  setFolderPaths: (paths) => set({ folderPaths: paths, folderPath: paths[0] ?? null }),
+  addFolderPath: (path) => {
+    const paths = get().folderPaths
+    if (paths.includes(path)) return
+    const next = [...paths, path]
+    set({ folderPaths: next, folderPath: next[0] ?? null })
+  },
+  removeFolderPath: (path) => {
+    const next = get().folderPaths.filter((p) => p !== path)
+    set({ folderPaths: next, folderPath: next[0] ?? null })
+  },
+  setWorkspaceFilePath: (path) => set({ workspaceFilePath: path }),
+  // Backwards-compat
   folderPath: null,
-  setFolderPath: (path) => set({ folderPath: path }),
+  setFolderPath: (path) => set({ folderPath: path, folderPaths: [path], workspaceFilePath: null }),
   pendingFileOpen: null,
   openFileInEditor: (filePath) => set({ pendingFileOpen: filePath }),
   clearPendingFileOpen: () => set({ pendingFileOpen: null }),

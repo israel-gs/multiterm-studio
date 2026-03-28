@@ -16,7 +16,7 @@ export interface SavedLayoutShape {
   tree?: unknown
   panels: Array<{ id: string; title: string; color: string; type?: 'terminal' | 'editor' | 'note' | 'image'; filePath?: string; noteContent?: string }>
   positions?: Record<string, CardRect>
-  viewport?: { panX: number; panY: number; zoom: number }
+  viewport?: { panX: number; panY: number; zoom: number; centerX?: number; centerY?: number }
 }
 
 interface TerminalCanvasProps {
@@ -149,7 +149,7 @@ function findNonOverlappingPosition(
 function buildLayoutSnapshot(
   panelIds: string[],
   positions: Record<string, CardRect>,
-  viewport: { panX: number; panY: number; zoom: number }
+  viewport: { panX: number; panY: number; zoom: number; centerX?: number; centerY?: number }
 ): SavedLayoutShape {
   const allPanels = usePanelStore.getState().panels
   const panels = panelIds
@@ -230,9 +230,15 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   )
 
   // Viewport state (refs for perf during continuous pan/zoom)
-  const canvasXRef = useRef(savedLayout?.viewport?.panX ?? 0)
-  const canvasYRef = useRef(savedLayout?.viewport?.panY ?? 0)
-  const scaleRef = useRef(savedLayout?.viewport?.zoom ?? 1)
+  // Prefer centerpoint-based restore to avoid drift on window resize
+  const savedVp = savedLayout?.viewport
+  const initZoom = savedVp?.zoom ?? 1
+  const canvasXRef = useRef(savedVp?.panX ?? 0)
+  const canvasYRef = useRef(savedVp?.panY ?? 0)
+  const scaleRef = useRef(initZoom)
+  const viewportCenterRestored = useRef(false)
+  const savedCenterX = useRef(savedVp?.centerX)
+  const savedCenterY = useRef(savedVp?.centerY)
 
 
   // DOM refs
@@ -652,12 +658,17 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       viewportSaveTimer = setTimeout(() => {
         const fp = folderPathRef.current
         if (!fp) return
+        const vw = viewport.clientWidth
+        const vh = viewport.clientHeight
+        const zoom = scaleRef.current
         scheduleSave(
           fp,
           buildLayoutSnapshot(panelIdsRef.current, positionsRef.current, {
             panX: canvasXRef.current,
             panY: canvasYRef.current,
-            zoom: scaleRef.current
+            zoom,
+            centerX: (vw / 2 - canvasXRef.current) / zoom,
+            centerY: (vh / 2 - canvasYRef.current) / zoom
           })
         )
       }, 2000)
@@ -964,10 +975,21 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       }
     }
 
-    // --- Edge indicator click (event delegation) ---
+    // --- Edge indicator click (event delegation) → pan + highlight ---
     function handleEdgeClick(e: MouseEvent): void {
       const dot = (e.target as HTMLElement).closest('.edge-dot') as HTMLElement | null
-      if (dot?.dataset.tileId) panToTile(dot.dataset.tileId)
+      if (dot?.dataset.tileId) {
+        const tileId = dot.dataset.tileId
+        panToTile(tileId)
+        // Highlight the tile after pan animation completes
+        setTimeout(() => {
+          const el = document.querySelector(`[data-card-id="${tileId}"]`) as HTMLElement | null
+          if (el) {
+            el.classList.add('floating-card--highlight')
+            setTimeout(() => el.classList.remove('floating-card--highlight'), 1200)
+          }
+        }, 360) // slightly after 350ms pan animation
+      }
     }
 
     // --- Keyboard shortcuts ---
@@ -1009,15 +1031,12 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         return
       }
 
-      // Delete/Backspace: remove selected cards
+      // Delete/Backspace: remove selected cards (with confirmation)
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedIdsRef.current.size === 0) return
-        if (
-          selectedIdsRef.current.size > 1 &&
-          !window.confirm(`Close ${selectedIdsRef.current.size} terminals?`)
-        ) {
-          return
-        }
+        const count = selectedIdsRef.current.size
+        const label = count === 1 ? 'Close this tile?' : `Close ${count} tiles?`
+        if (!window.confirm(label)) return
         for (const id of selectedIdsRef.current) {
           handleClosePanelRef.current(id)
         }
@@ -1103,7 +1122,19 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     window.addEventListener('keydown', handleKeyDown, true)
     window.addEventListener('keyup', handleKeyUp)
 
-    const ro = new ResizeObserver(() => updateCanvas())
+    const ro = new ResizeObserver(() => {
+      // On first resize, restore viewport from saved centerpoint to avoid drift
+      if (!viewportCenterRestored.current && savedCenterX.current != null && savedCenterY.current != null) {
+        viewportCenterRestored.current = true
+        const vw = viewport.clientWidth
+        const vh = viewport.clientHeight
+        if (vw > 0 && vh > 0) {
+          canvasXRef.current = vw / 2 - savedCenterX.current * scaleRef.current
+          canvasYRef.current = vh / 2 - savedCenterY.current * scaleRef.current
+        }
+      }
+      updateCanvas()
+    })
     ro.observe(viewport)
 
     // Initial draw
@@ -1424,8 +1455,17 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   }, [])
 
   // --- Layout persistence helpers ---
-  function getViewport(): { panX: number; panY: number; zoom: number } {
-    return { panX: canvasXRef.current, panY: canvasYRef.current, zoom: scaleRef.current }
+  function getViewport(): { panX: number; panY: number; zoom: number; centerX?: number; centerY?: number } {
+    const vp = viewportRef.current
+    const zoom = scaleRef.current
+    const result: { panX: number; panY: number; zoom: number; centerX?: number; centerY?: number } = {
+      panX: canvasXRef.current, panY: canvasYRef.current, zoom
+    }
+    if (vp) {
+      result.centerX = (vp.clientWidth / 2 - canvasXRef.current) / zoom
+      result.centerY = (vp.clientHeight / 2 - canvasYRef.current) / zoom
+    }
+    return result
   }
 
   function triggerSave(ids: string[], pos: Record<string, CardRect>): void {
@@ -1995,19 +2035,42 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         onDrop={(e) => {
           e.preventDefault()
           viewportRef.current?.classList.remove('canvas-drop-target')
-          const raw = e.dataTransfer.getData('application/x-multiterm-file')
-          if (!raw) return
-          const data = JSON.parse(raw) as { path: string; name: string; isDir: boolean }
-          if (data.isDir) return
+
           const vpRect = viewportRef.current!.getBoundingClientRect()
           const scale = scaleRef.current
-          const cx = (e.clientX - vpRect.left - canvasXRef.current) / scale
-          const cy = (e.clientY - vpRect.top - canvasYRef.current) / scale
-          const tileType = inferTileType(data.path)
-          if (tileType === 'image') {
-            handleAddImage(data.path, cx, cy)
-          } else {
-            handleOpenFileAt(data.path, cx, cy)
+          const baseCx = (e.clientX - vpRect.left - canvasXRef.current) / scale
+          const baseCy = (e.clientY - vpRect.top - canvasYRef.current) / scale
+
+          // Internal drag from sidebar
+          const raw = e.dataTransfer.getData('application/x-multiterm-file')
+          if (raw) {
+            const data = JSON.parse(raw) as { path: string; name: string; isDir: boolean }
+            if (data.isDir) return
+            const tileType = inferTileType(data.path)
+            if (tileType === 'image') {
+              handleAddImage(data.path, baseCx, baseCy)
+            } else {
+              handleOpenFileAt(data.path, baseCx, baseCy)
+            }
+            return
+          }
+
+          // Native file drop from Finder/desktop
+          const files = e.dataTransfer.files
+          if (files.length > 0) {
+            for (let i = 0; i < files.length; i++) {
+              const file = files[i]
+              const filePath = (file as File & { path?: string }).path
+              if (!filePath) continue
+              const offsetX = baseCx + i * 30
+              const offsetY = baseCy + i * 30
+              const tileType = inferTileType(filePath)
+              if (tileType === 'image') {
+                handleAddImage(filePath, offsetX, offsetY)
+              } else {
+                handleOpenFileAt(filePath, offsetX, offsetY)
+              }
+            }
           }
         }}
       >
@@ -2043,6 +2106,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
                 onToggleMaximize={handleToggleMaximize}
                 onGroupDragContext={getGroupDragContext}
                 onGroupMove={handleGroupMove}
+                onCenterTile={(id) => panToTileRef.current(id)}
               />
             )
           })}

@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, readdirSync } from 'fs'
 import { join } from 'path'
+import { homedir } from 'os'
 
 const HOOK_MARKER = 'multiterm-studio'
 
@@ -230,4 +231,176 @@ export async function removeHooks(projectPath: string): Promise<void> {
       // ignore
     }
   }
+}
+
+// --- OpenCode integration ---
+
+const OPENCODE_PLUGIN_NAME = 'multiterm-studio.js'
+
+const OPENCODE_PLUGIN_SCRIPT = `// multiterm-studio plugin for OpenCode
+// Sends session and tool events to the Multiterm Studio RPC server
+const fs = require('fs')
+const net = require('net')
+const os = require('os')
+const path = require('path')
+
+function getSocketPath() {
+  try {
+    return fs.readFileSync(path.join(os.homedir(), '.multiterm-studio', 'socket-path'), 'utf-8').trim()
+  } catch { return null }
+}
+
+function sendRpc(method, params) {
+  const socketPath = getSocketPath()
+  if (!socketPath) return
+  const msg = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) + '\\n'
+  try {
+    const client = net.createConnection(socketPath, () => { client.write(msg); client.end() })
+    client.on('error', () => {})
+  } catch {}
+}
+
+module.exports = function(ctx) {
+  const ptySessionId = process.env.MULTITERM_PTY_SESSION_ID || ''
+  return {
+    session: {
+      onCreated(session) {
+        sendRpc('agent.sessionStart', {
+          session_id: session.id || String(Date.now()),
+          cwd: ctx.directory || process.cwd(),
+          pty_session_id: ptySessionId
+        })
+      },
+      onError() {},
+      onFinished(session) {
+        sendRpc('agent.sessionEnd', {
+          session_id: session.id || String(Date.now())
+        })
+      }
+    },
+    tool: {
+      onCallStart(tool) {
+        if (['read', 'write', 'edit'].includes((tool.name || '').toLowerCase())) {
+          sendRpc('agent.fileTouched', {
+            session_id: tool.sessionId || '',
+            tool_name: tool.name || '',
+            file_path: (tool.input && (tool.input.file_path || tool.input.path)) || null
+          })
+        }
+      }
+    }
+  }
+}
+`
+
+/** Check if OpenCode is available on this system */
+export function isOpenCodeAvailable(): boolean {
+  const home = homedir()
+  if (existsSync(join(home, '.opencode'))) return true
+  try {
+    const paths = (process.env.PATH ?? '').split(':')
+    return paths.some((p) => existsSync(join(p, 'opencode')))
+  } catch {
+    return false
+  }
+}
+
+/** Inject the multiterm-studio plugin into an OpenCode project */
+export async function injectOpenCodeHooks(projectPath: string): Promise<void> {
+  if (!isOpenCodeAvailable()) return
+
+  const pluginsDir = join(projectPath, '.opencode', 'plugins')
+  if (!existsSync(pluginsDir)) {
+    mkdirSync(pluginsDir, { recursive: true })
+  }
+
+  writeFileSync(join(pluginsDir, OPENCODE_PLUGIN_NAME), OPENCODE_PLUGIN_SCRIPT, { mode: 0o644 })
+}
+
+/** Remove the multiterm-studio plugin from an OpenCode project */
+export async function removeOpenCodeHooks(projectPath: string): Promise<void> {
+  const pluginPath = join(projectPath, '.opencode', 'plugins', OPENCODE_PLUGIN_NAME)
+  try {
+    unlinkSync(pluginPath)
+  } catch {
+    // ignore
+  }
+
+  // Clean up empty plugins dir
+  const pluginsDir = join(projectPath, '.opencode', 'plugins')
+  try {
+    if (existsSync(pluginsDir) && readdirSync(pluginsDir).length === 0) {
+      unlinkSync(pluginsDir)
+    }
+  } catch {
+    // ignore
+  }
+}
+
+// --- Codex CLI integration ---
+
+const CODEX_INSTRUCTION_FILE = 'multiterm-studio.md'
+
+const CODEX_INSTRUCTION = `# Multiterm Studio Integration
+
+When running inside Multiterm Studio, the environment variable
+\`MULTITERM_PTY_SESSION_ID\` identifies the terminal session.
+
+A JSON-RPC 2.0 server is available at the Unix socket path stored in
+\`~/.multiterm-studio/socket-path\`. You can send notifications:
+
+- \`agent.sessionStart\` — announce your session
+- \`agent.fileTouched\` — log file read/write
+- \`agent.sessionEnd\` — signal completion
+
+Use \`pane.split\` to open new terminal panes, \`pane.sendText\` to type
+into them, and \`pane.focus\` to bring a pane to front.
+`
+
+function isCodexAvailable(): boolean {
+  const home = homedir()
+  if (existsSync(join(home, '.codex'))) return true
+  try {
+    const paths = (process.env.PATH ?? '').split(':')
+    return paths.some((p) => existsSync(join(p, 'codex')))
+  } catch {
+    return false
+  }
+}
+
+export async function injectCodexHooks(projectPath: string): Promise<void> {
+  if (!isCodexAvailable()) return
+  const dir = join(projectPath, '.codex', 'instructions')
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, CODEX_INSTRUCTION_FILE), CODEX_INSTRUCTION, 'utf-8')
+}
+
+export async function removeCodexHooks(projectPath: string): Promise<void> {
+  try { unlinkSync(join(projectPath, '.codex', 'instructions', CODEX_INSTRUCTION_FILE)) } catch { /* ignore */ }
+}
+
+// --- Gemini CLI integration ---
+
+const GEMINI_INSTRUCTION_FILE = 'multiterm-studio.md'
+
+function isGeminiAvailable(): boolean {
+  const home = homedir()
+  if (existsSync(join(home, '.gemini'))) return true
+  try {
+    const paths = (process.env.PATH ?? '').split(':')
+    return paths.some((p) => existsSync(join(p, 'gemini')))
+  } catch {
+    return false
+  }
+}
+
+export async function injectGeminiHooks(projectPath: string): Promise<void> {
+  if (!isGeminiAvailable()) return
+  const dir = join(projectPath, '.gemini', 'instructions')
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, GEMINI_INSTRUCTION_FILE), CODEX_INSTRUCTION, 'utf-8')
+}
+
+export async function removeGeminiHooks(projectPath: string): Promise<void> {
+  try { unlinkSync(join(projectPath, '.gemini', 'instructions', GEMINI_INSTRUCTION_FILE)) } catch { /* ignore */ }
 }

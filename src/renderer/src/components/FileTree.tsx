@@ -164,6 +164,8 @@ interface FileTreeNodeProps {
   sortOrder: SortMode
   startRenaming?: boolean
   defaultExpanded?: boolean
+  isWorkspaceRoot?: boolean
+  onRemoveFromWorkspace?: (path: string) => void
 }
 
 const FileTreeNode = React.memo(function FileTreeNode({
@@ -176,7 +178,9 @@ const FileTreeNode = React.memo(function FileTreeNode({
   searchQuery,
   sortOrder,
   startRenaming: startRenamingProp,
-  defaultExpanded
+  defaultExpanded,
+  isWorkspaceRoot,
+  onRemoveFromWorkspace
 }: FileTreeNodeProps): React.JSX.Element {
   const [expanded, setExpanded] = useState(defaultExpanded ?? false)
   const [children, setChildren] = useState<TreeEntry[] | null>(null)
@@ -234,15 +238,23 @@ const FileTreeNode = React.memo(function FileTreeNode({
           { id: 'new-file', label: 'New File' },
           { id: 'new-folder', label: 'New Folder' },
           { id: 'separator', label: '' },
-          { id: 'rename', label: 'Rename' },
-          { id: 'delete', label: 'Delete' },
-          { id: 'separator', label: '' },
-          { id: 'copy-path', label: 'Copy Path' }
+          ...(isWorkspaceRoot ? [] : [
+            { id: 'rename', label: 'Rename' },
+            { id: 'delete', label: 'Delete' },
+            { id: 'separator', label: '' },
+          ]),
+          { id: 'reveal-finder', label: 'Reveal in Finder' },
+          { id: 'copy-path', label: 'Copy Path' },
+          ...(isWorkspaceRoot && onRemoveFromWorkspace ? [
+            { id: 'separator', label: '' },
+            { id: 'remove-from-workspace', label: 'Remove folder from workspace' }
+          ] : [])
         ]
       : [
           { id: 'rename', label: 'Rename' },
           { id: 'delete', label: 'Delete' },
           { id: 'separator', label: '' },
+          { id: 'reveal-finder', label: 'Reveal in Finder' },
           { id: 'copy-path', label: 'Copy Path' }
         ]
 
@@ -293,8 +305,15 @@ const FileTreeNode = React.memo(function FileTreeNode({
           console.error('Create folder failed:', err)
         }
         break
+      case 'reveal-finder':
+        window.electronAPI.shellShowItemInFolder?.(path) ??
+          window.electronAPI.contextMenuShow([{ id: '_noop', label: 'Not available' }])
+        break
+      case 'remove-from-workspace':
+        onRemoveFromWorkspace?.(path)
+        break
     }
-  }, [isDir, path, name, expanded, bumpFsRefresh])
+  }, [isDir, path, name, expanded, bumpFsRefresh, onRemoveFromWorkspace])
 
   // Drag start handler (files and folders)
   const handleDragStart = useCallback((e: React.DragEvent): void => {
@@ -539,6 +558,44 @@ export function FileTree({
         sortOrder={sortOrder}
         defaultExpanded
       />
+    </div>
+  )
+}
+
+interface MultiRootFileTreeProps {
+  rootPaths: string[]
+  searchQuery?: string
+  sortOrder?: SortMode
+  onRemoveFromWorkspace?: (path: string) => void
+}
+
+export function MultiRootFileTree({
+  rootPaths,
+  searchQuery = '',
+  sortOrder = 'alpha-asc',
+  onRemoveFromWorkspace
+}: MultiRootFileTreeProps): React.JSX.Element {
+  return (
+    <div role="tree" aria-label="File tree" style={{ padding: '4px 0' }}>
+      {rootPaths.map((rootPath, i) => {
+        const rootName = rootPath.split('/').pop() || rootPath
+        return (
+          <div key={rootPath} className="file-tree-root-section">
+            {/* no separator — roots are visually distinct by their top-level folder style */}
+            <FileTreeNode
+              path={rootPath}
+              name={rootName}
+              isDir
+              depth={0}
+              searchQuery={searchQuery}
+              sortOrder={sortOrder}
+              defaultExpanded
+              isWorkspaceRoot={rootPaths.length > 1}
+              onRemoveFromWorkspace={onRemoveFromWorkspace}
+            />
+          </div>
+        )
+      })}
     </div>
   )
 }
