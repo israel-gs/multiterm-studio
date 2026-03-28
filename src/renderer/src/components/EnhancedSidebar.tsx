@@ -259,7 +259,7 @@ export function EnhancedSidebar({
 
       {/* Bottom bar — branch + settings icon */}
       <div className="sidebar-bottom-bar">
-        <GitBranchSection folderPath={folderPath} />
+        <GitBranchSection folderPath={folderPath} folderPaths={effectivePaths} />
         <button
           className="sidebar-settings-icon-btn"
           onClick={() => setSettingsOpen(true)}
