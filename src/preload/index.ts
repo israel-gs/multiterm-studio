@@ -393,6 +393,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('update:status', listener)
   },
 
+  // Shell integration
+  shellShowItemInFolder: (fullPath: string): void => {
+    ipcRenderer.send('shell:show-item-in-folder', fullPath)
+  },
+
   // Clipboard
   clipboardWriteText: (text: string): void => clipboard.writeText(text),
   clipboardReadText: (): string => clipboard.readText()

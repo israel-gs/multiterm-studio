@@ -105,6 +105,7 @@ interface Window {
     updateDownload: () => Promise<{ status: string; progress?: number; version?: string; releaseNotes?: string; error?: string }>
     updateInstall: () => void
     onUpdateStatus: (callback: (state: { status: string; progress?: number; version?: string; releaseNotes?: string; error?: string }) => void) => () => void
+    shellShowItemInFolder: (fullPath: string) => void
     clipboardWriteText: (text: string) => void
     clipboardReadText: () => string
   }

@@ -213,9 +213,45 @@ export function EnhancedSidebar({
       </div>
 
       {/* File tree */}
-      <div className="sidebar-tree-container">
+      <div
+        className="sidebar-tree-container"
+        onContextMenu={async (e) => {
+          // Only show background context menu if click is on the container itself
+          if ((e.target as HTMLElement).closest('.file-tree-node')) return
+          e.preventDefault()
+          const items = [
+            { id: 'new-file', label: 'New File' },
+            { id: 'new-folder', label: 'New Folder' },
+            { id: 'separator', label: '' },
+            { id: 'reveal-finder', label: 'Reveal in Finder' },
+            ...(onAddFolder ? [
+              { id: 'separator', label: '' },
+              { id: 'add-folder', label: 'Add folder to workspace...' }
+            ] : [])
+          ]
+          const action = await window.electronAPI.contextMenuShow(items)
+          if (!action) return
+          const targetPath = folderPath
+          if (action === 'new-file') {
+            await window.electronAPI.fileCreate(`${targetPath}/Untitled.md`)
+            useProjectStore.getState().bumpFsRefresh()
+          } else if (action === 'new-folder') {
+            await window.electronAPI.folderCreate(`${targetPath}/New Folder`)
+            useProjectStore.getState().bumpFsRefresh()
+          } else if (action === 'reveal-finder') {
+            window.electronAPI.shellShowItemInFolder(targetPath)
+          } else if (action === 'add-folder') {
+            onAddFolder?.()
+          }
+        }}
+      >
         {isMultiRoot ? (
-          <MultiRootFileTree rootPaths={effectivePaths} searchQuery={searchQuery} sortOrder={sortOrder} />
+          <MultiRootFileTree
+            rootPaths={effectivePaths}
+            searchQuery={searchQuery}
+            sortOrder={sortOrder}
+            onRemoveFromWorkspace={onRemoveFolder}
+          />
         ) : (
           <FileTree rootPath={folderPath} searchQuery={searchQuery} sortOrder={sortOrder} />
         )}

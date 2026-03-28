@@ -198,6 +198,11 @@ function createWindow(): void {
       }
     })
 
+    // Shell integration
+    ipcMain.on('shell:show-item-in-folder', (_event, fullPath: string) => {
+      shell.showItemInFolder(fullPath)
+    })
+
     // Native UI zoom (Cmd+= / Cmd+- / Cmd+0) and fullscreen (Shift+Cmd+F)
     ipcMain.on('zoom:in', () => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.zoomLevel = Math.min(mainWindow.webContents.zoomLevel + 0.5, 5)
