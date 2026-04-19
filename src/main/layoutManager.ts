@@ -98,7 +98,11 @@ export async function saveLayout(folderPath: string, layout: LayoutSnapshot): Pr
     await rename(tmpPath, targetPath)
   } catch {
     // Silent failure — do not crash the app on save errors
-    try { await unlink(tmpPath) } catch { /* ignore cleanup errors */ }
+    try {
+      await unlink(tmpPath)
+    } catch {
+      /* ignore cleanup errors */
+    }
   }
 }
 
@@ -115,7 +119,11 @@ export function saveLayoutSync(folderPath: string, layout: LayoutSnapshot): void
     renameSync(tmpPath, targetPath)
   } catch {
     // Silent failure
-    try { unlinkSync(tmpPath) } catch { /* ignore cleanup errors */ }
+    try {
+      unlinkSync(tmpPath)
+    } catch {
+      /* ignore cleanup errors */
+    }
   }
 }
 

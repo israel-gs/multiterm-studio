@@ -49,12 +49,7 @@ export function CanvasContextMenu({
   }, [onDismiss])
 
   return createPortal(
-    <div
-      ref={menuRef}
-      className="canvas-context-menu"
-      role="menu"
-      style={{ left: x, top: y }}
-    >
+    <div ref={menuRef} className="canvas-context-menu" role="menu" style={{ left: x, top: y }}>
       {type === 'canvas' && (
         <button
           className="canvas-context-menu-item"

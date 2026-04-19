@@ -14,7 +14,14 @@ export interface SavedLayoutShape {
   version: number
   panelIds?: string[]
   tree?: unknown
-  panels: Array<{ id: string; title: string; color: string; type?: 'terminal' | 'editor' | 'note' | 'image'; filePath?: string; noteContent?: string }>
+  panels: Array<{
+    id: string
+    title: string
+    color: string
+    type?: 'terminal' | 'editor' | 'note' | 'image'
+    filePath?: string
+    noteContent?: string
+  }>
   positions?: Record<string, CardRect>
   viewport?: { panX: number; panY: number; zoom: number; centerX?: number; centerY?: number }
 }
@@ -22,7 +29,6 @@ export interface SavedLayoutShape {
 interface TerminalCanvasProps {
   savedLayout?: SavedLayoutShape | null
 }
-
 
 const DEFAULT_W = 620
 const DEFAULT_H = 420
@@ -89,12 +95,8 @@ function findNonOverlappingPosition(
 
   function overlaps(x: number, y: number): boolean {
     for (const r of rects) {
-      if (
-        x < r.x + r.w + GAP &&
-        x + w + GAP > r.x &&
-        y < r.y + r.h + GAP &&
-        y + h + GAP > r.y
-      ) return true
+      if (x < r.x + r.w + GAP && x + w + GAP > r.x && y < r.y + r.h + GAP && y + h + GAP > r.y)
+        return true
     }
     return false
   }
@@ -225,9 +227,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   const panelIdsRef = useRef(panelIds)
   const positionsRef = useRef(positions)
   const folderPathRef = useRef(folderPath)
-  const topZRef = useRef(
-    Math.max(...Object.values(initRef.current.positions).map((r) => r.z), 0)
-  )
+  const topZRef = useRef(Math.max(...Object.values(initRef.current.positions).map((r) => r.z), 0))
 
   // Viewport state (refs for perf during continuous pan/zoom)
   // Prefer centerpoint-based restore to avoid drift on window resize
@@ -240,7 +240,6 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   const savedCenterX = useRef(savedVp?.centerX)
   const savedCenterY = useRef(savedVp?.centerY)
 
-
   // DOM refs
   const viewportRef = useRef<HTMLDivElement>(null)
   const gridCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -249,7 +248,11 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   const zoomIndicatorRef = useRef<HTMLDivElement>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement>(null)
   const minimapTransformRef = useRef<{
-    minX: number; minY: number; mScale: number; offsetX: number; offsetY: number
+    minX: number
+    minY: number
+    mScale: number
+    offsetX: number
+    offsetY: number
   } | null>(null)
 
   // Edge dot tracking (component-level so handleClosePanel can clean up)
@@ -257,7 +260,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   const edgeDotFadeOutsRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
 
   // Expose updateCanvas to call from outside the main effect
-  const updateCanvasRef = useRef<() => void>(() => { })
+  const updateCanvasRef = useRef<() => void>(() => {})
 
   // Selection state
   const selectedIdsRef = useRef<Set<string>>(new Set())
@@ -274,16 +277,16 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   const maximizedIdRef = useRef<string | null>(null)
 
   // Refs for accessing component-level functions from the main effect
-  const handleAddPanelRef = useRef<() => void>(() => { })
-  const handleAddPanelAtRef = useRef<(x: number, y: number) => void>(() => { })
-  const handleAddNoteRef = useRef<() => void>(() => { })
-  const handleClosePanelRef = useRef<(id: string) => void>(() => { })
-  const zoomToFitAllRef = useRef<() => void>(() => { })
-  const handleSpatialNavRef = useRef<(dir: 'left' | 'right' | 'up' | 'down') => void>(() => { })
-  const panToTileRef = useRef<(id: string) => void>(() => { })
-  const handleTidyRef = useRef<() => void>(() => { })
-  const handleDuplicateRef = useRef<(id: string) => void>(() => { })
-  const handleToggleMaximizeRef = useRef<(id: string) => void>(() => { })
+  const handleAddPanelRef = useRef<() => void>(() => {})
+  const handleAddPanelAtRef = useRef<(x: number, y: number) => void>(() => {})
+  const handleAddNoteRef = useRef<() => void>(() => {})
+  const handleClosePanelRef = useRef<(id: string) => void>(() => {})
+  const zoomToFitAllRef = useRef<() => void>(() => {})
+  const handleSpatialNavRef = useRef<(dir: 'left' | 'right' | 'up' | 'down') => void>(() => {})
+  const panToTileRef = useRef<(id: string) => void>(() => {})
+  const handleTidyRef = useRef<() => void>(() => {})
+  const handleDuplicateRef = useRef<(id: string) => void>(() => {})
+  const handleToggleMaximizeRef = useRef<(id: string) => void>(() => {})
 
   // Keep refs in sync
   useEffect(() => {
@@ -350,7 +353,8 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       const majorOffY = ((panY % majorStep) + majorStep) % majorStep
 
       // Detect light theme for grid dot colors
-      const isLight = document.documentElement.dataset.theme === 'light' ||
+      const isLight =
+        document.documentElement.dataset.theme === 'light' ||
         (document.documentElement.dataset.theme === 'system' &&
           window.matchMedia('(prefers-color-scheme: light)').matches)
 
@@ -511,7 +515,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       const vpWH = vpH / scale
 
       // Compute world bounds (all cards + viewport)
-      let minX = vpWX, minY = vpWY, maxX = vpWX + vpWW, maxY = vpWY + vpWH
+      let minX = vpWX,
+        minY = vpWY,
+        maxX = vpWX + vpWW,
+        maxY = vpWY + vpWH
       for (const id of ids) {
         const r = pos[id]
         if (!r) continue
@@ -522,7 +529,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       }
 
       const pad = 80
-      minX -= pad; minY -= pad; maxX += pad; maxY += pad
+      minX -= pad
+      minY -= pad
+      maxX += pad
+      maxY += pad
       const worldW = maxX - minX
       const worldH = maxY - minY
 
@@ -537,7 +547,8 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       minimapTransformRef.current = { minX, minY, mScale, offsetX, offsetY }
 
       // Background
-      const mmIsLight = document.documentElement.dataset.theme === 'light' ||
+      const mmIsLight =
+        document.documentElement.dataset.theme === 'light' ||
         (document.documentElement.dataset.theme === 'system' &&
           window.matchMedia('(prefers-color-scheme: light)').matches)
       mctx.clearRect(0, 0, MM_W, MM_H)
@@ -632,8 +643,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
     // --- Core update: tile-layer transform + grid + edge indicators + minimap ---
     function updateCanvas(): void {
-      tileLayer.style.transform =
-        `translate(${canvasXRef.current}px,${canvasYRef.current}px) scale(${scaleRef.current})`
+      tileLayer.style.transform = `translate(${canvasXRef.current}px,${canvasYRef.current}px) scale(${scaleRef.current})`
       drawGrid()
       updateEdgeIndicators()
       drawMinimap()
@@ -927,7 +937,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
     // --- Right-click context menu (native) ---
     // Uses capture phase (registered with `true`) so it fires before xterm.js
-    // mouse handlers which would otherwise swallow the event in tmux mouse mode.
+    // mouse handlers which would otherwise swallow the event in mouse mode.
     function handleContextMenu(e: MouseEvent): void {
       e.preventDefault()
       e.stopPropagation()
@@ -936,42 +946,51 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       if (card && card.dataset.cardId) {
         const cardId = card.dataset.cardId
         const pm = usePanelStore.getState().panels[cardId]
-        const closeLabel = pm?.type === 'editor' ? 'Close editor' : pm?.type === 'note' ? 'Close note' : 'Close terminal'
+        const closeLabel =
+          pm?.type === 'editor'
+            ? 'Close editor'
+            : pm?.type === 'note'
+              ? 'Close note'
+              : 'Close terminal'
         const isMaximized = maximizedId === cardId
-        window.electronAPI.contextMenuShow([
-          { id: 'rename', label: 'Rename' },
-          { id: 'color', label: 'Change color' },
-          { id: 'maximize', label: isMaximized ? 'Restore' : 'Maximize' },
-          { id: 'duplicate', label: 'Duplicate' },
-          { id: 'separator' },
-          { id: 'close', label: closeLabel }
-        ]).then((selected) => {
-          if (selected === 'rename') setModal({ type: 'rename', cardId })
-          else if (selected === 'color') setModal({ type: 'color', cardId })
-          else if (selected === 'maximize') handleToggleMaximizeRef.current(cardId)
-          else if (selected === 'duplicate') handleDuplicateRef.current(cardId)
-          else if (selected === 'close') handleClosePanelRef.current(cardId)
-        })
+        window.electronAPI
+          .contextMenuShow([
+            { id: 'rename', label: 'Rename' },
+            { id: 'color', label: 'Change color' },
+            { id: 'maximize', label: isMaximized ? 'Restore' : 'Maximize' },
+            { id: 'duplicate', label: 'Duplicate' },
+            { id: 'separator' },
+            { id: 'close', label: closeLabel }
+          ])
+          .then((selected) => {
+            if (selected === 'rename') setModal({ type: 'rename', cardId })
+            else if (selected === 'color') setModal({ type: 'color', cardId })
+            else if (selected === 'maximize') handleToggleMaximizeRef.current(cardId)
+            else if (selected === 'duplicate') handleDuplicateRef.current(cardId)
+            else if (selected === 'close') handleClosePanelRef.current(cardId)
+          })
       } else {
-        window.electronAPI.contextMenuShow([
-          { id: 'new-terminal', label: 'New terminal' },
-          { id: 'new-note', label: 'New note' },
-          { id: 'separator' },
-          { id: 'tidy', label: 'Tidy selection' },
-          { id: 'zoom-fit', label: 'Zoom to fit all' }
-        ]).then((selected) => {
-          if (selected === 'new-terminal') {
-            clearSelection()
-            handleAddPanelRef.current()
-          } else if (selected === 'new-note') {
-            clearSelection()
-            handleAddNoteRef.current()
-          } else if (selected === 'tidy') {
-            handleTidyRef.current()
-          } else if (selected === 'zoom-fit') {
-            zoomToFitAllRef.current()
-          }
-        })
+        window.electronAPI
+          .contextMenuShow([
+            { id: 'new-terminal', label: 'New terminal' },
+            { id: 'new-note', label: 'New note' },
+            { id: 'separator' },
+            { id: 'tidy', label: 'Tidy selection' },
+            { id: 'zoom-fit', label: 'Zoom to fit all' }
+          ])
+          .then((selected) => {
+            if (selected === 'new-terminal') {
+              clearSelection()
+              handleAddPanelRef.current()
+            } else if (selected === 'new-note') {
+              clearSelection()
+              handleAddNoteRef.current()
+            } else if (selected === 'tidy') {
+              handleTidyRef.current()
+            } else if (selected === 'zoom-fit') {
+              zoomToFitAllRef.current()
+            }
+          })
       }
     }
 
@@ -1089,7 +1108,11 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       }
 
       // Cmd+Opt+Arrows: Spatial navigation between tiles
-      if (e.metaKey && e.altKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+      if (
+        e.metaKey &&
+        e.altKey &&
+        ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
+      ) {
         e.preventDefault()
         const dir = e.key.replace('Arrow', '').toLowerCase() as 'left' | 'right' | 'up' | 'down'
         handleSpatialNavRef.current(dir)
@@ -1124,7 +1147,11 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
     const ro = new ResizeObserver(() => {
       // On first resize, restore viewport from saved centerpoint to avoid drift
-      if (!viewportCenterRestored.current && savedCenterX.current != null && savedCenterY.current != null) {
+      if (
+        !viewportCenterRestored.current &&
+        savedCenterX.current != null &&
+        savedCenterY.current != null
+      ) {
         viewportCenterRestored.current = true
         const vw = viewport.clientWidth
         const vh = viewport.clientHeight
@@ -1192,7 +1219,12 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       for (const id of Object.keys(state.panels)) {
         const cur = state.panels[id]
         const prevPanel = prev.panels[id]
-        if (prevPanel && (cur.title !== prevPanel.title || cur.color !== prevPanel.color || cur.noteContent !== prevPanel.noteContent)) {
+        if (
+          prevPanel &&
+          (cur.title !== prevPanel.title ||
+            cur.color !== prevPanel.color ||
+            cur.noteContent !== prevPanel.noteContent)
+        ) {
           // Redraw minimap when color changes
           if (cur.color !== prevPanel.color) updateCanvasRef.current()
           if (folderPathRef.current) {
@@ -1223,7 +1255,8 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
     const newId = crypto.randomUUID()
     const title = `@${req.agentName}`
-    const viewerCmd = `node -e "` +
+    const viewerCmd =
+      `node -e "` +
       `const fs=require('fs'),path=require('path'),dir='${req.subagentsDir.replace(/'/g, "\\'")}';` +
       `const ex=new Set();try{fs.readdirSync(dir).forEach(f=>{if(f.startsWith('agent-')&&f.endsWith('.jsonl'))ex.add(f)})}catch{}` +
       `process.stdout.write('\\\\x1b[35m\\\\x1b[1m● @${req.agentName.replace(/'/g, "\\'")}\\\\x1b[0m — waiting...\\\\n');` +
@@ -1241,17 +1274,29 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     addPanel(newId, title, colors.purple, 'terminal', undefined, viewerCmd)
 
     // Position to the right of rightmost panel
-    let x = 40, y = 40
+    let x = 40,
+      y = 40
     for (const id of panelIdsRef.current) {
       const pos = positionsRef.current[id]
-      if (pos) { const r = pos.x + pos.w + 40; if (r > x) { x = r; y = pos.y } }
+      if (pos) {
+        const r = pos.x + pos.w + 40
+        if (r > x) {
+          x = r
+          y = pos.y
+        }
+      }
     }
-    x = snapToGrid(x); y = snapToGrid(y)
+    x = snapToGrid(x)
+    y = snapToGrid(y)
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
 
-    setPanelIds(prev => { const next = [...prev, newId]; panelIdsRef.current = next; return next })
-    setPositions(prev => {
+    setPanelIds((prev) => {
+      const next = [...prev, newId]
+      panelIdsRef.current = next
+      return next
+    })
+    setPositions((prev) => {
       const next = { ...prev, [newId]: newRect }
       positionsRef.current = next
       triggerSave([...panelIdsRef.current], next)
@@ -1267,10 +1312,19 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       return
     }
 
-    addPanel(req.sessionId, req.title ?? 'Terminal', colors.cyan, 'terminal', undefined, undefined, req.cwd)
+    addPanel(
+      req.sessionId,
+      req.title ?? 'Terminal',
+      colors.cyan,
+      'terminal',
+      undefined,
+      undefined,
+      req.cwd
+    )
 
     // Position to the right of parent card if provided, else rightmost panel
-    let x = 40, y = 40
+    let x = 40,
+      y = 40
     if (req.parentSessionId) {
       const parentPos = positionsRef.current[req.parentSessionId]
       if (parentPos) {
@@ -1281,16 +1335,27 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     if (x === 40 && y === 40) {
       for (const id of panelIdsRef.current) {
         const pos = positionsRef.current[id]
-        if (pos) { const r = pos.x + pos.w + 40; if (r > x) { x = r; y = pos.y } }
+        if (pos) {
+          const r = pos.x + pos.w + 40
+          if (r > x) {
+            x = r
+            y = pos.y
+          }
+        }
       }
-      x = snapToGrid(x); y = snapToGrid(y)
+      x = snapToGrid(x)
+      y = snapToGrid(y)
     }
 
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
 
-    setPanelIds(prev => { const next = [...prev, req.sessionId]; panelIdsRef.current = next; return next })
-    setPositions(prev => {
+    setPanelIds((prev) => {
+      const next = [...prev, req.sessionId]
+      panelIdsRef.current = next
+      return next
+    })
+    setPositions((prev) => {
       const next = { ...prev, [req.sessionId]: newRect }
       positionsRef.current = next
       triggerSave([...panelIdsRef.current], next)
@@ -1367,7 +1432,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       idealY = (vh / 2 - canvasYRef.current) / scale - DEFAULT_H / 2
     }
 
-    const { x, y } = findNonOverlappingPosition(idealX, idealY, DEFAULT_W, DEFAULT_H, positionsRef.current)
+    const { x, y } = findNonOverlappingPosition(
+      idealX,
+      idealY,
+      DEFAULT_W,
+      DEFAULT_H,
+      positionsRef.current
+    )
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
 
@@ -1400,17 +1471,39 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   useEffect(() => {
     const unsub = window.electronAPI.onMenuAction((action) => {
       switch (action) {
-        case 'new-terminal': setShowNewTerminal(true); break
-        case 'new-note': handleAddNoteRef.current(); break
-        case 'duplicate': if (focusedCardIdRef.current) handleDuplicateRef.current(focusedCardIdRef.current); break
-        case 'close-tile': if (focusedCardIdRef.current) handleClosePanelRef.current(focusedCardIdRef.current); break
-        case 'zoom-fit-all': zoomToFitAllRef.current(); break
-        case 'zoom-fit-focused': if (focusedCardIdRef.current) zoomToFitAllRef.current(); break
-        case 'tidy': handleTidyRef.current(); break
-        case 'nav-left': handleSpatialNavRef.current('left'); break
-        case 'nav-right': handleSpatialNavRef.current('right'); break
-        case 'nav-up': handleSpatialNavRef.current('up'); break
-        case 'nav-down': handleSpatialNavRef.current('down'); break
+        case 'new-terminal':
+          setShowNewTerminal(true)
+          break
+        case 'new-note':
+          handleAddNoteRef.current()
+          break
+        case 'duplicate':
+          if (focusedCardIdRef.current) handleDuplicateRef.current(focusedCardIdRef.current)
+          break
+        case 'close-tile':
+          if (focusedCardIdRef.current) handleClosePanelRef.current(focusedCardIdRef.current)
+          break
+        case 'zoom-fit-all':
+          zoomToFitAllRef.current()
+          break
+        case 'zoom-fit-focused':
+          if (focusedCardIdRef.current) zoomToFitAllRef.current()
+          break
+        case 'tidy':
+          handleTidyRef.current()
+          break
+        case 'nav-left':
+          handleSpatialNavRef.current('left')
+          break
+        case 'nav-right':
+          handleSpatialNavRef.current('right')
+          break
+        case 'nav-up':
+          handleSpatialNavRef.current('up')
+          break
+        case 'nav-down':
+          handleSpatialNavRef.current('down')
+          break
       }
     })
     return unsub
@@ -1455,12 +1548,21 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   }, [])
 
   // --- Layout persistence helpers ---
-  function getViewport(): { panX: number; panY: number; zoom: number; centerX?: number; centerY?: number } {
+  function getViewport(): {
+    panX: number
+    panY: number
+    zoom: number
+    centerX?: number
+    centerY?: number
+  } {
     const vp = viewportRef.current
     const zoom = scaleRef.current
-    const result: { panX: number; panY: number; zoom: number; centerX?: number; centerY?: number } = {
-      panX: canvasXRef.current, panY: canvasYRef.current, zoom
-    }
+    const result: { panX: number; panY: number; zoom: number; centerX?: number; centerY?: number } =
+      {
+        panX: canvasXRef.current,
+        panY: canvasYRef.current,
+        zoom
+      }
     if (vp) {
       result.centerX = (vp.clientWidth / 2 - canvasXRef.current) / zoom
       result.centerY = (vp.clientHeight / 2 - canvasYRef.current) / zoom
@@ -1542,7 +1644,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       idealY = (vh / 2 - canvasYRef.current) / scale - DEFAULT_H / 2
     }
 
-    const { x, y } = findNonOverlappingPosition(idealX, idealY, DEFAULT_W, DEFAULT_H, positionsRef.current)
+    const { x, y } = findNonOverlappingPosition(
+      idealX,
+      idealY,
+      DEFAULT_W,
+      DEFAULT_H,
+      positionsRef.current
+    )
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
 
@@ -1563,7 +1671,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     const newId = crypto.randomUUID()
     addPanel(newId)
 
-    const { x, y } = findNonOverlappingPosition(cx - DEFAULT_W / 2, cy - DEFAULT_H / 2, DEFAULT_W, DEFAULT_H, positionsRef.current)
+    const { x, y } = findNonOverlappingPosition(
+      cx - DEFAULT_W / 2,
+      cy - DEFAULT_H / 2,
+      DEFAULT_W,
+      DEFAULT_H,
+      positionsRef.current
+    )
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
 
@@ -1596,7 +1710,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       idealY = (vh / 2 - canvasYRef.current) / scale - NOTE_H / 2
     }
 
-    const { x, y } = findNonOverlappingPosition(idealX, idealY, NOTE_W, NOTE_H, positionsRef.current)
+    const { x, y } = findNonOverlappingPosition(
+      idealX,
+      idealY,
+      NOTE_W,
+      NOTE_H,
+      positionsRef.current
+    )
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: NOTE_W, h: NOTE_H, z: newZ }
 
@@ -1645,7 +1765,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       idealY = (vh / 2 - canvasYRef.current) / scale - IMAGE_H / 2
     }
 
-    const { x, y } = findNonOverlappingPosition(idealX, idealY, IMAGE_W, IMAGE_H, positionsRef.current)
+    const { x, y } = findNonOverlappingPosition(
+      idealX,
+      idealY,
+      IMAGE_W,
+      IMAGE_H,
+      positionsRef.current
+    )
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: IMAGE_W, h: IMAGE_H, z: newZ }
 
@@ -1711,7 +1837,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     if (focusedCardIdRef.current === id) setFocusedCardId(null)
     if (maximizedId === id) setMaximizedId(null)
 
-    if (!panelMeta || (panelMeta.type !== 'editor' && panelMeta.type !== 'note' && panelMeta.type !== 'image')) {
+    if (
+      !panelMeta ||
+      (panelMeta.type !== 'editor' && panelMeta.type !== 'note' && panelMeta.type !== 'image')
+    ) {
       window.electronAPI.ptyKill(id)
     }
     removePanel(id)
@@ -1757,7 +1886,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     const vp = viewportRef.current
     if (!vp) return
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity
     for (const id of ids) {
       const r = positionsRef.current[id]
       if (!r) continue
@@ -1844,28 +1976,43 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
   // --- Tidy / auto-arrange ---
   function handleTidySelection(): void {
-    const ids = selectedIdsRef.current.size > 0
-      ? Array.from(selectedIdsRef.current)
-      : [...panelIdsRef.current]
+    const ids =
+      selectedIdsRef.current.size > 0
+        ? Array.from(selectedIdsRef.current)
+        : [...panelIdsRef.current]
     if (ids.length === 0) return
 
     const cols = Math.ceil(Math.sqrt(ids.length))
     const gap = GRID_CELL
 
     // Get average tile size
-    let avgW = DEFAULT_W, avgH = DEFAULT_H
-    let sumW = 0, sumH = 0, count = 0
+    let avgW = DEFAULT_W,
+      avgH = DEFAULT_H
+    let sumW = 0,
+      sumH = 0,
+      count = 0
     for (const id of ids) {
       const r = positionsRef.current[id]
-      if (r) { sumW += r.w; sumH += r.h; count++ }
+      if (r) {
+        sumW += r.w
+        sumH += r.h
+        count++
+      }
     }
-    if (count > 0) { avgW = sumW / count; avgH = sumH / count }
+    if (count > 0) {
+      avgW = sumW / count
+      avgH = sumH / count
+    }
 
     // Compute bounding box center of current positions
-    let cxSum = 0, cySum = 0
+    let cxSum = 0,
+      cySum = 0
     for (const id of ids) {
       const r = positionsRef.current[id]
-      if (r) { cxSum += r.x + r.w / 2; cySum += r.y + r.h / 2 }
+      if (r) {
+        cxSum += r.x + r.w / 2
+        cySum += r.y + r.h / 2
+      }
     }
     const centerX = cxSum / ids.length
     const centerY = cySum / ids.length
@@ -1901,7 +2048,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     const title = (pm.title || 'Terminal') + ' (copy)'
     addPanel(newId, title, pm.color, pm.type, pm.filePath, pm.initialCommand)
 
-    const { x, y } = findNonOverlappingPosition(rect.x + 30, rect.y + 30, rect.w, rect.h, positionsRef.current)
+    const { x, y } = findNonOverlappingPosition(
+      rect.x + 30,
+      rect.y + 30,
+      rect.w,
+      rect.h,
+      positionsRef.current
+    )
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: rect.w, h: rect.h, z: newZ }
 
@@ -1932,7 +2085,15 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   function handleCreateTerminal(termName: string, termCommand: string, termCwd?: string): void {
     const newId = crypto.randomUUID()
     const initialCommand = termCommand || undefined
-    addPanel(newId, termName || 'Terminal', colors.bgCard, 'terminal', undefined, initialCommand, termCwd)
+    addPanel(
+      newId,
+      termName || 'Terminal',
+      colors.bgCard,
+      'terminal',
+      undefined,
+      initialCommand,
+      termCwd
+    )
 
     const viewport = viewportRef.current
     const scale = scaleRef.current
@@ -1945,7 +2106,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       idealY = (vh / 2 - canvasYRef.current) / scale - DEFAULT_H / 2
     }
 
-    const { x, y } = findNonOverlappingPosition(idealX, idealY, DEFAULT_W, DEFAULT_H, positionsRef.current)
+    const { x, y } = findNonOverlappingPosition(
+      idealX,
+      idealY,
+      DEFAULT_W,
+      DEFAULT_H,
+      positionsRef.current
+    )
     const newZ = ++topZRef.current
     const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
 
@@ -1983,13 +2150,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     })
   }
 
-  function handleResizeWithMove(
-    id: string,
-    x: number,
-    y: number,
-    w: number,
-    h: number
-  ): void {
+  function handleResizeWithMove(id: string, x: number, y: number, w: number, h: number): void {
     setPositions((prev) => {
       const next = { ...prev, [id]: { ...prev[id], x, y, w, h } }
       positionsRef.current = next
@@ -2122,18 +2283,15 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
                 <div className="terminal-canvas-empty-ghost-body" />
               </div>
               <p className="terminal-canvas-empty-text">
-                Double-click the canvas or right-click for <strong>New terminal</strong> or <strong>New note</strong>
+                Double-click the canvas or right-click for <strong>New terminal</strong> or{' '}
+                <strong>New note</strong>
               </p>
             </div>
           </div>
         )}
       </div>
       {modal && (
-        <PanelModal
-          type={modal.type}
-          cardId={modal.cardId}
-          onDismiss={() => setModal(null)}
-        />
+        <PanelModal type={modal.type} cardId={modal.cardId} onDismiss={() => setModal(null)} />
       )}
     </div>
   )

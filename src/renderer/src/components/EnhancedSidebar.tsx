@@ -1,5 +1,14 @@
 import { useState, useEffect } from 'react'
-import { PanelLeft, ChevronDown, Plus, Search, Settings, FolderPlus, Save, FolderOpen } from 'lucide-react'
+import {
+  PanelLeft,
+  ChevronDown,
+  Plus,
+  Search,
+  Settings,
+  FolderPlus,
+  Save,
+  FolderOpen
+} from 'lucide-react'
 import { FileTree, MultiRootFileTree, SortMode } from './FileTree'
 import { GitBranchSection } from './GitBranchSection'
 import { SettingsPanel } from './SettingsPanel'
@@ -56,7 +65,6 @@ export function EnhancedSidebar({
     window.electronAPI.projectsRecent().then(setRecentProjects)
   }, [dropdownOpen])
 
-
   function handleSelectProject(path: string): void {
     setDropdownOpen(false)
     if (path === folderPath) return
@@ -89,10 +97,7 @@ export function EnhancedSidebar({
     <aside className="enhanced-sidebar">
       {/* Backdrop */}
       {dropdownOpen && (
-        <div
-          className="sidebar-project-backdrop"
-          onClick={() => setDropdownOpen(false)}
-        />
+        <div className="sidebar-project-backdrop" onClick={() => setDropdownOpen(false)} />
       )}
 
       {/* Top row: toggle + selector */}
@@ -113,7 +118,9 @@ export function EnhancedSidebar({
           aria-label="Switch project"
         >
           <span className="sidebar-project-label">
-            <span className="sidebar-project-label-prefix">{shortPath.replace(/\/[^/]+$/, '/')}</span>
+            <span className="sidebar-project-label-prefix">
+              {shortPath.replace(/\/[^/]+$/, '/')}
+            </span>
             <strong>{folderName}</strong>
           </span>
           <ChevronDown
@@ -153,7 +160,10 @@ export function EnhancedSidebar({
             {onAddFolder && (
               <button
                 className="sidebar-project-dropdown-item sidebar-project-dropdown-item--add"
-                onClick={() => { setDropdownOpen(false); onAddFolder() }}
+                onClick={() => {
+                  setDropdownOpen(false)
+                  onAddFolder()
+                }}
                 aria-label="Add folder to workspace"
               >
                 <FolderPlus size={12} strokeWidth={1.5} aria-hidden="true" />
@@ -163,7 +173,10 @@ export function EnhancedSidebar({
             {onOpenWorkspaceDialog && (
               <button
                 className="sidebar-project-dropdown-item sidebar-project-dropdown-item--add"
-                onClick={() => { setDropdownOpen(false); onOpenWorkspaceDialog() }}
+                onClick={() => {
+                  setDropdownOpen(false)
+                  onOpenWorkspaceDialog()
+                }}
                 aria-label="Open workspace file"
               >
                 <FolderOpen size={12} strokeWidth={1.5} aria-hidden="true" />
@@ -173,7 +186,10 @@ export function EnhancedSidebar({
             {onSaveWorkspace && (
               <button
                 className="sidebar-project-dropdown-item sidebar-project-dropdown-item--add"
-                onClick={() => { setDropdownOpen(false); onSaveWorkspace() }}
+                onClick={() => {
+                  setDropdownOpen(false)
+                  onSaveWorkspace()
+                }}
                 aria-label="Save workspace"
               >
                 <Save size={12} strokeWidth={1.5} aria-hidden="true" />
@@ -186,12 +202,7 @@ export function EnhancedSidebar({
 
       {/* Search bar */}
       <div className="sidebar-search">
-        <Search
-          className="sidebar-search-icon"
-          size={14}
-          strokeWidth={1.5}
-          aria-hidden="true"
-        />
+        <Search className="sidebar-search-icon" size={14} strokeWidth={1.5} aria-hidden="true" />
         <input
           className="sidebar-search-input"
           type="text"
@@ -241,10 +252,12 @@ export function EnhancedSidebar({
             { id: 'new-folder', label: 'New Folder' },
             { id: 'separator', label: '' },
             { id: 'reveal-finder', label: 'Reveal in Finder' },
-            ...(onAddFolder ? [
-              { id: 'separator', label: '' },
-              { id: 'add-folder', label: 'Add folder to workspace...' }
-            ] : [])
+            ...(onAddFolder
+              ? [
+                  { id: 'separator', label: '' },
+                  { id: 'add-folder', label: 'Add folder to workspace...' }
+                ]
+              : [])
           ]
           const action = await window.electronAPI.contextMenuShow(items)
           if (!action) return

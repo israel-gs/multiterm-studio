@@ -1,6 +1,6 @@
 ---
 phase: 03-project-context-panel-identity
-plan: "02"
+plan: '02'
 subsystem: ui
 tags: [react, electron, file-tree, zustand, xterm, sidebar, ipc]
 
@@ -34,13 +34,13 @@ key-files:
     - src/renderer/src/components/PanelWindow.tsx
 
 key-decisions:
-  - "FileTreeNode caches children in local useState after first folderReaddir call — collapse/re-expand never re-fetches from disk"
-  - "minWidth:0 on the mosaic flex container is required to prevent xterm from forcing the layout wider than the viewport when long lines are rendered"
-  - "cwd prop is passed to PanelWindow at MosaicLayout render time (not at panel creation time) so store changes apply to all future renders without panel recreation"
+  - 'FileTreeNode caches children in local useState after first folderReaddir call — collapse/re-expand never re-fetches from disk'
+  - 'minWidth:0 on the mosaic flex container is required to prevent xterm from forcing the layout wider than the viewport when long lines are rendered'
+  - 'cwd prop is passed to PanelWindow at MosaicLayout render time (not at panel creation time) so store changes apply to all future renders without panel recreation'
 
 patterns-established:
-  - "TDD RED/GREEN for React components: write vi.fn() mocks for electronAPI, render with @testing-library/react, assert behavior"
-  - "Disclosure triangle pattern: directories use ▸ (collapsed) / ▾ (expanded) Unicode characters for visual affordance without icon library dependency"
+  - 'TDD RED/GREEN for React components: write vi.fn() mocks for electronAPI, render with @testing-library/react, assert behavior'
+  - 'Disclosure triangle pattern: directories use ▸ (collapsed) / ▾ (expanded) Unicode characters for visual affordance without icon library dependency'
 
 requirements-completed: [PROJ-01, PROJ-02, PROJ-03]
 
@@ -128,5 +128,6 @@ None - no external service configuration required.
 - FOUND: commit 8c1cbb7 (docs metadata)
 
 ---
-*Phase: 03-project-context-panel-identity*
-*Completed: 2026-03-16*
+
+_Phase: 03-project-context-panel-identity_
+_Completed: 2026-03-16_

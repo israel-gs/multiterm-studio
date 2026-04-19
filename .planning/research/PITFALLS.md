@@ -34,6 +34,7 @@ export default defineConfig({
 Also ensure `node-pty` is under `dependencies` (not `devDependencies`) in `package.json` so electron-builder includes it in the packaged output.
 
 **Warning signs:**
+
 - `Error: Cannot find module 'node-pty'` at runtime after a clean build
 - App works in dev (`electron-vite dev`) but fails after `electron-vite build`
 - Build output does not contain a `node_modules/node-pty` directory
@@ -60,6 +61,7 @@ Add a `postinstall` script that rebuilds native modules for Electron's ABI:
 ```
 
 Or use `@electron/rebuild` directly:
+
 ```bash
 npx @electron/rebuild -f -w node-pty
 ```
@@ -67,6 +69,7 @@ npx @electron/rebuild -f -w node-pty
 Run this after any `npm install` that touches native dependencies.
 
 **Warning signs:**
+
 - `Error: The module '...pty.node' was compiled against a different Node.js version using NODE_MODULE_VERSION X. This version of Node.js requires NODE_MODULE_VERSION Y.`
 - Works with `node` directly but fails inside Electron
 - CI passes but local dev fails (or vice versa) when Node/Electron versions differ
@@ -89,12 +92,13 @@ Configure electron-builder to unpack node-pty's entire directory:
 ```yaml
 # electron-builder.yml
 asarUnpack:
-  - "**/node_modules/node-pty/**"
+  - '**/node_modules/node-pty/**'
 ```
 
 Verify the packaged `app.asar.unpacked/node_modules/node-pty/` directory contains `spawn-helper.exe` and `winpty.dll`.
 
 **Warning signs:**
+
 - Terminal works on macOS/Linux builds but not Windows
 - Windows packaged build logs: `posix_spawnp failed` or `ConnectNamedPipe failed`
 - No errors in dev mode, errors only in production
@@ -112,6 +116,7 @@ Verify the packaged `app.asar.unpacked/node_modules/node-pty/` directory contain
 Developers call `open()` in the wrong lifecycle stage — often in the body of a component function or in a `useEffect` that runs before layout paint. React Strict Mode (double-invocation in development) also causes `open()` to be called twice, which triggers a separate xterm bug where the second `open()` call does not render correctly.
 
 **How to avoid:**
+
 - Always initialize and open the terminal inside `useEffect` with a `useRef` pointing to the container div
 - Call `open()` only after confirming the `ref.current` is non-null
 - Call `terminal.dispose()` in the `useEffect` cleanup function to prevent double-open issues in Strict Mode
@@ -129,6 +134,7 @@ useEffect(() => {
 ```
 
 **Warning signs:**
+
 - Terminal container renders as empty white/black box
 - No errors in console
 - Terminal works after a hot reload but not on initial render
@@ -147,20 +153,22 @@ The xterm.js terminal has a character dimension (cols × rows). The node-pty pro
 Developers wire up FitAddon correctly for the initial render but forget to trigger `fitAddon.fit()` followed by `pty.resize(cols, rows)` when the panel size changes. react-mosaic triggers layout changes through its `onChange` callback — this does NOT automatically trigger a browser resize event.
 
 **How to avoid:**
+
 - Use a `ResizeObserver` on each terminal container div, not `window.resize`
 - In the observer callback: call `fitAddon.fit()`, then send `pty:resize` IPC with the new cols/rows
 - Debounce at ~50ms to avoid thrashing during drag
 
 ```typescript
 const ro = new ResizeObserver(() => {
-  fitAddon.fit();
-  ipcRenderer.invoke('pty:resize', { id, cols: term.cols, rows: term.rows });
-});
-ro.observe(containerRef.current);
-return () => ro.disconnect();
+  fitAddon.fit()
+  ipcRenderer.invoke('pty:resize', { id, cols: term.cols, rows: term.rows })
+})
+ro.observe(containerRef.current)
+return () => ro.disconnect()
 ```
 
 **Warning signs:**
+
 - Shell commands produce misaligned output after resizing a panel
 - `vim` or `htop` renders incorrectly after a panel split
 - Terminal text wraps earlier or later than expected
@@ -178,22 +186,24 @@ Each terminal panel registers a `pty:data` listener on `ipcRenderer` to receive 
 Electron's `ipcRenderer.on()` does not auto-remove listeners on component unmount. When passing listeners through `contextBridge`, the proxy wrapping changes function identity, meaning `ipcRenderer.removeListener(channel, fn)` with the same function reference does not actually remove the listener (the proxied function is a different object each time).
 
 **How to avoid:**
+
 - Return an unsubscribe function from the preload's contextBridge exposure:
 
 ```typescript
 // preload.ts
 contextBridge.exposeInMainWorld('api', {
   onPtyData: (id: string, callback: (data: string) => void) => {
-    const handler = (_: IpcRendererEvent, data: string) => callback(data);
-    ipcRenderer.on(`pty:data:${id}`, handler);
-    return () => ipcRenderer.removeListener(`pty:data:${id}`, handler);
+    const handler = (_: IpcRendererEvent, data: string) => callback(data)
+    ipcRenderer.on(`pty:data:${id}`, handler)
+    return () => ipcRenderer.removeListener(`pty:data:${id}`, handler)
   }
-});
+})
 ```
 
 - In the React component: store the unsubscribe function returned by `onPtyData` and call it in `useEffect` cleanup
 
 **Warning signs:**
+
 - Memory usage climbs monotonically as panels are opened and closed
 - Console warning: `MaxListenersExceededWarning: Possible EventEmitter memory leak detected`
 - After closing all panels, heap remains elevated
@@ -214,16 +224,17 @@ macOS GUI apps launched outside a terminal session do not source `.zshrc` / `.ba
 Use the `shell-env` or `fix-path` npm package to source the user's interactive shell environment before spawning PTY processes:
 
 ```typescript
-import { fixPath } from 'fix-path';
+import { fixPath } from 'fix-path'
 app.whenReady().then(() => {
-  fixPath(); // Must be called before any process.env.PATH usage
+  fixPath() // Must be called before any process.env.PATH usage
   // ... rest of app init
-});
+})
 ```
 
 Alternatively, spawn a login shell by passing `--login` to the shell argument, which sources profile files.
 
 **Warning signs:**
+
 - `git`, `node`, `brew`, `python` not found in terminal panels in production
 - Works on developer machine (via terminal) but not on other users' machines
 - `which git` returns nothing in the panel but works in macOS Terminal.app
@@ -241,6 +252,7 @@ When the user closes the app (or closes a panel), child processes spawned by nod
 Developers call `ptyProcess.kill()` in the `app.on('before-quit')` handler, but this only handles the top-level shell. Subprocesses spawned by the shell that are backgrounded, in a different process group, or that ignore `SIGHUP` continue running. On Windows, native processes do not receive Unix signals at all.
 
 **How to avoid:**
+
 - Track all `IPtyProcess` instances in a `Map<string, IPtyProcess>` in the main process
 - On `app.on('before-quit')` and `ipcMain.handle('pty:kill')`: call `pty.kill()` for all tracked processes
 - Wrap kill calls in try/catch (process may already be dead)
@@ -249,12 +261,15 @@ Developers call `ptyProcess.kill()` in the `app.on('before-quit')` handler, but 
 ```typescript
 app.on('before-quit', () => {
   for (const [, pty] of ptyMap) {
-    try { pty.kill(); } catch {}
+    try {
+      pty.kill()
+    } catch {}
   }
-});
+})
 ```
 
 **Warning signs:**
+
 - `Activity Monitor` (macOS) shows shell processes after app quit
 - App re-launch shows "address already in use" because a dev server from a prior session is still running
 - Repeated app open/close cycles slowly accumulate processes
@@ -277,14 +292,15 @@ Expose one typed function per IPC channel. The allowed channel list is already s
 ```typescript
 contextBridge.exposeInMainWorld('api', {
   ptyCreate: (options: PtyOptions) => ipcRenderer.invoke('pty:create', options),
-  ptyWrite:  (id: string, data: string) => ipcRenderer.invoke('pty:write', { id, data }),
+  ptyWrite: (id: string, data: string) => ipcRenderer.invoke('pty:write', { id, data })
   // ...
-});
+})
 ```
 
 On the main process side, validate sender with `event.senderFrame.url` for sensitive operations.
 
 **Warning signs:**
+
 - Preload exports `send`, `invoke`, `on` directly wrapping `ipcRenderer` methods
 - Main process ipcMain handlers do not validate message content
 - A single handler accepts arbitrary channel strings
@@ -295,66 +311,66 @@ On the main process side, validate sender with `event.senderFrame.url` for sensi
 
 ## Technical Debt Patterns
 
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Skip `postinstall` rebuild script | Faster initial setup | App crashes on Electron version bump; CI failures on clean builds | Never |
-| Use `uncontrolled` mode in react-mosaic | Simpler initial code | Cannot serialize/restore layout; breaks persistence feature | Only for throwaway prototype |
-| Attach `window.resize` instead of `ResizeObserver` | One listener for all panels | Misses panel size changes from mosaic drag (not a window resize) | Never for multi-panel |
-| Expose raw `ipcRenderer.send` via contextBridge | Less boilerplate | Security footgun; violates stated project constraints | Never |
-| Skip PTY cleanup on close | Simpler code | Zombie processes accumulate; potential port conflicts on re-launch | Never |
-| Hardcode shell path (`/bin/zsh`) | Avoids shell detection logic | Fails on Windows, fails on NixOS, fails for users with non-standard shells | Never for cross-platform |
-| Call `fitAddon.fit()` without PTY resize IPC | Simpler resize handling | PTY and xterm dimensions diverge; garbled output in vim/htop | Never |
+| Shortcut                                           | Immediate Benefit            | Long-term Cost                                                             | When Acceptable              |
+| -------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------- | ---------------------------- |
+| Skip `postinstall` rebuild script                  | Faster initial setup         | App crashes on Electron version bump; CI failures on clean builds          | Never                        |
+| Use `uncontrolled` mode in react-mosaic            | Simpler initial code         | Cannot serialize/restore layout; breaks persistence feature                | Only for throwaway prototype |
+| Attach `window.resize` instead of `ResizeObserver` | One listener for all panels  | Misses panel size changes from mosaic drag (not a window resize)           | Never for multi-panel        |
+| Expose raw `ipcRenderer.send` via contextBridge    | Less boilerplate             | Security footgun; violates stated project constraints                      | Never                        |
+| Skip PTY cleanup on close                          | Simpler code                 | Zombie processes accumulate; potential port conflicts on re-launch         | Never                        |
+| Hardcode shell path (`/bin/zsh`)                   | Avoids shell detection logic | Fails on Windows, fails on NixOS, fails for users with non-standard shells | Never for cross-platform     |
+| Call `fitAddon.fit()` without PTY resize IPC       | Simpler resize handling      | PTY and xterm dimensions diverge; garbled output in vim/htop               | Never                        |
 
 ---
 
 ## Integration Gotchas
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| node-pty + electron-vite | Letting Vite try to bundle `node-pty` | Mark as external in `rollupOptions.external`; keep in `dependencies` not `devDependencies` |
-| node-pty + electron-builder | Relying on auto-detect for ASAR unpack | Explicitly set `asarUnpack: ["**/node_modules/node-pty/**"]` in builder config |
-| xterm.js + React | Calling `terminal.open()` outside `useEffect` | Always open inside `useEffect`, clean up with `terminal.dispose()` in cleanup return |
-| FitAddon + react-mosaic | Listening to `window.resize` for panel size changes | Use `ResizeObserver` on each panel's container div |
-| contextBridge + ipcRenderer.removeListener | Calling `removeListener` with the same callback reference | Capture the handler in preload scope; expose an unsubscribe closure |
-| shell spawn + macOS packaged app | Assuming inherited `PATH` contains Homebrew | Use `fix-path` or spawn a login shell; test in packaged mode, not dev mode |
-| zustand + electron IPC | Storing PTY process references in zustand (renderer-side) | Keep `IPtyProcess` objects only in main process Map; zustand holds panel metadata only |
+| Integration                                | Common Mistake                                            | Correct Approach                                                                           |
+| ------------------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| node-pty + electron-vite                   | Letting Vite try to bundle `node-pty`                     | Mark as external in `rollupOptions.external`; keep in `dependencies` not `devDependencies` |
+| node-pty + electron-builder                | Relying on auto-detect for ASAR unpack                    | Explicitly set `asarUnpack: ["**/node_modules/node-pty/**"]` in builder config             |
+| xterm.js + React                           | Calling `terminal.open()` outside `useEffect`             | Always open inside `useEffect`, clean up with `terminal.dispose()` in cleanup return       |
+| FitAddon + react-mosaic                    | Listening to `window.resize` for panel size changes       | Use `ResizeObserver` on each panel's container div                                         |
+| contextBridge + ipcRenderer.removeListener | Calling `removeListener` with the same callback reference | Capture the handler in preload scope; expose an unsubscribe closure                        |
+| shell spawn + macOS packaged app           | Assuming inherited `PATH` contains Homebrew               | Use `fix-path` or spawn a login shell; test in packaged mode, not dev mode                 |
+| zustand + electron IPC                     | Storing PTY process references in zustand (renderer-side) | Keep `IPtyProcess` objects only in main process Map; zustand holds panel metadata only     |
 
 ---
 
 ## Performance Traps
 
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| Synchronous IPC calls (`ipcRenderer.sendSync`) | UI thread freezes during shell operations | Use `ipcRenderer.invoke` (async) for all PTY channels | Immediately noticeable with any IO-heavy command |
-| xterm.js main-thread saturation with 4+ panels doing high-IO | UI becomes sluggish; 60fps drops to <20fps during `cat bigfile` | Throttle PTY output in main process (buffer and batch sends ~16ms); enable WebGL addon | With 4+ active panels running high-throughput commands |
-| Unbatched IPC for pty:data events | Thousands of IPC round-trips per second for each panel | Batch data chunks in main process before sending; send at ~60Hz interval | Any command with continuous output (build tools, log tails) |
-| Large scrollback buffer × many panels | High memory usage (single 160×24 terminal with 5000-line scrollback ≈ 34MB; 6 panels = 200MB+) | Use conservative default scrollback (e.g., 1000 lines); make it configurable | With default 10000-line scrollback × 4 panels open long-term |
-| React reconciliation on every PTY data event | Unnecessary re-renders of panel tree for data that only xterm needs | Write PTY data directly to xterm (`term.write(data)`) — never route through React state | Any panel with continuous output |
+| Trap                                                         | Symptoms                                                                                       | Prevention                                                                              | When It Breaks                                               |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Synchronous IPC calls (`ipcRenderer.sendSync`)               | UI thread freezes during shell operations                                                      | Use `ipcRenderer.invoke` (async) for all PTY channels                                   | Immediately noticeable with any IO-heavy command             |
+| xterm.js main-thread saturation with 4+ panels doing high-IO | UI becomes sluggish; 60fps drops to <20fps during `cat bigfile`                                | Throttle PTY output in main process (buffer and batch sends ~16ms); enable WebGL addon  | With 4+ active panels running high-throughput commands       |
+| Unbatched IPC for pty:data events                            | Thousands of IPC round-trips per second for each panel                                         | Batch data chunks in main process before sending; send at ~60Hz interval                | Any command with continuous output (build tools, log tails)  |
+| Large scrollback buffer × many panels                        | High memory usage (single 160×24 terminal with 5000-line scrollback ≈ 34MB; 6 panels = 200MB+) | Use conservative default scrollback (e.g., 1000 lines); make it configurable            | With default 10000-line scrollback × 4 panels open long-term |
+| React reconciliation on every PTY data event                 | Unnecessary re-renders of panel tree for data that only xterm needs                            | Write PTY data directly to xterm (`term.write(data)`) — never route through React state | Any panel with continuous output                             |
 
 ---
 
 ## Security Mistakes
 
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| Exposing raw `ipcRenderer.invoke` via contextBridge | Renderer can invoke any IPC channel; escalates any XSS to arbitrary shell execution | One typed method per channel; no generic `invoke(channel, ...args)` |
-| Not validating IPC sender in main process | Malicious iframe or child window could send PTY commands | Check `event.senderFrame.url` or use `webContents.id` allowlist |
-| Passing entire `process.env` to spawned shell (contains secrets from dev environment) | Secrets in env vars leak into child processes | Pass only required env vars to PTY spawn; or pass current user's interactive shell env via `fix-path` |
-| Enabling `nodeIntegration: true` as a "quick fix" for xterm/PTY setup | Full Node access from renderer; complete security bypass | Keep `nodeIntegration: false`; fix the actual issue (likely bad IPC wiring) |
-| Using `shell: true` in node-pty spawn for convenience | Shell injection if any user input is ever concatenated into the command string | Use `shell: false`; pass shell binary path and args array separately |
+| Mistake                                                                               | Risk                                                                                | Prevention                                                                                            |
+| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Exposing raw `ipcRenderer.invoke` via contextBridge                                   | Renderer can invoke any IPC channel; escalates any XSS to arbitrary shell execution | One typed method per channel; no generic `invoke(channel, ...args)`                                   |
+| Not validating IPC sender in main process                                             | Malicious iframe or child window could send PTY commands                            | Check `event.senderFrame.url` or use `webContents.id` allowlist                                       |
+| Passing entire `process.env` to spawned shell (contains secrets from dev environment) | Secrets in env vars leak into child processes                                       | Pass only required env vars to PTY spawn; or pass current user's interactive shell env via `fix-path` |
+| Enabling `nodeIntegration: true` as a "quick fix" for xterm/PTY setup                 | Full Node access from renderer; complete security bypass                            | Keep `nodeIntegration: false`; fix the actual issue (likely bad IPC wiring)                           |
+| Using `shell: true` in node-pty spawn for convenience                                 | Shell injection if any user input is ever concatenated into the command string      | Use `shell: false`; pass shell binary path and args array separately                                  |
 
 ---
 
 ## UX Pitfalls
 
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| New terminal panel opens in app's working directory, not project folder | User immediately has to `cd` to the project | Always spawn PTY with `cwd` set to the project folder stored in app state |
-| Attention badge fires on every `?` in terminal output (false positive) | Badge pulses constantly for `y/n` prompts, grep output, comments | Match against multi-character prompts (`"? "`, `"> "`, `"Do you want"`) not single chars; debounce detection per panel |
-| Layout saves on every mosaic `onChange` event (fires continuously during drag) | Excessive disk writes during resize dragging; possible file corruption | Debounce JSON write by 300–500ms after mosaic `onChange` |
-| Terminal font renders blurry at non-integer device pixel ratios | Text difficult to read on HiDPI/Retina displays | Pass `devicePixelRatio` to xterm's `Terminal` constructor; use CSS `font-smooth` appropriately |
-| Panel close removes the terminal immediately without killing the PTY | User sees blank panel briefly; PTY process zombies | Kill PTY first via IPC, await confirmation, then remove panel from mosaic tree |
-| react-mosaic "empty" state when last panel is closed | Renders a blank frame with no affordance to add a new terminal | Handle the `null` mosaic value explicitly — show an empty state with a prominent "+ New Terminal" CTA |
+| Pitfall                                                                        | User Impact                                                            | Better Approach                                                                                                        |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| New terminal panel opens in app's working directory, not project folder        | User immediately has to `cd` to the project                            | Always spawn PTY with `cwd` set to the project folder stored in app state                                              |
+| Attention badge fires on every `?` in terminal output (false positive)         | Badge pulses constantly for `y/n` prompts, grep output, comments       | Match against multi-character prompts (`"? "`, `"> "`, `"Do you want"`) not single chars; debounce detection per panel |
+| Layout saves on every mosaic `onChange` event (fires continuously during drag) | Excessive disk writes during resize dragging; possible file corruption | Debounce JSON write by 300–500ms after mosaic `onChange`                                                               |
+| Terminal font renders blurry at non-integer device pixel ratios                | Text difficult to read on HiDPI/Retina displays                        | Pass `devicePixelRatio` to xterm's `Terminal` constructor; use CSS `font-smooth` appropriately                         |
+| Panel close removes the terminal immediately without killing the PTY           | User sees blank panel briefly; PTY process zombies                     | Kill PTY first via IPC, await confirmation, then remove panel from mosaic tree                                         |
+| react-mosaic "empty" state when last panel is closed                           | Renders a blank frame with no affordance to add a new terminal         | Handle the `null` mosaic value explicitly — show an empty state with a prominent "+ New Terminal" CTA                  |
 
 ---
 
@@ -373,34 +389,34 @@ On the main process side, validate sender with `event.senderFrame.url` for sensi
 
 ## Recovery Strategies
 
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Vite bundling of node-pty discovered post-scaffolding | LOW | Add `rollupOptions.external: ['node-pty']` to `electron.vite.config.ts`; move to `dependencies`; re-run build |
-| ABI mismatch discovered after Electron version bump | LOW | Add/run `postinstall` script with `electron-builder install-app-deps` |
-| ASAR unpack issue discovered late in Windows testing | MEDIUM | Add `asarUnpack` glob in electron-builder config; rebuild and retest on Windows — no code changes needed |
-| IPC listener leak discovered via memory profiling | MEDIUM | Refactor contextBridge to return unsubscribe closures; update all useEffect cleanups — affects every panel component |
-| Raw IPC exposure discovered in security review | MEDIUM-HIGH | Replace generic IPC helpers with typed per-channel methods; audit all preload exports and main-process handlers |
-| PATH issue found in QA on packaged macOS build | LOW | Add `fix-path` package; call `fixPath()` in `app.whenReady()` before any shell spawn |
-| React state routing PTY data causing performance issues | HIGH | Refactor data path to write directly to xterm (`term.write(data)`) bypassing React state — requires significant component rewiring |
+| Pitfall                                                 | Recovery Cost | Recovery Steps                                                                                                                     |
+| ------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Vite bundling of node-pty discovered post-scaffolding   | LOW           | Add `rollupOptions.external: ['node-pty']` to `electron.vite.config.ts`; move to `dependencies`; re-run build                      |
+| ABI mismatch discovered after Electron version bump     | LOW           | Add/run `postinstall` script with `electron-builder install-app-deps`                                                              |
+| ASAR unpack issue discovered late in Windows testing    | MEDIUM        | Add `asarUnpack` glob in electron-builder config; rebuild and retest on Windows — no code changes needed                           |
+| IPC listener leak discovered via memory profiling       | MEDIUM        | Refactor contextBridge to return unsubscribe closures; update all useEffect cleanups — affects every panel component               |
+| Raw IPC exposure discovered in security review          | MEDIUM-HIGH   | Replace generic IPC helpers with typed per-channel methods; audit all preload exports and main-process handlers                    |
+| PATH issue found in QA on packaged macOS build          | LOW           | Add `fix-path` package; call `fixPath()` in `app.whenReady()` before any shell spawn                                               |
+| React state routing PTY data causing performance issues | HIGH          | Refactor data path to write directly to xterm (`term.write(data)`) bypassing React state — requires significant component rewiring |
 
 ---
 
 ## Pitfall-to-Phase Mapping
 
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| node-pty not externalized from Vite | Phase 1 — Scaffolding/PTY spike | Build succeeds; `electron-vite preview` can spawn a shell |
-| node-pty ABI mismatch | Phase 1 — Scaffolding/PTY spike | `postinstall` runs; confirm with `@electron/rebuild --list-rebuild-modules` |
-| ASAR packaging breaks Windows binaries | Packaging phase (last mile) | Test packaged Windows build opens a terminal before shipping |
-| xterm.js open() before DOM attach | Phase 1 — Terminal panel component | Single panel renders without blank output on first load |
-| FitAddon / PTY size mismatch | Phase 2 — Multi-panel layout | vim/htop renders correctly after mosaic panel drag |
-| IPC listener accumulation | Phase 1 — IPC scaffolding | No `MaxListenersExceededWarning` after 20 open/close cycles |
-| macOS PATH truncation | Phase 1 — Shell spawn | Packaged app (Finder-launched) resolves `git` in panel |
-| Zombie PTY processes | Phase 2 — Panel lifecycle | No orphan processes after closing all panels and quitting |
-| Raw IPC in contextBridge | Phase 1 — IPC scaffolding | Code review: no `ipcRenderer.send/invoke` exported generically |
-| React state routing PTY data | Phase 1 — Terminal panel component | xterm.write() called directly from IPC callback, not via setState |
-| Attention detection false positives | Attention detection feature phase | Test suite with known-good and known-bad output samples |
-| Layout save debounce | Persistence phase | No disk writes during continuous drag; verified by watching file mtime |
+| Pitfall                                | Prevention Phase                   | Verification                                                                |
+| -------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------- |
+| node-pty not externalized from Vite    | Phase 1 — Scaffolding/PTY spike    | Build succeeds; `electron-vite preview` can spawn a shell                   |
+| node-pty ABI mismatch                  | Phase 1 — Scaffolding/PTY spike    | `postinstall` runs; confirm with `@electron/rebuild --list-rebuild-modules` |
+| ASAR packaging breaks Windows binaries | Packaging phase (last mile)        | Test packaged Windows build opens a terminal before shipping                |
+| xterm.js open() before DOM attach      | Phase 1 — Terminal panel component | Single panel renders without blank output on first load                     |
+| FitAddon / PTY size mismatch           | Phase 2 — Multi-panel layout       | vim/htop renders correctly after mosaic panel drag                          |
+| IPC listener accumulation              | Phase 1 — IPC scaffolding          | No `MaxListenersExceededWarning` after 20 open/close cycles                 |
+| macOS PATH truncation                  | Phase 1 — Shell spawn              | Packaged app (Finder-launched) resolves `git` in panel                      |
+| Zombie PTY processes                   | Phase 2 — Panel lifecycle          | No orphan processes after closing all panels and quitting                   |
+| Raw IPC in contextBridge               | Phase 1 — IPC scaffolding          | Code review: no `ipcRenderer.send/invoke` exported generically              |
+| React state routing PTY data           | Phase 1 — Terminal panel component | xterm.write() called directly from IPC callback, not via setState           |
+| Attention detection false positives    | Attention detection feature phase  | Test suite with known-good and known-bad output samples                     |
+| Layout save debounce                   | Persistence phase                  | No disk writes during continuous drag; verified by watching file mtime      |
 
 ---
 
@@ -429,5 +445,6 @@ On the main process side, validate sender with `event.senderFrame.url` for sensi
 - [Syncing State between Electron Contexts (Bruno Scheufler)](https://brunoscheufler.com/blog/2023-10-29-syncing-state-between-electron-contexts)
 
 ---
-*Pitfalls research for: Electron terminal application (multiterm-studio)*
-*Researched: 2026-03-14*
+
+_Pitfalls research for: Electron terminal application (multiterm-studio)_
+_Researched: 2026-03-14_

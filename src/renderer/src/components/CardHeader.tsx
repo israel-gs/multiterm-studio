@@ -31,33 +31,44 @@ function isSvgFile(filePath?: string): boolean {
   return filePath.split('.').pop()?.toLowerCase() === 'svg'
 }
 
-export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: Props): React.JSX.Element {
+export function CardHeader({
+  sessionId,
+  maximized,
+  onToggleMaximize,
+  onClose
+}: Props): React.JSX.Element {
   const [copied, setCopied] = useState(false)
-  const handleCopyPath = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    const fp = usePanelStore.getState().panels[sessionId]?.filePath
-    if (!fp) return
-    navigator.clipboard.writeText(fp)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
-  }, [sessionId])
+  const handleCopyPath = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      const fp = usePanelStore.getState().panels[sessionId]?.filePath
+      if (!fp) return
+      navigator.clipboard.writeText(fp)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    },
+    [sessionId]
+  )
 
-  const panel =
-    usePanelStore((s) => s.panels[sessionId]) ?? {
-      title: 'Terminal',
-      color: colors.bgCard,
-      attention: false,
-      type: 'terminal' as const,
-      dirty: false,
-      previewMode: false,
-      agentActive: false,
-      hasProcess: false
-    }
+  const panel = usePanelStore((s) => s.panels[sessionId]) ?? {
+    title: 'Terminal',
+    color: colors.bgCard,
+    attention: false,
+    type: 'terminal' as const,
+    dirty: false,
+    previewMode: false,
+    agentActive: false,
+    hasProcess: false
+  }
   const togglePreview = usePanelStore((s) => s.togglePreview)
 
   const isDefaultColor = panel.color === colors.bgCard || panel.color === '#1c1c1c'
   const headerBg = isDefaultColor ? undefined : panel.color
-  const fgColor = isDefaultColor ? 'var(--fg-primary)' : (isLightColor(panel.color) ? '#000000' : '#ffffff')
+  const fgColor = isDefaultColor
+    ? 'var(--fg-primary)'
+    : isLightColor(panel.color)
+      ? '#000000'
+      : '#ffffff'
   const isEditor = panel.type === 'editor'
   const isImage = panel.type === 'image'
   const isMd = isMarkdownFile(panel.filePath)
@@ -117,7 +128,11 @@ export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: 
           }}
           aria-label={panel.previewMode ? 'Show editor' : 'Preview markdown'}
         >
-          {panel.previewMode ? <Code size={14} strokeWidth={1.5} /> : <Eye size={14} strokeWidth={1.5} />}
+          {panel.previewMode ? (
+            <Code size={14} strokeWidth={1.5} />
+          ) : (
+            <Eye size={14} strokeWidth={1.5} />
+          )}
         </button>
       )}
 
@@ -132,7 +147,11 @@ export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: 
           }}
           aria-label={panel.previewMode ? 'Show image' : 'Edit SVG code'}
         >
-          {panel.previewMode ? <Eye size={14} strokeWidth={1.5} /> : <Code size={14} strokeWidth={1.5} />}
+          {panel.previewMode ? (
+            <Eye size={14} strokeWidth={1.5} />
+          ) : (
+            <Code size={14} strokeWidth={1.5} />
+          )}
         </button>
       )}
 
@@ -153,10 +172,17 @@ export function CardHeader({ sessionId, maximized, onToggleMaximize, onClose }: 
           className="panel-header-btn"
           style={{ color: fgColor }}
           title={maximized ? 'Restore' : 'Maximize'}
-          onClick={(e) => { e.stopPropagation(); onToggleMaximize() }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleMaximize()
+          }}
           aria-label={maximized ? 'Restore tile' : 'Maximize tile'}
         >
-          {maximized ? <Minimize2 size={12} strokeWidth={1.5} /> : <Maximize2 size={12} strokeWidth={1.5} />}
+          {maximized ? (
+            <Minimize2 size={12} strokeWidth={1.5} />
+          ) : (
+            <Maximize2 size={12} strokeWidth={1.5} />
+          )}
         </button>
       )}
 

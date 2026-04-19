@@ -15,41 +15,47 @@ react-mosaic v6.1.1 declares `peerDependencies: { "react": "16 - 19" }` — this
 **Primary recommendation:** Use react-mosaic controlled mode (`value` + `onChange`), zustand for panel metadata, and `crypto.randomUUID()` as the mosaic leaf key (same pattern Phase 1 used for `sessionId`). Keep mosaic leaf key === sessionId so there is a single source of truth.
 
 <phase_requirements>
+
 ## Phase Requirements
 
-| ID | Description | Research Support |
-|----|-------------|-----------------|
-| LAYOUT-01 | Terminal panels arranged in tiling layout using react-mosaic | react-mosaic-component v6.1.1 controlled mode; `Mosaic<string>` with leaf = sessionId |
-| LAYOUT-02 | User can split panels horizontally and vertically | `MosaicWindowActions.split()` via context; built-in drag-to-split; custom toolbar button |
-| LAYOUT-03 | User can resize panels by dragging dividers | Built-in to react-mosaic drag dividers; `onRelease` updates controlled state |
-| LAYOUT-04 | User can close individual panels via header close button | Custom `renderToolbar` button calls `mosaicActions.remove(path)`; triggers PTY kill |
-| LAYOUT-05 | Global "+ New terminal" button adds a new panel to the canvas | Programmatic tree mutation: wrap existing root in a new split node with fresh leaf |
-| LAYOUT-06 | Panel header displays editable session title (double-click to edit) | zustand store field `title`; `onDoubleClick` → `<input>` swap; blur saves |
-| LAYOUT-07 | Panel header has a color dot picker with 6 preset colors | zustand store field `color`; CSS-module dot buttons; no external library needed |
-| LAYOUT-08 | Closing a panel kills the associated PTY process | `onChange` diff detects removed leaves; calls `window.electronAPI.ptyKill(sessionId)` |
+| ID        | Description                                                         | Research Support                                                                         |
+| --------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| LAYOUT-01 | Terminal panels arranged in tiling layout using react-mosaic        | react-mosaic-component v6.1.1 controlled mode; `Mosaic<string>` with leaf = sessionId    |
+| LAYOUT-02 | User can split panels horizontally and vertically                   | `MosaicWindowActions.split()` via context; built-in drag-to-split; custom toolbar button |
+| LAYOUT-03 | User can resize panels by dragging dividers                         | Built-in to react-mosaic drag dividers; `onRelease` updates controlled state             |
+| LAYOUT-04 | User can close individual panels via header close button            | Custom `renderToolbar` button calls `mosaicActions.remove(path)`; triggers PTY kill      |
+| LAYOUT-05 | Global "+ New terminal" button adds a new panel to the canvas       | Programmatic tree mutation: wrap existing root in a new split node with fresh leaf       |
+| LAYOUT-06 | Panel header displays editable session title (double-click to edit) | zustand store field `title`; `onDoubleClick` → `<input>` swap; blur saves                |
+| LAYOUT-07 | Panel header has a color dot picker with 6 preset colors            | zustand store field `color`; CSS-module dot buttons; no external library needed          |
+| LAYOUT-08 | Closing a panel kills the associated PTY process                    | `onChange` diff detects removed leaves; calls `window.electronAPI.ptyKill(sessionId)`    |
+
 </phase_requirements>
 
 ## Standard Stack
 
 ### Core
-| Library | Version | Purpose | Why Standard |
-|---------|---------|---------|--------------|
-| react-mosaic-component | 6.1.1 | Tiling window manager (binary/n-ary tree) | Locked in PROJECT.md; purpose-built, TypeScript-native, React 16–19 |
-| zustand | 5.0.x (latest 5.0.11) | Panel metadata store (title, color, sessionId map) | Locked in PROJECT.md; minimal API, no Provider needed |
+
+| Library                | Version               | Purpose                                            | Why Standard                                                        |
+| ---------------------- | --------------------- | -------------------------------------------------- | ------------------------------------------------------------------- |
+| react-mosaic-component | 6.1.1                 | Tiling window manager (binary/n-ary tree)          | Locked in PROJECT.md; purpose-built, TypeScript-native, React 16–19 |
+| zustand                | 5.0.x (latest 5.0.11) | Panel metadata store (title, color, sessionId map) | Locked in PROJECT.md; minimal API, no Provider needed               |
 
 ### Supporting
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| react-mosaic-component/css | same | Required CSS for mosaic layout | Always import alongside the component |
+
+| Library                    | Version | Purpose                        | When to Use                           |
+| -------------------------- | ------- | ------------------------------ | ------------------------------------- |
+| react-mosaic-component/css | same    | Required CSS for mosaic layout | Always import alongside the component |
 
 ### Alternatives Considered
-| Instead of | Could Use | Tradeoff |
-|------------|-----------|----------|
-| react-mosaic | react-grid-layout | Grid is row/column fixed; mosaic gives true free-form tiling |
-| react-mosaic | Custom split-pane | Would need to hand-roll resize math, tree ops, drag-drop — don't do this |
-| zustand | React Context + useReducer | Fine for simple cases; zustand avoids re-render cascade when unrelated panels update |
+
+| Instead of   | Could Use                  | Tradeoff                                                                             |
+| ------------ | -------------------------- | ------------------------------------------------------------------------------------ |
+| react-mosaic | react-grid-layout          | Grid is row/column fixed; mosaic gives true free-form tiling                         |
+| react-mosaic | Custom split-pane          | Would need to hand-roll resize math, tree ops, drag-drop — don't do this             |
+| zustand      | React Context + useReducer | Fine for simple cases; zustand avoids re-render cascade when unrelated panels update |
 
 **Installation:**
+
 ```bash
 npm install react-mosaic-component zustand
 ```
@@ -59,6 +65,7 @@ No `--legacy-peer-deps` needed — react-mosaic-component declares `"react": "16
 ## Architecture Patterns
 
 ### Recommended Project Structure
+
 ```
 src/renderer/src/
 ├── components/
@@ -167,7 +174,7 @@ function SplitButton() {
 function addPanel(setTree: React.Dispatch<React.SetStateAction<MosaicNode<string> | null>>) {
   const newId = crypto.randomUUID()
   setTree((current) => {
-    if (current === null) return newId  // was zero-state, just set single leaf
+    if (current === null) return newId // was zero-state, just set single leaf
     return {
       direction: 'row',
       first: current,
@@ -190,7 +197,7 @@ import { getLeaves } from 'react-mosaic-component'
 
 function handleTreeChange(newTree: MosaicNode<string> | null) {
   // Compute diff to find killed panels
-  const oldLeaves = new Set(getLeaves(tree))  // tree = previous value from ref
+  const oldLeaves = new Set(getLeaves(tree)) // tree = previous value from ref
   const newLeaves = new Set(getLeaves(newTree))
   for (const id of oldLeaves) {
     if (!newLeaves.has(id)) {
@@ -251,12 +258,12 @@ export const usePanelStore = create<PanelStore>((set) => ({
 
 ## Don't Hand-Roll
 
-| Problem | Don't Build | Use Instead | Why |
-|---------|-------------|-------------|-----|
-| Tiling layout with drag-resize | Custom split-pane with % math | react-mosaic | Drag handles, min-size clamping, keyboard, tree ops already built |
-| Panel tree diffing | Custom recursive tree walker | `getLeaves()` from react-mosaic | Handles n-ary trees, null root, nested splits |
-| Panel metadata state | React Context + prop drilling | zustand | Avoids cascade re-renders, panel 3 updating shouldn't re-render panel 1 |
-| Balanced initial layout | Manual split node construction | `createBalancedTreeFromLeaves()` | Handles 1, 2, 3+ panels symmetrically |
+| Problem                        | Don't Build                    | Use Instead                      | Why                                                                     |
+| ------------------------------ | ------------------------------ | -------------------------------- | ----------------------------------------------------------------------- |
+| Tiling layout with drag-resize | Custom split-pane with % math  | react-mosaic                     | Drag handles, min-size clamping, keyboard, tree ops already built       |
+| Panel tree diffing             | Custom recursive tree walker   | `getLeaves()` from react-mosaic  | Handles n-ary trees, null root, nested splits                           |
+| Panel metadata state           | React Context + prop drilling  | zustand                          | Avoids cascade re-renders, panel 3 updating shouldn't re-render panel 1 |
+| Balanced initial layout        | Manual split node construction | `createBalancedTreeFromLeaves()` | Handles 1, 2, 3+ panels symmetrically                                   |
 
 **Key insight:** The panel tree logic (splitting, removing, expanding) has deceptive edge cases around null roots, single-leaf trees, and depth-first parent tracking. react-mosaic utility functions handle all of these.
 
@@ -380,9 +387,10 @@ function handleAddPanel(
   const newId = crypto.randomUUID()
   addPanel(newId)
   setTree((current) => {
-    const next = current === null
-      ? newId
-      : { direction: 'row' as const, first: current, second: newId, splitPercentage: 50 }
+    const next =
+      current === null
+        ? newId
+        : { direction: 'row' as const, first: current, second: newId, splitPercentage: 50 }
     treeRef.current = next
     return next
   })
@@ -424,13 +432,14 @@ function PanelHeader({ sessionId, path }: { sessionId: string; path: MosaicPath 
 
 ## State of the Art
 
-| Old Approach | Current Approach | When Changed | Impact |
-|--------------|------------------|--------------|--------|
-| Blueprint-themed mosaic (default) | Custom `renderToolbar` + CSS overrides | react-mosaic always supported this | Avoids 600KB Blueprint dep |
-| Class components for context access | `useContext(MosaicWindowContext)` | React 16.3+ hooks era | Cleaner functional component pattern |
-| `xterm` unscoped package | `@xterm/xterm` v6 scoped | xterm v5 deprecation | Already done in Phase 1 |
+| Old Approach                        | Current Approach                       | When Changed                       | Impact                               |
+| ----------------------------------- | -------------------------------------- | ---------------------------------- | ------------------------------------ |
+| Blueprint-themed mosaic (default)   | Custom `renderToolbar` + CSS overrides | react-mosaic always supported this | Avoids 600KB Blueprint dep           |
+| Class components for context access | `useContext(MosaicWindowContext)`      | React 16.3+ hooks era              | Cleaner functional component pattern |
+| `xterm` unscoped package            | `@xterm/xterm` v6 scoped               | xterm v5 deprecation               | Already done in Phase 1              |
 
 **Deprecated/outdated:**
+
 - `contextTypes` static property on class components for mosaic context: use `useContext(MosaicWindowContext)` instead
 - `MosaicWithoutDragDropContext`: only needed when you control the DnD provider yourself; not needed here
 - `createBalancedTreeFromLeaves`: fine utility but not needed if we always add panels one at a time to the right
@@ -455,32 +464,35 @@ function PanelHeader({ sessionId, path }: { sessionId: string; path: MosaicPath 
 ## Validation Architecture
 
 ### Test Framework
-| Property | Value |
-|----------|-------|
-| Framework | Vitest 3.x + @testing-library/react 16.x |
-| Config file | `vitest.config.ts` (exists) |
-| Quick run command | `npm test -- --reporter=verbose tests/renderer/MosaicLayout.test.tsx` |
-| Full suite command | `npm test` |
+
+| Property           | Value                                                                 |
+| ------------------ | --------------------------------------------------------------------- |
+| Framework          | Vitest 3.x + @testing-library/react 16.x                              |
+| Config file        | `vitest.config.ts` (exists)                                           |
+| Quick run command  | `npm test -- --reporter=verbose tests/renderer/MosaicLayout.test.tsx` |
+| Full suite command | `npm test`                                                            |
 
 ### Phase Requirements → Test Map
 
-| Req ID | Behavior | Test Type | Automated Command | File Exists? |
-|--------|----------|-----------|-------------------|-------------|
-| LAYOUT-01 | Mosaic renders with initial leaf panel | unit | `npm test -- tests/renderer/MosaicLayout.test.tsx -t "renders initial panel"` | ❌ Wave 0 |
-| LAYOUT-02 | Split button calls mosaicWindowActions.split() | unit | `npm test -- tests/renderer/PanelHeader.test.tsx -t "split button"` | ❌ Wave 0 |
-| LAYOUT-03 | onChange updates tree state (resize/drag end) | unit | `npm test -- tests/renderer/MosaicLayout.test.tsx -t "onChange updates tree"` | ❌ Wave 0 |
-| LAYOUT-04 | Close button calls mosaicActions.remove | unit | `npm test -- tests/renderer/PanelHeader.test.tsx -t "close button"` | ❌ Wave 0 |
-| LAYOUT-05 | Add panel wraps current root in row split | unit | `npm test -- tests/renderer/MosaicLayout.test.tsx -t "add panel"` | ❌ Wave 0 |
-| LAYOUT-06 | Double-click title enters edit mode; blur saves | unit | `npm test -- tests/renderer/PanelHeader.test.tsx -t "title edit"` | ❌ Wave 0 |
-| LAYOUT-07 | Color picker buttons call setColor with correct hex | unit | `npm test -- tests/renderer/PanelHeader.test.tsx -t "color picker"` | ❌ Wave 0 |
-| LAYOUT-08 | onChange diff detects removed leaf and calls ptyKill | unit | `npm test -- tests/renderer/MosaicLayout.test.tsx -t "ptyKill on close"` | ❌ Wave 0 |
+| Req ID    | Behavior                                             | Test Type | Automated Command                                                             | File Exists? |
+| --------- | ---------------------------------------------------- | --------- | ----------------------------------------------------------------------------- | ------------ |
+| LAYOUT-01 | Mosaic renders with initial leaf panel               | unit      | `npm test -- tests/renderer/MosaicLayout.test.tsx -t "renders initial panel"` | ❌ Wave 0    |
+| LAYOUT-02 | Split button calls mosaicWindowActions.split()       | unit      | `npm test -- tests/renderer/PanelHeader.test.tsx -t "split button"`           | ❌ Wave 0    |
+| LAYOUT-03 | onChange updates tree state (resize/drag end)        | unit      | `npm test -- tests/renderer/MosaicLayout.test.tsx -t "onChange updates tree"` | ❌ Wave 0    |
+| LAYOUT-04 | Close button calls mosaicActions.remove              | unit      | `npm test -- tests/renderer/PanelHeader.test.tsx -t "close button"`           | ❌ Wave 0    |
+| LAYOUT-05 | Add panel wraps current root in row split            | unit      | `npm test -- tests/renderer/MosaicLayout.test.tsx -t "add panel"`             | ❌ Wave 0    |
+| LAYOUT-06 | Double-click title enters edit mode; blur saves      | unit      | `npm test -- tests/renderer/PanelHeader.test.tsx -t "title edit"`             | ❌ Wave 0    |
+| LAYOUT-07 | Color picker buttons call setColor with correct hex  | unit      | `npm test -- tests/renderer/PanelHeader.test.tsx -t "color picker"`           | ❌ Wave 0    |
+| LAYOUT-08 | onChange diff detects removed leaf and calls ptyKill | unit      | `npm test -- tests/renderer/MosaicLayout.test.tsx -t "ptyKill on close"`      | ❌ Wave 0    |
 
 ### Sampling Rate
+
 - **Per task commit:** `npm test -- tests/renderer/MosaicLayout.test.tsx tests/renderer/PanelHeader.test.tsx`
 - **Per wave merge:** `npm test`
 - **Phase gate:** Full suite green before `/gsd:verify-work`
 
 ### Wave 0 Gaps
+
 - [ ] `tests/renderer/MosaicLayout.test.tsx` — covers LAYOUT-01, LAYOUT-03, LAYOUT-05, LAYOUT-08
 - [ ] `tests/renderer/PanelHeader.test.tsx` — covers LAYOUT-02, LAYOUT-04, LAYOUT-06, LAYOUT-07
 - [ ] `tests/store/panelStore.test.ts` — covers zustand store actions (addPanel, removePanel, setTitle, setColor)
@@ -489,22 +501,26 @@ function PanelHeader({ sessionId, path }: { sessionId: string; path: MosaicPath 
 ## Sources
 
 ### Primary (HIGH confidence)
+
 - `github.com/nomcopter/react-mosaic` README (fetched 2026-03-14) — Mosaic props, MosaicWindow props, renderToolbar, createNode, zeroStateView, CSS import
 - `github.com/nomcopter/react-mosaic` package.json (fetched) — peerDeps `"react": "16 - 19"`, version 6.1.1
 - `zustand.docs.pmnd.rs` / `npmjs.com/package/zustand` — v5.0.11, `create<State>()` TypeScript pattern
 - Project source files read directly — TerminalPanel.tsx, preload/index.ts, ptyManager.ts, vitest.config.ts, electron.vite.config.ts
 
 ### Secondary (MEDIUM confidence)
+
 - `dhiwise.com/post/ways-react-mosaic-enhances-dynamic-layouts-in-your-react-app` — controlled mode, renderToolbar, remove/split patterns (cross-verified with README)
 - `github.com/nomcopter/react-mosaic/issues/151` — minimumPaneSizePercentage default 20%, resize prop override (verified against library behavior)
 - `clouddefense.ai/code/javascript/example/react-mosaic-component` — mosaicWindowActions.split(), mosaicActions.remove() context API (partially verified)
 
 ### Tertiary (LOW confidence)
+
 - The n-ary tree API (type: 'split', children: []) described in some search results — likely unreleased v7; not confirmed in published npm package
 
 ## Metadata
 
 **Confidence breakdown:**
+
 - Standard stack: HIGH — react-mosaic v6.1.1 React 19 compat confirmed from package.json; zustand v5 confirmed from npm
 - Architecture: HIGH — controlled mode + renderToolbar pattern confirmed from README; PTY diff pattern is application logic
 - Pitfalls: MEDIUM — Blueprint CSS bleed, double-kill, and n-ary API confirmed from issues and source; severity confirmed from project context

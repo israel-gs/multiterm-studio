@@ -12,8 +12,16 @@ Object.defineProperty(window, 'electronAPI', {
 import { scheduleSave } from '../../src/renderer/src/utils/layoutPersistence'
 
 const folderPath = '/some/project'
-const snapshot1 = { version: 1, tree: 'panel-a', panels: [{ id: 'panel-a', title: 'T1', color: '#fff' }] }
-const snapshot2 = { version: 1, tree: 'panel-b', panels: [{ id: 'panel-b', title: 'T2', color: '#000' }] }
+const snapshot1 = {
+  version: 1,
+  tree: 'panel-a',
+  panels: [{ id: 'panel-a', title: 'T1', color: '#fff' }]
+}
+const snapshot2 = {
+  version: 1,
+  tree: 'panel-b',
+  panels: [{ id: 'panel-b', title: 'T2', color: '#000' }]
+}
 
 describe('layoutPersistence - scheduleSave debounce', () => {
   beforeEach(() => {

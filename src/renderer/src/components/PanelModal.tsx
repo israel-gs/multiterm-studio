@@ -42,15 +42,10 @@ export function PanelModal({ type, cardId, onDismiss }: Props): React.JSX.Elemen
 
   return createPortal(
     <div className="panel-modal-backdrop" onMouseDown={onDismiss}>
-      <div
-        className="panel-modal"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="panel-modal" onMouseDown={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="panel-modal-header">
-          <span className="panel-modal-title">
-            {type === 'rename' ? 'Rename' : 'Color'}
-          </span>
+          <span className="panel-modal-title">{type === 'rename' ? 'Rename' : 'Color'}</span>
           <button className="panel-modal-close" onClick={onDismiss} aria-label="Close">
             &times;
           </button>

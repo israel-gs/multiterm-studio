@@ -19,14 +19,17 @@ export const useUpdateStore = create<UpdateStoreState>((set) => ({
 
   initUpdateListener: () => {
     // Fetch initial state
-    window.electronAPI.updateGetStatus().then((state) => {
-      set({
-        status: state.status,
-        progress: state.progress,
-        version: state.version,
-        error: state.error
+    window.electronAPI
+      .updateGetStatus()
+      .then((state) => {
+        set({
+          status: state.status,
+          progress: state.progress,
+          version: state.version,
+          error: state.error
+        })
       })
-    }).catch(() => {})
+      .catch(() => {})
 
     // Subscribe to push updates from main process
     const unsubscribe = window.electronAPI.onUpdateStatus((state) => {

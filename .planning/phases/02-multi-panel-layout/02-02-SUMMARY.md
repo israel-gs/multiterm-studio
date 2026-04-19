@@ -1,6 +1,6 @@
 ---
 phase: 02-multi-panel-layout
-plan: "02"
+plan: '02'
 subsystem: ui
 tags: [react-mosaic, zustand, panel-header, tdd, tiling-layout, color-picker, electron, react]
 
@@ -22,10 +22,10 @@ affects:
 tech-stack:
   added: []
   patterns:
-    - "TDD RED->GREEN: failing test committed before implementation (628c72b -> 23f9f0b)"
-    - "vi.hoisted() for mock references used inside vi.mock() factory — prevents ReferenceError from Vitest hoisting"
-    - "Dual context consumption: MosaicWindowContext (split) + MosaicContext (remove) in same component"
-    - "renderWithContexts helper wraps PanelHeader in both MosaicWindowContext.Provider and MosaicContext.Provider for isolation"
+    - 'TDD RED->GREEN: failing test committed before implementation (628c72b -> 23f9f0b)'
+    - 'vi.hoisted() for mock references used inside vi.mock() factory — prevents ReferenceError from Vitest hoisting'
+    - 'Dual context consumption: MosaicWindowContext (split) + MosaicContext (remove) in same component'
+    - 'renderWithContexts helper wraps PanelHeader in both MosaicWindowContext.Provider and MosaicContext.Provider for isolation'
 
 key-files:
   created:
@@ -36,12 +36,12 @@ key-files:
     - src/renderer/src/assets/global.css
 
 key-decisions:
-  - "vi.hoisted() required for mockSplit and mockRemove — they are referenced inside vi.mock() factory which is hoisted before variable declarations"
-  - "PanelHeader uses both MosaicWindowContext (for mosaicWindowActions.split) and MosaicContext (for mosaicActions.remove) — v7 API separates these"
-  - "color-dot background set via inline style (not CSS class) so tests can assert style.background value"
+  - 'vi.hoisted() required for mockSplit and mockRemove — they are referenced inside vi.mock() factory which is hoisted before variable declarations'
+  - 'PanelHeader uses both MosaicWindowContext (for mosaicWindowActions.split) and MosaicContext (for mosaicActions.remove) — v7 API separates these'
+  - 'color-dot background set via inline style (not CSS class) so tests can assert style.background value'
 
 patterns-established:
-  - "Dual context helper: renderWithContexts() wraps both MosaicWindowContext.Provider and MosaicContext.Provider"
+  - 'Dual context helper: renderWithContexts() wraps both MosaicWindowContext.Provider and MosaicContext.Provider'
 
 requirements-completed: [LAYOUT-02, LAYOUT-04, LAYOUT-06, LAYOUT-07]
 
@@ -84,10 +84,12 @@ _Note: TDD tasks have two commits — failing tests first (RED), then implementa
 ## Files Created/Modified
 
 **Created:**
+
 - `src/renderer/src/components/PanelHeader.tsx` — PanelHeader with editable title, color picker, split/close buttons
 - `tests/renderer/PanelHeader.test.tsx` — 8 unit tests for all header interactions
 
 **Modified:**
+
 - `src/renderer/src/components/PanelWindow.tsx` — replaced inline placeholder with `<PanelHeader>` via renderToolbar; wrapped PanelHeader in `<div>` for react-dnd connector compatibility
 - `src/renderer/src/assets/global.css` — panel-header CSS classes appended
 - `src/main/ptyManager.ts` — resolve cwd to absolute path with homedir fallback (fixes `posix_spawnp` failure on relative `"."`)
@@ -104,6 +106,7 @@ _Note: TDD tasks have two commits — failing tests first (RED), then implementa
 ### Auto-fixed Issues
 
 **1. [Rule 1 - Bug] vi.hoisted() required for mock variables in vi.mock() factory**
+
 - **Found during:** Task 1 (TDD GREEN — first test run after PanelHeader.tsx created)
 - **Issue:** `mockSplit` and `mockRemove` were declared with `vi.fn()` at module level, then referenced inside `vi.mock('react-mosaic-component', ...)` factory. Vitest hoists `vi.mock()` to top of file, causing `ReferenceError: Cannot access 'mockSplit' before initialization`.
 - **Fix:** Changed to `const { mockSplit, mockRemove } = vi.hoisted(() => ({ mockSplit: vi.fn(), mockRemove: vi.fn() }))`. Tests now pass.
@@ -112,6 +115,7 @@ _Note: TDD tasks have two commits — failing tests first (RED), then implementa
 - **Committed in:** `23f9f0b` (Task 1 GREEN commit)
 
 **2. [Rule 1 - Bug] PTY spawn failure on relative "." cwd**
+
 - **Found during:** Task 2 (human verification — app failed to spawn PTY)
 - **Issue:** `ptyManager.spawn()` received cwd `"."` (relative path), causing `posix_spawnp` to fail on macOS
 - **Fix:** Added `path.resolve(options.cwd || '.')` with homedir fallback so ptyManager always receives an absolute path
@@ -120,6 +124,7 @@ _Note: TDD tasks have two commits — failing tests first (RED), then implementa
 - **Committed in:** `2aa3e5e`
 
 **3. [Rule 1 - Bug] react-dnd connector requires DOM node, not React element**
+
 - **Found during:** Task 2 (human verification — drag/resize threw react-dnd connector error)
 - **Issue:** react-mosaic's drag connector requires a DOM node ref; wrapping `<PanelHeader>` directly caused connector to receive a React element instead
 - **Fix:** Wrapped `<PanelHeader>` in a `<div>` inside `renderToolbar` in `PanelWindow.tsx` so the connector attaches to a real DOM node
@@ -128,6 +133,7 @@ _Note: TDD tasks have two commits — failing tests first (RED), then implementa
 - **Committed in:** `2aa3e5e`
 
 **4. [Rule 1 - Bug] Missing createNode prop on Mosaic breaks split action**
+
 - **Found during:** Task 2 (human verification — split button caused runtime error)
 - **Issue:** `mosaicWindowActions.split()` in react-mosaic v7 requires a `createNode` callback on the `<Mosaic>` component to generate new node IDs; without it, split threw an error
 - **Fix:** Added `createNode={() => crypto.randomUUID()}` prop to `<Mosaic>` in `MosaicLayout.tsx`
@@ -155,5 +161,6 @@ None — no external service configuration required.
 - PTY cwd now resolved in ptyManager; Phase 03 can pass absolute project paths without workarounds
 
 ---
-*Phase: 02-multi-panel-layout*
-*Completed: 2026-03-14*
+
+_Phase: 02-multi-panel-layout_
+_Completed: 2026-03-14_

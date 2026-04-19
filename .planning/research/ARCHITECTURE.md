@@ -60,18 +60,18 @@
 
 ### Component Responsibilities
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| `PtyManager` (main) | Owns Map of all live IPty instances keyed by panel ID; spawns, resizes, kills PTYs; pipes pty.onData to renderer; runs attention watcher on raw output | Renderer via `webContents.send('pty:data', id, chunk)` and `'pty:attention', id`; receives `pty:write`, `pty:resize`, `pty:kill`, `pty:create` from ipcMain.handle |
-| `FolderService` (main) | Shows native open-directory dialog; performs `fs.readdir` (shallow + lazy-load on expand) | Renderer via `folder:open` (invoke/handle), `folder:readdir` (invoke/handle) |
-| `LayoutPersistence` (main) | Reads and writes `<projectRoot>/.multiterm/layout.json`; serializes mosaic tree + panel metadata | Called by ipcMain handlers `layout:load` and `layout:save`; also writes on any panel state change event forwarded by renderer |
-| `Preload script` | Translates every IPC channel into a typed function on `window.electronAPI`; never exposes raw ipcRenderer | Main process IPC ↔ Renderer window.electronAPI |
-| `Zustand Panel Store` (renderer) | Single source of truth for: mosaic layout tree, per-panel metadata (title, color, attention state), and project root path | All renderer components read/write here; store actions trigger IPC calls for PTY operations |
-| `MosaicCanvas` (renderer) | Renders react-mosaic controlled component; drives split/resize/close; delegates tile content to `TermPanel` | Zustand store for `mosaicTree` shape |
-| `TermPanel` (renderer) | Renders one xterm.js terminal; mounts FitAddon + WebLinksAddon; manages xterm Terminal instance lifecycle tied to panel ID | Zustand store for panel metadata; `window.electronAPI` for pty:write, pty:resize; listens to pty:data and pty:attention events |
-| `PanelHeader` (renderer) | Editable title (double-click), color dot picker, attention badge, close button | Zustand store to update panel metadata |
-| `FileTree` (renderer) | Displays project directory recursively; lazy-loads subdirectories on expand | `window.electronAPI.folder.readdir` |
-| `AttentionWatcher` (main) | Regex scan on raw pty output per panel ID; emits `pty:attention` event + triggers `Notification` API | Part of PtyManager's `onData` pipeline |
+| Component                        | Responsibility                                                                                                                                         | Communicates With                                                                                                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PtyManager` (main)              | Owns Map of all live IPty instances keyed by panel ID; spawns, resizes, kills PTYs; pipes pty.onData to renderer; runs attention watcher on raw output | Renderer via `webContents.send('pty:data', id, chunk)` and `'pty:attention', id`; receives `pty:write`, `pty:resize`, `pty:kill`, `pty:create` from ipcMain.handle |
+| `FolderService` (main)           | Shows native open-directory dialog; performs `fs.readdir` (shallow + lazy-load on expand)                                                              | Renderer via `folder:open` (invoke/handle), `folder:readdir` (invoke/handle)                                                                                       |
+| `LayoutPersistence` (main)       | Reads and writes `<projectRoot>/.multiterm/layout.json`; serializes mosaic tree + panel metadata                                                       | Called by ipcMain handlers `layout:load` and `layout:save`; also writes on any panel state change event forwarded by renderer                                      |
+| `Preload script`                 | Translates every IPC channel into a typed function on `window.electronAPI`; never exposes raw ipcRenderer                                              | Main process IPC ↔ Renderer window.electronAPI                                                                                                                     |
+| `Zustand Panel Store` (renderer) | Single source of truth for: mosaic layout tree, per-panel metadata (title, color, attention state), and project root path                              | All renderer components read/write here; store actions trigger IPC calls for PTY operations                                                                        |
+| `MosaicCanvas` (renderer)        | Renders react-mosaic controlled component; drives split/resize/close; delegates tile content to `TermPanel`                                            | Zustand store for `mosaicTree` shape                                                                                                                               |
+| `TermPanel` (renderer)           | Renders one xterm.js terminal; mounts FitAddon + WebLinksAddon; manages xterm Terminal instance lifecycle tied to panel ID                             | Zustand store for panel metadata; `window.electronAPI` for pty:write, pty:resize; listens to pty:data and pty:attention events                                     |
+| `PanelHeader` (renderer)         | Editable title (double-click), color dot picker, attention badge, close button                                                                         | Zustand store to update panel metadata                                                                                                                             |
+| `FileTree` (renderer)            | Displays project directory recursively; lazy-loads subdirectories on expand                                                                            | `window.electronAPI.folder.readdir`                                                                                                                                |
+| `AttentionWatcher` (main)        | Regex scan on raw pty output per panel ID; emits `pty:attention` event + triggers `Notification` API                                                   | Part of PtyManager's `onData` pipeline                                                                                                                             |
 
 ---
 
@@ -130,23 +130,31 @@ src/
 **Trade-offs:** Simple and explicit. The renderer drives lifecycle (create on panel add, kill on panel close). The map never grows unbounded because kills clean it up.
 
 **Example:**
+
 ```typescript
 // src/main/pty-manager.ts
 class PtyManager {
-  private ptys = new Map<string, IPty>();
+  private ptys = new Map<string, IPty>()
 
   create(id: string, cwd: string, shell: string) {
-    const pty = spawn(shell, [], { cwd, cols: 80, rows: 24 });
-    pty.onData(data => {
-      this.emit('data', id, data);          // → webContents.send('pty:data', id, data)
-      this.attentionWatcher.check(id, data); // → maybe webContents.send('pty:attention', id)
-    });
-    this.ptys.set(id, pty);
+    const pty = spawn(shell, [], { cwd, cols: 80, rows: 24 })
+    pty.onData((data) => {
+      this.emit('data', id, data) // → webContents.send('pty:data', id, data)
+      this.attentionWatcher.check(id, data) // → maybe webContents.send('pty:attention', id)
+    })
+    this.ptys.set(id, pty)
   }
 
-  write(id: string, data: string) { this.ptys.get(id)?.write(data); }
-  resize(id: string, cols: number, rows: number) { this.ptys.get(id)?.resize(cols, rows); }
-  kill(id: string) { this.ptys.get(id)?.kill(); this.ptys.delete(id); }
+  write(id: string, data: string) {
+    this.ptys.get(id)?.write(data)
+  }
+  resize(id: string, cols: number, rows: number) {
+    this.ptys.get(id)?.resize(cols, rows)
+  }
+  kill(id: string) {
+    this.ptys.get(id)?.kill()
+    this.ptys.delete(id)
+  }
 }
 ```
 
@@ -159,26 +167,31 @@ class PtyManager {
 **Trade-offs:** Small boilerplate cost, but eliminates a class of XSS-to-RCE security bugs. Also makes the API surface inspectable and testable.
 
 **Example:**
+
 ```typescript
 // src/preload/index.ts
 contextBridge.exposeInMainWorld('electronAPI', {
   pty: {
-    create:  (id, cwd, shell) => ipcRenderer.invoke('pty:create', id, cwd, shell),
-    write:   (id, data)       => ipcRenderer.invoke('pty:write', id, data),
-    resize:  (id, cols, rows) => ipcRenderer.invoke('pty:resize', id, cols, rows),
-    kill:    (id)             => ipcRenderer.invoke('pty:kill', id),
-    onData:  (cb) => { ipcRenderer.on('pty:data', (_e, id, data) => cb(id, data)); },
-    onAttention: (cb) => { ipcRenderer.on('pty:attention', (_e, id) => cb(id)); },
+    create: (id, cwd, shell) => ipcRenderer.invoke('pty:create', id, cwd, shell),
+    write: (id, data) => ipcRenderer.invoke('pty:write', id, data),
+    resize: (id, cols, rows) => ipcRenderer.invoke('pty:resize', id, cols, rows),
+    kill: (id) => ipcRenderer.invoke('pty:kill', id),
+    onData: (cb) => {
+      ipcRenderer.on('pty:data', (_e, id, data) => cb(id, data))
+    },
+    onAttention: (cb) => {
+      ipcRenderer.on('pty:attention', (_e, id) => cb(id))
+    }
   },
   folder: {
-    open:    ()    => ipcRenderer.invoke('folder:open'),
-    readdir: (dir) => ipcRenderer.invoke('folder:readdir', dir),
+    open: () => ipcRenderer.invoke('folder:open'),
+    readdir: (dir) => ipcRenderer.invoke('folder:readdir', dir)
   },
   layout: {
     load: (root) => ipcRenderer.invoke('layout:load', root),
-    save: (root, data) => ipcRenderer.invoke('layout:save', root, data),
-  },
-});
+    save: (root, data) => ipcRenderer.invoke('layout:save', root, data)
+  }
+})
 ```
 
 ### Pattern 3: Zustand as Single Source of Truth with IPC Side Effects
@@ -190,42 +203,43 @@ contextBridge.exposeInMainWorld('electronAPI', {
 **Trade-offs:** Slight indirection (component → store action → IPC), but consistent with React unidirectional data flow. State stays in Zustand; native PTY state stays in main process — they shadow each other.
 
 **Example:**
+
 ```typescript
 // src/renderer/src/store/panels.ts
 interface PanelStore {
-  mosaicTree: MosaicNode<string> | null;
-  panels: Map<string, PanelMeta>;
-  addPanel: (cwd: string) => void;
-  removePanel: (id: string) => void;
-  setAttention: (id: string, val: boolean) => void;
+  mosaicTree: MosaicNode<string> | null
+  panels: Map<string, PanelMeta>
+  addPanel: (cwd: string) => void
+  removePanel: (id: string) => void
+  setAttention: (id: string, val: boolean) => void
 }
 
 const usePanelStore = create<PanelStore>((set, get) => ({
   panels: new Map(),
   addPanel: async (cwd) => {
-    const id = crypto.randomUUID();
-    await window.electronAPI.pty.create(id, cwd, detectShell());
-    set(s => ({
+    const id = crypto.randomUUID()
+    await window.electronAPI.pty.create(id, cwd, detectShell())
+    set((s) => ({
       panels: new Map(s.panels).set(id, { id, title: 'Terminal', color: '#888', attention: false }),
-      mosaicTree: addToMosaicTree(s.mosaicTree, id),
-    }));
+      mosaicTree: addToMosaicTree(s.mosaicTree, id)
+    }))
   },
   removePanel: async (id) => {
-    await window.electronAPI.pty.kill(id);
-    set(s => {
-      const panels = new Map(s.panels);
-      panels.delete(id);
-      return { panels, mosaicTree: removeFromMosaicTree(s.mosaicTree, id) };
-    });
+    await window.electronAPI.pty.kill(id)
+    set((s) => {
+      const panels = new Map(s.panels)
+      panels.delete(id)
+      return { panels, mosaicTree: removeFromMosaicTree(s.mosaicTree, id) }
+    })
   },
   setAttention: (id, val) =>
-    set(s => {
-      const panels = new Map(s.panels);
-      const p = panels.get(id);
-      if (p) panels.set(id, { ...p, attention: val });
-      return { panels };
-    }),
-}));
+    set((s) => {
+      const panels = new Map(s.panels)
+      const p = panels.get(id)
+      if (p) panels.set(id, { ...p, attention: val })
+      return { panels }
+    })
+}))
 ```
 
 ### Pattern 4: FitAddon Resize Roundtrip
@@ -237,17 +251,18 @@ const usePanelStore = create<PanelStore>((set, get) => ({
 **Trade-offs:** ResizeObserver on the container div is the correct trigger — not `window.resize`, which fires too early relative to mosaic layout changes.
 
 **Example:**
+
 ```typescript
 // src/renderer/src/components/TermPanel/TermPanel.tsx
 useEffect(() => {
   const observer = new ResizeObserver(() => {
-    fitAddon.fit();
-    const { cols, rows } = terminal;
-    window.electronAPI.pty.resize(panelId, cols, rows);
-  });
-  observer.observe(containerRef.current!);
-  return () => observer.disconnect();
-}, [panelId]);
+    fitAddon.fit()
+    const { cols, rows } = terminal
+    window.electronAPI.pty.resize(panelId, cols, rows)
+  })
+  observer.observe(containerRef.current!)
+  return () => observer.disconnect()
+}, [panelId])
 ```
 
 ---
@@ -412,22 +427,22 @@ The component dependency graph dictates a natural build sequence:
 
 ### Internal Boundaries
 
-| Boundary | Communication | Direction | Notes |
-|----------|---------------|-----------|-------|
-| Renderer ↔ Preload | `window.electronAPI` object | Bidirectional (invoke returns Promise; onData registers listener) | Typed in `electron-api.d.ts` |
-| Preload ↔ Main | `ipcRenderer.invoke` / `ipcMain.handle` (request-response); `webContents.send` / `ipcRenderer.on` (push events) | Invoke: renderer → main; Push: main → renderer | Two-way channels: `pty:data`, `pty:attention` are push; all others are invoke |
-| TermPanel ↔ xterm.js | Direct method calls on `Terminal` instance held in a React ref | Component owns instance | Terminal instance must be created in `useEffect`, not during render |
-| TermPanel ↔ PtyManager | Via `window.electronAPI.pty.*` calls and event listeners | Both directions | Panel ID is the routing key on both sides |
-| MosaicCanvas ↔ Zustand | react-mosaic `onChange` callback → `store.setMosaicTree()` | Mosaic → Zustand (user drag/resize); Zustand → Mosaic prop (programmatic) | Controlled component pattern |
-| LayoutPersistence ↔ Zustand | Zustand store subscriber triggers save; load result hydrates store on startup | Both directions | Save is debounced; load is one-time at project open |
+| Boundary                    | Communication                                                                                                   | Direction                                                                 | Notes                                                                         |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Renderer ↔ Preload          | `window.electronAPI` object                                                                                     | Bidirectional (invoke returns Promise; onData registers listener)         | Typed in `electron-api.d.ts`                                                  |
+| Preload ↔ Main              | `ipcRenderer.invoke` / `ipcMain.handle` (request-response); `webContents.send` / `ipcRenderer.on` (push events) | Invoke: renderer → main; Push: main → renderer                            | Two-way channels: `pty:data`, `pty:attention` are push; all others are invoke |
+| TermPanel ↔ xterm.js        | Direct method calls on `Terminal` instance held in a React ref                                                  | Component owns instance                                                   | Terminal instance must be created in `useEffect`, not during render           |
+| TermPanel ↔ PtyManager      | Via `window.electronAPI.pty.*` calls and event listeners                                                        | Both directions                                                           | Panel ID is the routing key on both sides                                     |
+| MosaicCanvas ↔ Zustand      | react-mosaic `onChange` callback → `store.setMosaicTree()`                                                      | Mosaic → Zustand (user drag/resize); Zustand → Mosaic prop (programmatic) | Controlled component pattern                                                  |
+| LayoutPersistence ↔ Zustand | Zustand store subscriber triggers save; load result hydrates store on startup                                   | Both directions                                                           | Save is debounced; load is one-time at project open                           |
 
 ### External Dependencies (no network — local OS only)
 
-| Dependency | Integration | Notes |
-|------------|-------------|-------|
-| OS shell (bash/zsh/cmd) | `node-pty.spawn(shell, [], { cwd })` | Shell auto-detected from `process.env.SHELL` on macOS/Linux; `cmd.exe` or `powershell.exe` on Windows |
-| OS filesystem | `fs.readdir`, `fs.readFile`, `fs.writeFile` in main process only | All paths validated to be under project root before use |
-| OS notification daemon | `new Notification({ title, body }).show()` from main process | Cross-platform; requires Electron's Notification API in main process (not Web Notifications API) |
+| Dependency              | Integration                                                      | Notes                                                                                                 |
+| ----------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| OS shell (bash/zsh/cmd) | `node-pty.spawn(shell, [], { cwd })`                             | Shell auto-detected from `process.env.SHELL` on macOS/Linux; `cmd.exe` or `powershell.exe` on Windows |
+| OS filesystem           | `fs.readdir`, `fs.readFile`, `fs.writeFile` in main process only | All paths validated to be under project root before use                                               |
+| OS notification daemon  | `new Notification({ title, body }).show()` from main process     | Cross-platform; requires Electron's Notification API in main process (not Web Notifications API)      |
 
 ---
 
@@ -435,11 +450,11 @@ The component dependency graph dictates a natural build sequence:
 
 This is a local desktop app — the "users" axis is irrelevant. The meaningful scale dimension is **number of concurrent PTY panels**.
 
-| Panel Count | Architecture Concern | Mitigation |
-|-------------|----------------------|------------|
-| 1–4 panels (typical) | No issues | Default xterm.js scrollback (1000 lines); no change needed |
-| 5–12 panels | Memory from xterm.js scrollback buffers; CPU from multiple onData handlers | Reduce scrollback to 500 lines per panel; consider virtualizing panels not in view |
-| 12+ panels | Each panel's xterm.js DOM is live and consuming GPU compositing resources | Lazy-render panels: only mount xterm.js for tiles currently visible; unmount hidden tiles (keep PTY alive, buffer output) |
+| Panel Count          | Architecture Concern                                                       | Mitigation                                                                                                                |
+| -------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1–4 panels (typical) | No issues                                                                  | Default xterm.js scrollback (1000 lines); no change needed                                                                |
+| 5–12 panels          | Memory from xterm.js scrollback buffers; CPU from multiple onData handlers | Reduce scrollback to 500 lines per panel; consider virtualizing panels not in view                                        |
+| 12+ panels           | Each panel's xterm.js DOM is live and consuming GPU compositing resources  | Lazy-render panels: only mount xterm.js for tiles currently visible; unmount hidden tiles (keep PTY alive, buffer output) |
 
 The AttentionWatcher runs synchronously in the PtyManager `onData` handler — keep regex patterns simple to avoid blocking the main process event loop when output is high-throughput.
 
@@ -459,5 +474,5 @@ The AttentionWatcher runs synchronously in the PtyManager `onData` handler — k
 
 ---
 
-*Architecture research for: Electron multi-panel terminal app (multiterm-studio)*
-*Researched: 2026-03-14*
+_Architecture research for: Electron multi-panel terminal app (multiterm-studio)_
+_Researched: 2026-03-14_

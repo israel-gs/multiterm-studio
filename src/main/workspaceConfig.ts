@@ -40,6 +40,10 @@ export async function saveWorkspaceConfig(
     await writeFile(tmp, JSON.stringify(config, null, 2), 'utf-8')
     await rename(tmp, target)
   } catch {
-    try { await unlink(tmp) } catch { /* ignore */ }
+    try {
+      await unlink(tmp)
+    } catch {
+      /* ignore */
+    }
   }
 }

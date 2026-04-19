@@ -1,7 +1,11 @@
-import { app, shell, BrowserWindow, ipcMain, Menu, globalShortcut, protocol, net } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Menu, dialog, protocol, net } from 'electron'
 import { join } from 'path'
+import { fork } from 'child_process'
+import type { ChildProcess } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { registerPtyHandlers, cleanupOrphanSessions, setTmuxMouseMode } from './ptyManager'
+import { registerPtyHandlers } from './ptyManager'
+import { SidecarClient } from './sidecar/client'
+import { SIDECAR_CONTROL_ENDPOINT } from './sidecar/protocol'
 import { initSettings, getSetting, setSetting } from './settingsManager'
 import { registerFolderHandlers } from './folderManager'
 import { registerFileHandlers } from './fileManager'
@@ -10,7 +14,16 @@ import { registerRecentProjectsHandlers } from './recentProjectsManager'
 import { saveLayout, saveLayoutSync, loadLayout, ensureGitignore } from './layoutManager'
 import type { LayoutSnapshot } from './layoutManager'
 import { startRpcServer } from './rpcServer'
-import { injectHooks, removeHooks, injectOpenCodeHooks, removeOpenCodeHooks, injectCodexHooks, removeCodexHooks, injectGeminiHooks, removeGeminiHooks } from './hookInjector'
+import {
+  injectHooks,
+  removeHooks,
+  injectOpenCodeHooks,
+  removeOpenCodeHooks,
+  injectCodexHooks,
+  removeCodexHooks,
+  injectGeminiHooks,
+  removeGeminiHooks
+} from './hookInjector'
 import { startFileWatcher, startMultiFileWatcher, stopFileWatcher } from './fileWatcher'
 import { installCli } from './cliInstaller'
 import { loadWorkspaceConfig, saveWorkspaceConfig } from './workspaceConfig'
@@ -27,10 +40,20 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'local-resource', privileges: { supportFetchAPI: true, bypassCSP: true } }
 ])
 
+// Sidecar process and connected client
+let sidecarProcess: ChildProcess | null = null
+let sidecarClient: SidecarClient | null = null
+
 // Cache the most-recent save data so before-quit can do a synchronous flush
 let lastSaveData:
   | { mode?: 'folder'; folderPath: string; layout: LayoutSnapshot }
-  | { mode: 'workspace'; wsFilePath: string; layout: LayoutSnapshot; expandedDirs: Record<string, string[]>; folders: Array<{ path: string }> }
+  | {
+      mode: 'workspace'
+      wsFilePath: string
+      layout: LayoutSnapshot
+      expandedDirs: Record<string, string[]>
+      folders: Array<{ path: string }>
+    }
   | null = null
 let rpcCleanup: (() => void) | null = null
 let mainWindow: BrowserWindow | null = null
@@ -62,8 +85,8 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-  // Register PTY IPC handlers
-  registerPtyHandlers(win)
+  // Register PTY IPC handlers (client is guaranteed to be connected before createWindow is called)
+  registerPtyHandlers(win, sidecarClient!)
   // Register folder IPC handlers for project context panel (Phase 03)
   registerFolderHandlers(win)
   // Register file read/write IPC handlers for editor tiles
@@ -118,7 +141,8 @@ function createWindow(): void {
 
     // Canvas pinch forwarding for smoother trackpad zoom
     ipcMain.on('canvas:forward-pinch', (_event, deltaY: number) => {
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('canvas:pinch', deltaY)
+      if (mainWindow && !mainWindow.isDestroyed())
+        mainWindow.webContents.send('canvas:pinch', deltaY)
     })
 
     // Hooks IPC handlers
@@ -143,21 +167,29 @@ function createWindow(): void {
 
     // Multi-folder hooks inject/remove
     ipcMain.handle('hooks:inject-all', async (_event, folderPaths: string[]) => {
-      await Promise.all(folderPaths.map((fp) => Promise.all([
-        injectHooks(fp),
-        injectOpenCodeHooks(fp),
-        injectCodexHooks(fp),
-        injectGeminiHooks(fp)
-      ])))
+      await Promise.all(
+        folderPaths.map((fp) =>
+          Promise.all([
+            injectHooks(fp),
+            injectOpenCodeHooks(fp),
+            injectCodexHooks(fp),
+            injectGeminiHooks(fp)
+          ])
+        )
+      )
       if (mainWindow) startMultiFileWatcher(folderPaths, mainWindow)
     })
     ipcMain.handle('hooks:remove-all', async (_event, folderPaths: string[]) => {
-      await Promise.all(folderPaths.map((fp) => Promise.all([
-        removeHooks(fp),
-        removeOpenCodeHooks(fp),
-        removeCodexHooks(fp),
-        removeGeminiHooks(fp)
-      ])))
+      await Promise.all(
+        folderPaths.map((fp) =>
+          Promise.all([
+            removeHooks(fp),
+            removeOpenCodeHooks(fp),
+            removeCodexHooks(fp),
+            removeGeminiHooks(fp)
+          ])
+        )
+      )
       stopFileWatcher()
     })
 
@@ -182,25 +214,42 @@ function createWindow(): void {
           { name: 'VS Code Workspace', extensions: ['code-workspace'] }
         ]
       })
-      return result.canceled ? null : result.filePaths[0] ?? null
+      return result.canceled ? null : (result.filePaths[0] ?? null)
     })
     ipcMain.handle('workspace-file:load', async (_event, filePath: string) => {
       return loadWorkspaceFile(filePath)
     })
-    ipcMain.handle('workspace-file:save', async (_event, filePath: string, data: MultiTermWorkspace) => {
-      await saveWorkspaceFile(filePath, data)
-    })
+    ipcMain.handle(
+      'workspace-file:save',
+      async (_event, filePath: string, data: MultiTermWorkspace) => {
+        await saveWorkspaceFile(filePath, data)
+      }
+    )
 
     // Save layout into workspace file
-    ipcMain.handle('layout:save-workspace', async (_event, wsFilePath: string, layout: LayoutSnapshot, expandedDirs: Record<string, string[]>) => {
-      const existing = await loadWorkspaceFile(wsFilePath)
-      if (existing) {
-        existing.layout = layout
-        existing.expandedDirs = expandedDirs
-        lastSaveData = { mode: 'workspace', wsFilePath, layout, expandedDirs, folders: existing.folders }
-        await saveWorkspaceFile(wsFilePath, existing)
+    ipcMain.handle(
+      'layout:save-workspace',
+      async (
+        _event,
+        wsFilePath: string,
+        layout: LayoutSnapshot,
+        expandedDirs: Record<string, string[]>
+      ) => {
+        const existing = await loadWorkspaceFile(wsFilePath)
+        if (existing) {
+          existing.layout = layout
+          existing.expandedDirs = expandedDirs
+          lastSaveData = {
+            mode: 'workspace',
+            wsFilePath,
+            layout,
+            expandedDirs,
+            folders: existing.folders
+          }
+          await saveWorkspaceFile(wsFilePath, existing)
+        }
       }
-    })
+    )
 
     // Shell integration
     ipcMain.on('shell:show-item-in-folder', (_event, fullPath: string) => {
@@ -209,16 +258,19 @@ function createWindow(): void {
 
     // Native UI zoom (Cmd+= / Cmd+- / Cmd+0) and fullscreen (Shift+Cmd+F)
     ipcMain.on('zoom:in', () => {
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.zoomLevel = Math.min(mainWindow.webContents.zoomLevel + 0.5, 5)
+      if (mainWindow && !mainWindow.isDestroyed())
+        mainWindow.webContents.zoomLevel = Math.min(mainWindow.webContents.zoomLevel + 0.5, 5)
     })
     ipcMain.on('zoom:out', () => {
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.zoomLevel = Math.max(mainWindow.webContents.zoomLevel - 0.5, -3)
+      if (mainWindow && !mainWindow.isDestroyed())
+        mainWindow.webContents.zoomLevel = Math.max(mainWindow.webContents.zoomLevel - 0.5, -3)
     })
     ipcMain.on('zoom:reset', () => {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.zoomLevel = 0
     })
     ipcMain.on('fullscreen:toggle', () => {
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setFullScreen(!mainWindow.isFullScreen())
+      if (mainWindow && !mainWindow.isDestroyed())
+        mainWindow.setFullScreen(!mainWindow.isFullScreen())
     })
   }
 
@@ -236,17 +288,15 @@ ipcMain.handle('settings:get', (_event, key: string) => getSetting(key))
 ipcMain.handle('settings:set', (_event, key: string, value: unknown) => {
   setSetting(key, value)
 })
-ipcMain.handle('terminal:set-mouse-mode', (_event, enabled: boolean) => {
-  setTmuxMouseMode(enabled)
-  setSetting('terminal.mouseMode', enabled)
-})
-
 // Workspace config IPC handlers
 ipcMain.handle('workspace:load', async (_event, folderPath: string) => {
   return loadWorkspaceConfig(folderPath)
 })
 ipcMain.handle('workspace:save', async (_event, folderPath: string, config: unknown) => {
-  await saveWorkspaceConfig(folderPath, config as { selected_file: string | null; expanded_dirs: string[] })
+  await saveWorkspaceConfig(
+    folderPath,
+    config as { selected_file: string | null; expanded_dirs: string[] }
+  )
 })
 
 // Layout persistence IPC handlers
@@ -257,20 +307,15 @@ ipcMain.handle('layout:save', async (_event, folderPath: string, layout: LayoutS
 })
 
 ipcMain.handle('layout:load', async (_event, folderPath: string) => {
-  const layout = await loadLayout(folderPath)
-  // Clean up orphaned tmux sessions that don't match the loaded layout
-  if (layout && typeof layout === 'object' && 'panelIds' in layout) {
-    const panelIds = (layout as { panelIds?: string[] }).panelIds ?? []
-    cleanupOrphanSessions(panelIds)
-  }
-  return layout
+  return loadLayout(folderPath)
 })
 
 // Synchronous save on quit to capture any last-second changes
 app.on('before-quit', () => {
   if (lastSaveData !== null) {
     if (lastSaveData.mode === 'workspace') {
-      const { saveWorkspaceFileSync } = require('./workspaceFileManager') as typeof import('./workspaceFileManager')
+      const { saveWorkspaceFileSync } =
+        require('./workspaceFileManager') as typeof import('./workspaceFileManager')
       saveWorkspaceFileSync(lastSaveData.wsFilePath, {
         version: 1,
         folders: lastSaveData.folders,
@@ -286,12 +331,26 @@ app.on('before-quit', () => {
     rpcCleanup()
     rpcCleanup = null
   }
+
+  // Disconnect client and shut down sidecar
+  if (sidecarClient) {
+    sidecarClient.disconnect()
+    sidecarClient = null
+  }
+  if (sidecarProcess && !sidecarProcess.killed) {
+    sidecarProcess.kill('SIGTERM')
+    // Give it 2 s to exit cleanly; the OS will SIGKILL if the process outlives the app
+    const killTimer = setTimeout(() => {
+      if (sidecarProcess && !sidecarProcess.killed) sidecarProcess.kill('SIGKILL')
+    }, 2000)
+    killTimer.unref()
+  }
 })
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Handle local-resource:// protocol — serves local files for markdown preview images
   protocol.handle('local-resource', (req) => {
     const filePath = decodeURIComponent(new URL(req.url).pathname)
@@ -299,8 +358,6 @@ app.whenReady().then(() => {
   })
 
   initSettings()
-  const mouseMode = getSetting('terminal.mouseMode')
-  if (mouseMode === false) setTmuxMouseMode(false)
 
   electronApp.setAppUserModelId('com.multiterm.studio')
 
@@ -313,6 +370,37 @@ app.whenReady().then(() => {
 
   installCli()
 
+  // Boot the sidecar process and wait for it to accept connections
+  const sidecarEntryPath = join(__dirname, 'sidecar-entry.js')
+  sidecarProcess = fork(sidecarEntryPath, [], {
+    stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
+    env: {
+      ...process.env,
+      SIDECAR_CONTROL_ENDPOINT
+    }
+  })
+
+  // Poll until the sidecar accepts a connection (up to 3 s)
+  const client = new SidecarClient()
+  let connected = false
+  const deadline = Date.now() + 3000
+  while (!connected && Date.now() < deadline) {
+    try {
+      await client.connect(SIDECAR_CONTROL_ENDPOINT)
+      connected = true
+    } catch {
+      await new Promise<void>((r) => setTimeout(r, 100))
+    }
+  }
+
+  if (!connected) {
+    dialog.showErrorBox('Fatal', 'Sidecar failed to start within 3 seconds.')
+    app.quit()
+    return
+  }
+
+  sidecarClient = client
+
   // Build application menu bar
   const isMac = process.platform === 'darwin'
   const sendToRenderer = (channel: string): void => {
@@ -320,31 +408,59 @@ app.whenReady().then(() => {
     if (win) win.webContents.send(channel)
   }
   const menuTemplate: Electron.MenuItemConstructorOptions[] = [
-    ...(isMac ? [{
-      label: app.name,
-      submenu: [
-        { role: 'about' as const },
-        { type: 'separator' as const },
-        { label: 'Settings…', accelerator: 'Cmd+,', click: () => sendToRenderer('menu:settings') },
-        { type: 'separator' as const },
-        { role: 'hide' as const },
-        { role: 'hideOthers' as const },
-        { role: 'unhide' as const },
-        { type: 'separator' as const },
-        { role: 'quit' as const }
-      ]
-    }] : []),
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' as const },
+              { type: 'separator' as const },
+              {
+                label: 'Settings…',
+                accelerator: 'Cmd+,',
+                click: () => sendToRenderer('menu:settings')
+              },
+              { type: 'separator' as const },
+              { role: 'hide' as const },
+              { role: 'hideOthers' as const },
+              { role: 'unhide' as const },
+              { type: 'separator' as const },
+              { role: 'quit' as const }
+            ]
+          }
+        ]
+      : []),
     {
       label: 'File',
       submenu: [
-        { label: 'New Terminal', accelerator: 'CmdOrCtrl+T', click: () => sendToRenderer('menu:new-terminal') },
-        { label: 'New Note', accelerator: 'CmdOrCtrl+Shift+N', click: () => sendToRenderer('menu:new-note') },
+        {
+          label: 'New Terminal',
+          accelerator: 'CmdOrCtrl+T',
+          click: () => sendToRenderer('menu:new-terminal')
+        },
+        {
+          label: 'New Note',
+          accelerator: 'CmdOrCtrl+Shift+N',
+          click: () => sendToRenderer('menu:new-note')
+        },
         { type: 'separator' },
-        { label: 'Duplicate', accelerator: 'CmdOrCtrl+Shift+D', click: () => sendToRenderer('menu:duplicate') },
+        {
+          label: 'Duplicate',
+          accelerator: 'CmdOrCtrl+Shift+D',
+          click: () => sendToRenderer('menu:duplicate')
+        },
         { type: 'separator' },
-        { label: 'Close Tile', accelerator: 'CmdOrCtrl+W', click: () => sendToRenderer('menu:close-tile') },
+        {
+          label: 'Close Tile',
+          accelerator: 'CmdOrCtrl+W',
+          click: () => sendToRenderer('menu:close-tile')
+        },
         { type: 'separator' },
-        { label: 'Add Folder to Workspace...', accelerator: 'CmdOrCtrl+Shift+A', click: () => sendToRenderer('menu:add-folder') },
+        {
+          label: 'Add Folder to Workspace...',
+          accelerator: 'CmdOrCtrl+Shift+A',
+          click: () => sendToRenderer('menu:add-folder')
+        },
         { label: 'Save Workspace As...', click: () => sendToRenderer('menu:save-workspace') },
         { label: 'Open Workspace...', click: () => sendToRenderer('menu:open-workspace') }
       ]
@@ -364,17 +480,49 @@ app.whenReady().then(() => {
     {
       label: 'View',
       submenu: [
-        { label: 'Zoom to Fit All', accelerator: 'CmdOrCtrl+Alt+0', click: () => sendToRenderer('menu:zoom-fit-all') },
-        { label: 'Zoom to Fit Focused', accelerator: 'CmdOrCtrl+Alt+F', click: () => sendToRenderer('menu:zoom-fit-focused') },
+        {
+          label: 'Zoom to Fit All',
+          accelerator: 'CmdOrCtrl+Alt+0',
+          click: () => sendToRenderer('menu:zoom-fit-all')
+        },
+        {
+          label: 'Zoom to Fit Focused',
+          accelerator: 'CmdOrCtrl+Alt+F',
+          click: () => sendToRenderer('menu:zoom-fit-focused')
+        },
         { type: 'separator' },
-        { label: 'Tidy Selection', accelerator: 'CmdOrCtrl+Alt+T', click: () => sendToRenderer('menu:tidy') },
+        {
+          label: 'Tidy Selection',
+          accelerator: 'CmdOrCtrl+Alt+T',
+          click: () => sendToRenderer('menu:tidy')
+        },
         { type: 'separator' },
-        { label: 'Toggle Sidebar', accelerator: 'CmdOrCtrl+B', click: () => sendToRenderer('menu:toggle-sidebar') },
+        {
+          label: 'Toggle Sidebar',
+          accelerator: 'CmdOrCtrl+B',
+          click: () => sendToRenderer('menu:toggle-sidebar')
+        },
         { type: 'separator' },
-        { label: 'Navigate Left', accelerator: 'CmdOrCtrl+Alt+Left', click: () => sendToRenderer('menu:nav-left') },
-        { label: 'Navigate Right', accelerator: 'CmdOrCtrl+Alt+Right', click: () => sendToRenderer('menu:nav-right') },
-        { label: 'Navigate Up', accelerator: 'CmdOrCtrl+Alt+Up', click: () => sendToRenderer('menu:nav-up') },
-        { label: 'Navigate Down', accelerator: 'CmdOrCtrl+Alt+Down', click: () => sendToRenderer('menu:nav-down') },
+        {
+          label: 'Navigate Left',
+          accelerator: 'CmdOrCtrl+Alt+Left',
+          click: () => sendToRenderer('menu:nav-left')
+        },
+        {
+          label: 'Navigate Right',
+          accelerator: 'CmdOrCtrl+Alt+Right',
+          click: () => sendToRenderer('menu:nav-right')
+        },
+        {
+          label: 'Navigate Up',
+          accelerator: 'CmdOrCtrl+Alt+Up',
+          click: () => sendToRenderer('menu:nav-up')
+        },
+        {
+          label: 'Navigate Down',
+          accelerator: 'CmdOrCtrl+Alt+Down',
+          click: () => sendToRenderer('menu:nav-down')
+        },
         { type: 'separator' },
         { role: 'toggleDevTools' },
         { role: 'togglefullscreen' }

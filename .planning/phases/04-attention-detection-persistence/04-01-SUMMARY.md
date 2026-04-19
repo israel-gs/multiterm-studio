@@ -1,6 +1,6 @@
 ---
 phase: 04-attention-detection-persistence
-plan: "01"
+plan: '01'
 subsystem: ui
 tags: [electron, pty, notification, zustand, css-animation, ipc]
 
@@ -50,15 +50,15 @@ key-files:
     - tests/renderer/PanelHeader.test.tsx
 
 key-decisions:
-  - "registerPtyHandlers accepts BrowserWindow (not WebContents) so ptyManager can call handleAttentionEvent directly without extra IPC round-trip"
-  - "attentionService extracted to separate module for testability — attentionService.ts mocked in ptyManager tests to isolate Notification side-effects"
+  - 'registerPtyHandlers accepts BrowserWindow (not WebContents) so ptyManager can call handleAttentionEvent directly without extra IPC round-trip'
+  - 'attentionService extracted to separate module for testability — attentionService.ts mocked in ptyManager tests to isolate Notification side-effects'
   - "panel title not available in ptyManager layer — notification uses generic 'Terminal' title; renderer store has the actual title"
-  - "Mock attentionService via vi.mock in ptyManager.test.ts to prevent Notification constructor from being called in test environment"
-  - "attention:boolean defaults to false on addPanel — no separate initialization needed"
+  - 'Mock attentionService via vi.mock in ptyManager.test.ts to prevent Notification constructor from being called in test environment'
+  - 'attention:boolean defaults to false on addPanel — no separate initialization needed'
 
 patterns-established:
-  - "Pattern: ptyManager tests mock attentionService module to isolate PTY logic from notification side-effects"
-  - "Pattern: IPC push channels follow onPtyData unsubscribe closure pattern — capture listener reference inside function, return () => removeListener"
+  - 'Pattern: ptyManager tests mock attentionService module to isolate PTY logic from notification side-effects'
+  - 'Pattern: IPC push channels follow onPtyData unsubscribe closure pattern — capture listener reference inside function, return () => removeListener'
 
 requirements-completed: [ATTN-01, ATTN-02, ATTN-03]
 
@@ -123,6 +123,7 @@ Each task was committed atomically:
 ### Auto-fixed Issues
 
 **1. [Rule 1 - Bug] Updated existing panelStore test to match new PanelMeta shape**
+
 - **Found during:** Task 2 GREEN phase (panelStore implementation)
 - **Issue:** The existing test `addPanel adds entry with default title "Terminal" and default color "#569cd6"` used `toEqual({ title, color })` without the new `attention` field — strict equality caused failure
 - **Fix:** Updated test expectation to `toEqual({ title: 'Terminal', color: '#569cd6', attention: false })`
@@ -131,6 +132,7 @@ Each task was committed atomically:
 - **Committed in:** b77c3c5 (Task 2 commit)
 
 **2. [Rule 2 - Missing Critical] Added attentionService mock in ptyManager tests**
+
 - **Found during:** Task 1 GREEN phase (ptyManager attention tests)
 - **Issue:** ptyManager calls handleAttentionEvent which calls `new Notification(...)` — Electron Notification not mocked in ptyManager test environment, causing TypeError in onData path
 - **Fix:** Added `vi.mock('../../src/main/attentionService', ...)` to ptyManager.test.ts to isolate test from Notification side-effects
@@ -158,5 +160,6 @@ None - no external service configuration required.
 - All IPC channels in place (pty:attention, panel:focus) — no further main-process changes needed for attention features
 
 ---
-*Phase: 04-attention-detection-persistence*
-*Completed: 2026-03-16*
+
+_Phase: 04-attention-detection-persistence_
+_Completed: 2026-03-16_

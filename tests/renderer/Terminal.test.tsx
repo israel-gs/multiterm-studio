@@ -12,7 +12,12 @@ const { mockTerm, mockFitAddon, mockWebLinksAddon, MockTerminalConstructor } = v
     write: vi.fn(),
     dispose: vi.fn(),
     cols: 80,
-    rows: 24
+    rows: 24,
+    options: {} as Record<string, unknown>,
+    attachCustomKeyEventHandler: vi.fn(),
+    parser: {
+      registerOscHandler: vi.fn()
+    }
   }
   const mockFitAddon = { fit: vi.fn() }
   const mockWebLinksAddon = {}
@@ -54,7 +59,10 @@ const mockElectronAPI = {
   ptyWrite: vi.fn().mockResolvedValue(undefined),
   ptyResize: vi.fn().mockResolvedValue(undefined),
   ptyKill: vi.fn().mockResolvedValue(undefined),
-  onPtyData: vi.fn().mockReturnValue(vi.fn())
+  onPtyData: vi.fn().mockReturnValue(vi.fn()),
+  onPtyScrollback: vi.fn().mockReturnValue(vi.fn()),
+  ptyCwdChanged: vi.fn(),
+  settingsGet: vi.fn().mockResolvedValue(true)
 }
 
 Object.defineProperty(window, 'electronAPI', {
@@ -79,15 +87,17 @@ describe('TerminalPanel', () => {
     mockElectronAPI.ptyResize.mockResolvedValue(undefined)
     mockElectronAPI.ptyKill.mockResolvedValue(undefined)
     mockElectronAPI.onPtyData.mockReturnValue(vi.fn())
+    mockElectronAPI.onPtyScrollback.mockReturnValue(vi.fn())
+    mockElectronAPI.settingsGet.mockResolvedValue(true)
     MockTerminalConstructor.mockReturnValue(mockTerm)
   })
 
-  it('creates xterm Terminal with scrollback: 10000', () => {
+  it('creates xterm Terminal with scrollback: 200000', () => {
     act(() => {
       render(<TerminalPanel sessionId={sessionId} cwd={cwd} />)
     })
     expect(MockTerminalConstructor).toHaveBeenCalledWith(
-      expect.objectContaining({ scrollback: 10000 })
+      expect.objectContaining({ scrollback: 200000 })
     )
   })
 
@@ -129,7 +139,7 @@ describe('TerminalPanel', () => {
     act(() => {
       render(<TerminalPanel sessionId={sessionId} cwd={cwd} />)
     })
-    expect(mockElectronAPI.ptyCreate).toHaveBeenCalledWith(sessionId, cwd)
+    expect(mockElectronAPI.ptyCreate).toHaveBeenCalledWith(sessionId, cwd, undefined)
   })
 
   it('calls window.electronAPI.ptyWrite when term.onData fires', () => {
@@ -151,12 +161,10 @@ describe('TerminalPanel', () => {
 
   it('calls window.electronAPI.onPtyData and its callback calls term.write', () => {
     let ptyDataCallback: ((data: string) => void) | null = null
-    mockElectronAPI.onPtyData.mockImplementation(
-      (_id: string, cb: (data: string) => void) => {
-        ptyDataCallback = cb
-        return vi.fn()
-      }
-    )
+    mockElectronAPI.onPtyData.mockImplementation((_id: string, cb: (data: string) => void) => {
+      ptyDataCallback = cb
+      return vi.fn()
+    })
 
     act(() => {
       render(<TerminalPanel sessionId={sessionId} cwd={cwd} />)

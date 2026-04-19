@@ -22,6 +22,7 @@ The dominant build risk is infrastructure, not product design. node-pty has thre
 The stack is narrow and purposeful. electron-vite 5 provides a unified build surface for all three Electron contexts (main, preload, renderer) with HMR, eliminating the overhead of coordinating separate Vite configs. xterm.js v6 (the `@xterm` scoped packages) is a complete API rewrite of the deprecated `xterm` package — it must be used; the old unscoped packages are frozen and insecure. react-mosaic-component is the only battle-tested React tiling library with binary-tree layout state and drag-to-resize; it has low maintenance cadence but a stable API with no viable alternative short of a ground-up rebuild. zustand's slice pattern maps cleanly to the panel-centric global state model; jotai's atom-per-unit approach is a mismatch here.
 
 **Core technologies:**
+
 - Electron 41.x — desktop shell, OS integration, Node runtime for main process
 - electron-vite 5.x — unified build/dev tooling; requires Node 20.19+ or 22.12+
 - React 18.x + TypeScript 5.x — renderer UI with strict mode enforced
@@ -32,6 +33,7 @@ The stack is narrow and purposeful. electron-vite 5 provides a unified build sur
 - electron-builder 26.8.1 — cross-platform packaging; superior multi-OS support from single machine
 
 **Critical version constraints:**
+
 - Node.js 20.19+ or 22.12+ required by electron-vite 5
 - Use `@xterm/*` scoped packages only — unscoped `xterm` and `xterm-addon-*` are deprecated
 - `@electron/rebuild` (not the old `electron-rebuild` package) for native module ABI alignment
@@ -41,6 +43,7 @@ The stack is narrow and purposeful. electron-vite 5 provides a unified build sur
 Research confirmed the full v1 scope against 5 competitors (iTerm2, Warp, Wave Terminal, Tabby, Windows Terminal). All planned features are either table stakes or genuine differentiators with no competitive equivalent in the project-scoped category.
 
 **Must have (table stakes):**
+
 - Real PTY shell session per panel — without this it is a toy
 - Split/tile panes with drag-to-resize — missing this is a reason to leave
 - Panel close and add-new-terminal — expected in any multi-terminal product
@@ -50,6 +53,7 @@ Research confirmed the full v1 scope against 5 competitors (iTerm2, Warp, Wave T
 - Editable session title per panel — required for panel identification in multi-pane setups
 
 **Should have (competitive differentiators — all planned for v1):**
+
 - Output attention detection + pulsing badge — no competitor does proactive prompt detection for local PTY
 - Native OS notification when attention needed while app is backgrounded
 - Per-panel color dot — spatial orientation in tiling layouts
@@ -58,12 +62,14 @@ Research confirmed the full v1 scope against 5 competitors (iTerm2, Warp, Wave T
 - Single window, tiles-only model — eliminates the 15-terminal-windows problem
 
 **Defer to v1.x (post-launch polish):**
+
 - Keyboard shortcuts for split/close (Cmd+D)
 - Right-click context menu (copy, paste, clear)
 - CLI argv project path launch (`multiterm-studio .`)
 - Scrollback buffer configuration exposure
 
 **Defer to v2+ (scope protection):**
+
 - SSH / remote sessions — triples scope, contradicts local-first value proposition
 - Plugin / extension API — requires stable internal API surface first
 - Auto-update mechanism — requires code signing, release server
@@ -189,10 +195,12 @@ The architecture research explicitly provides a build order based on component d
 ### Research Flags
 
 Phases likely needing a `/gsd:research-phase` deeper dive during planning:
+
 - **Phase 4 (Attention Detection):** The regex patterns for common CLI interactive prompts across npm, git, pip, cargo, and homebrew are not standardized. A brief spike to enumerate and test real-world prompt patterns before implementing AttentionWatcher will prevent false-positive UX issues.
 - **Phase 5 (Windows Distribution):** Windows code signing certificate requirements, NSIS installer configuration, and conpty improvements in node-pty 1.2.0-beta (not yet stable) have environment-specific dependencies that benefit from a dedicated research pass before packaging begins.
 
 Phases with standard, well-documented patterns (skip research-phase):
+
 - **Phase 1:** Electron IPC + contextBridge + node-pty integration are exhaustively covered by official Electron docs and the node-pty Electron example.
 - **Phase 2:** react-mosaic controlled component pattern and ResizeObserver usage are fully documented.
 - **Phase 3:** Zustand store mutations, folder IPC, and basic React component patterns need no additional research.
@@ -201,12 +209,12 @@ Phases with standard, well-documented patterns (skip research-phase):
 
 ## Confidence Assessment
 
-| Area | Confidence | Notes |
-|------|------------|-------|
-| Stack | HIGH | All package versions verified against npm/GitHub releases as of 2026-03-14; version compatibility matrix fully checked |
-| Features | HIGH | Verified against 5 direct competitors (iTerm2, Warp, Wave Terminal, Tabby, Windows Terminal); community pain points sourced from HN and developer forums |
-| Architecture | HIGH | Electron IPC/contextBridge patterns from official Electron docs; node-pty main-process isolation from official node-pty Electron example; react-mosaic controlled component from stable README |
-| Pitfalls | HIGH | Each critical pitfall sourced from a real GitHub issue or official documentation; most have confirmed reproduction steps and verified fixes |
+| Area         | Confidence | Notes                                                                                                                                                                                          |
+| ------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stack        | HIGH       | All package versions verified against npm/GitHub releases as of 2026-03-14; version compatibility matrix fully checked                                                                         |
+| Features     | HIGH       | Verified against 5 direct competitors (iTerm2, Warp, Wave Terminal, Tabby, Windows Terminal); community pain points sourced from HN and developer forums                                       |
+| Architecture | HIGH       | Electron IPC/contextBridge patterns from official Electron docs; node-pty main-process isolation from official node-pty Electron example; react-mosaic controlled component from stable README |
+| Pitfalls     | HIGH       | Each critical pitfall sourced from a real GitHub issue or official documentation; most have confirmed reproduction steps and verified fixes                                                    |
 
 **Overall confidence:** HIGH
 
@@ -225,6 +233,7 @@ Phases with standard, well-documented patterns (skip research-phase):
 ## Sources
 
 ### Primary (HIGH confidence)
+
 - https://www.electronjs.org/docs/latest/tutorial/ipc — Electron IPC patterns
 - https://www.electronjs.org/docs/latest/tutorial/context-isolation — contextBridge security model
 - https://github.com/xtermjs/xterm.js/releases — xterm.js v6 release notes, @xterm scope migration
@@ -236,6 +245,7 @@ Phases with standard, well-documented patterns (skip research-phase):
 - https://github.com/electron-userland/electron-builder/releases — electron-builder 26.8.1
 
 ### Secondary (MEDIUM confidence)
+
 - https://github.com/microsoft/node-pty/issues/422 — Electron + node-pty integration guide
 - https://github.com/microsoft/node-pty/issues/372 — ASAR / winpty.dll compatibility
 - https://github.com/xtermjs/xterm.js/issues/4841 — FitAddon resize issues confirmed
@@ -244,9 +254,11 @@ Phases with standard, well-documented patterns (skip research-phase):
 - https://iterm2.com/features.html, https://www.warp.dev/all-features, https://github.com/wavetermdev/waveterm, https://github.com/Eugeny/tabby — competitor feature analysis
 
 ### Tertiary (for validation during implementation)
+
 - https://brunoscheufler.com/blog/2023-10-29-syncing-state-between-electron-contexts — Zustand + Electron state sync patterns
 - https://scopir.com/posts/best-terminal-emulators-developers-2026/ — competitive landscape as of 2026
 
 ---
-*Research completed: 2026-03-14*
-*Ready for roadmap: yes*
+
+_Research completed: 2026-03-14_
+_Ready for roadmap: yes_

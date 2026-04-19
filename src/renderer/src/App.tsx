@@ -55,42 +55,39 @@ function App(): React.JSX.Element {
   )
 
   // Open a workspace file: restore all folders + layout + expanded dirs
-  const openWorkspace = useCallback(
-    async (filePath: string) => {
-      if (prevFolderPathsRef.current.length > 0) {
-        void window.electronAPI.hooksRemoveAll(prevFolderPathsRef.current)
-      }
-      const ws = await window.electronAPI.workspaceFileLoad(filePath) as {
-        version: number
-        folders: Array<{ path: string }>
-        layout: SavedLayoutShape | null
-        expandedDirs: Record<string, string[]>
-      } | null
-      if (!ws || ws.folders.length === 0) return
+  const openWorkspace = useCallback(async (filePath: string) => {
+    if (prevFolderPathsRef.current.length > 0) {
+      void window.electronAPI.hooksRemoveAll(prevFolderPathsRef.current)
+    }
+    const ws = (await window.electronAPI.workspaceFileLoad(filePath)) as {
+      version: number
+      folders: Array<{ path: string }>
+      layout: SavedLayoutShape | null
+      expandedDirs: Record<string, string[]>
+    } | null
+    if (!ws || ws.folders.length === 0) return
 
-      const paths = ws.folders.map((f) => f.path)
-      savedLayoutRef.current = ws.layout ?? null
+    const paths = ws.folders.map((f) => f.path)
+    savedLayoutRef.current = ws.layout ?? null
 
-      // Merge all expanded dirs
-      const allExpanded = new Set<string>()
-      for (const dirs of Object.values(ws.expandedDirs ?? {})) {
-        for (const d of dirs) allExpanded.add(d)
-      }
+    // Merge all expanded dirs
+    const allExpanded = new Set<string>()
+    for (const dirs of Object.values(ws.expandedDirs ?? {})) {
+      for (const d of dirs) allExpanded.add(d)
+    }
 
-      const store = useProjectStore.getState()
-      store.setFolderPaths(paths)
-      store.setWorkspaceFilePath(filePath)
-      store.setExpandedDirs(allExpanded)
-      prevFolderPathsRef.current = paths
+    const store = useProjectStore.getState()
+    store.setFolderPaths(paths)
+    store.setWorkspaceFilePath(filePath)
+    store.setExpandedDirs(allExpanded)
+    prevFolderPathsRef.current = paths
 
-      void window.electronAPI.projectsAdd(filePath, {
-        type: 'workspace',
-        folderNames: paths.map((p) => p.split('/').pop() ?? p)
-      })
-      void window.electronAPI.hooksInjectAll(paths)
-    },
-    []
-  )
+    void window.electronAPI.projectsAdd(filePath, {
+      type: 'workspace',
+      folderNames: paths.map((p) => p.split('/').pop() ?? p)
+    })
+    void window.electronAPI.hooksInjectAll(paths)
+  }, [])
 
   // Add a folder to the current workspace
   const addFolderToWorkspace = useCallback(async () => {
@@ -142,11 +139,8 @@ function App(): React.JSX.Element {
   useEffect(() => {
     const unsubAttention = window.electronAPI.onAttention((data) => setAttention(data.id))
     const unsubPanelFocus = window.electronAPI.onPanelFocus((id) => clearAttention(id))
-    const unsubAgentSpawning = window.electronAPI.onAgentSpawning((data) => {
-      // Store agent name for the TmuxPaneSidebar to display
-      if (data.ptySessionId) {
-        usePanelStore.getState().addAgentName(data.ptySessionId, data.agentName)
-      }
+    const unsubAgentSpawning = window.electronAPI.onAgentSpawning(() => {
+      // Agent name tracking removed (TmuxPaneSidebar deleted in Phase 3)
     })
     const unsubSessionStarted = window.electronAPI.onAgentSessionStarted((data) => {
       if (data.ptySessionId) {
@@ -330,15 +324,17 @@ function App(): React.JSX.Element {
     return (
       <>
         <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 38,
-            WebkitAppRegion: 'drag',
-            zIndex: 9999
-          } as React.CSSProperties}
+          style={
+            {
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 38,
+              WebkitAppRegion: 'drag',
+              zIndex: 9999
+            } as React.CSSProperties
+          }
         />
         <WelcomeScreen
           onSelectProject={(path) => {
@@ -370,16 +366,18 @@ function App(): React.JSX.Element {
     >
       {/* Window drag region — allows moving the window with hiddenInset titlebar */}
       <div
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 38,
-          WebkitAppRegion: 'drag',
-          zIndex: 9999,
-          pointerEvents: 'auto'
-        } as React.CSSProperties}
+        style={
+          {
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 38,
+            WebkitAppRegion: 'drag',
+            zIndex: 9999,
+            pointerEvents: 'auto'
+          } as React.CSSProperties
+        }
       />
       {/* Sidebar stays mounted to preserve FileTree state — hidden via CSS when collapsed */}
       <div className={`sidebar-mount${sidebarCollapsed ? ' sidebar-mount--hidden' : ''}`}>
@@ -409,18 +407,25 @@ function App(): React.JSX.Element {
       </div>
       <main style={{ flex: 1, minWidth: 0, height: '100vh', position: 'relative' }}>
         {sidebarCollapsed && (
-          <button
-            className="sidebar-toggle-btn"
-            onClick={toggleSidebar}
-            aria-label="Show sidebar"
-          >
+          <button className="sidebar-toggle-btn" onClick={toggleSidebar} aria-label="Show sidebar">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <rect x="1" y="2" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.2" />
+              <rect
+                x="1"
+                y="2"
+                width="14"
+                height="12"
+                rx="2"
+                stroke="currentColor"
+                strokeWidth="1.2"
+              />
               <line x1="5.5" y1="2" x2="5.5" y2="14" stroke="currentColor" strokeWidth="1.2" />
             </svg>
           </button>
         )}
-        <TerminalCanvas key={workspaceFilePath ?? folderPath} savedLayout={savedLayoutRef.current} />
+        <TerminalCanvas
+          key={workspaceFilePath ?? folderPath}
+          savedLayout={savedLayoutRef.current}
+        />
       </main>
     </div>
   )

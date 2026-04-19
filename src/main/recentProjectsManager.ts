@@ -46,31 +46,38 @@ export function registerRecentProjectsHandlers(): void {
     return loadRecent()
   })
 
-  ipcMain.handle('projects:add', async (_event, folderPath: string, meta?: { type?: 'folder' | 'workspace'; folderNames?: string[] }) => {
-    const projects = await loadRecent()
-    const name = folderPath.split('/').pop() ?? folderPath
-    const existing = projects.find((p) => p.path === folderPath)
-    if (existing) {
-      existing.lastOpened = Date.now()
-      existing.openCount += 1
-      if (meta?.type) existing.type = meta.type
-      if (meta?.folderNames) existing.folderNames = meta.folderNames
-    } else {
-      projects.unshift({
-        path: folderPath,
-        name,
-        lastOpened: Date.now(),
-        openCount: 1,
-        type: meta?.type ?? 'folder',
-        folderNames: meta?.folderNames
-      })
+  ipcMain.handle(
+    'projects:add',
+    async (
+      _event,
+      folderPath: string,
+      meta?: { type?: 'folder' | 'workspace'; folderNames?: string[] }
+    ) => {
+      const projects = await loadRecent()
+      const name = folderPath.split('/').pop() ?? folderPath
+      const existing = projects.find((p) => p.path === folderPath)
+      if (existing) {
+        existing.lastOpened = Date.now()
+        existing.openCount += 1
+        if (meta?.type) existing.type = meta.type
+        if (meta?.folderNames) existing.folderNames = meta.folderNames
+      } else {
+        projects.unshift({
+          path: folderPath,
+          name,
+          lastOpened: Date.now(),
+          openCount: 1,
+          type: meta?.type ?? 'folder',
+          folderNames: meta?.folderNames
+        })
+      }
+      // Sort by most recently opened, keep max 20
+      projects.sort((a, b) => b.lastOpened - a.lastOpened)
+      const trimmed = projects.slice(0, 20)
+      await saveRecent(trimmed)
+      return trimmed
     }
-    // Sort by most recently opened, keep max 20
-    projects.sort((a, b) => b.lastOpened - a.lastOpened)
-    const trimmed = projects.slice(0, 20)
-    await saveRecent(trimmed)
-    return trimmed
-  })
+  )
 
   ipcMain.handle('projects:remove', async (_event, folderPath: string) => {
     const projects = await loadRecent()

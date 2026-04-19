@@ -7,11 +7,7 @@ export interface GitStore {
   detached: boolean
   loading: boolean
   error: string | null
-  setBranches: (data: {
-    current: string
-    branches: string[]
-    detached: boolean
-  }) => void
+  setBranches: (data: { current: string; branches: string[]; detached: boolean }) => void
   setIsRepo: (isRepo: boolean) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void

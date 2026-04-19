@@ -9,15 +9,17 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
-extraResources:
-  - from: resources/tmux
-    to: tmux
-  - from: resources/tmux.conf
-    to: tmux.conf
-  - from: resources/lib
-    to: lib
-  - from: resources/terminfo
-    to: terminfo
+  - '!openspec/**/*'
+  - '!.atl/**/*'
+  - '!.planning/**/*'
+  - '!tmux-*.log'
+  - '!tmux-server-*.log'
+  - '!tmux-client-*.log'
+  - '!tmux-out-*.log'
+  - '!*.log'
+  - '!**/*.test.ts'
+  - '!**/*.test.tsx'
+  - '!tests/**/*'
 asarUnpack:
   - resources/**
 win:

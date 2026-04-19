@@ -20,17 +20,19 @@ The previous implementation replaced mosaic splits with a CSS Grid of fixed-heig
 ## Data Model
 
 ### CardRect (per-card position/size)
+
 ```typescript
 interface CardRect {
-  x: number   // px from canvas origin
-  y: number   // px from canvas origin
-  w: number   // px width
-  h: number   // px height
-  z: number   // stacking order (higher = on top)
+  x: number // px from canvas origin
+  y: number // px from canvas origin
+  w: number // px width
+  h: number // px height
+  z: number // stacking order (higher = on top)
 }
 ```
 
 ### Layout v3 format (extends v2 with positions)
+
 ```typescript
 interface LayoutSnapshotV3 {
   version: 3
@@ -43,6 +45,7 @@ interface LayoutSnapshotV3 {
 Migration chain: v1 (mosaic tree) → v2 (flat array) → v3 (flat array + positions). v2 layouts get auto-cascaded positions on load.
 
 ### Constants
+
 ```
 DEFAULT_CARD_W = 480, DEFAULT_CARD_H = 320
 MIN_CARD_W = 300, MIN_CARD_H = 200
@@ -55,25 +58,25 @@ CASCADE_OFFSET = 30, CANVAS_PADDING = 200
 
 ### Create
 
-| File | Purpose |
-|------|---------|
+| File                                             | Purpose                                                                                                                                                                   |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/renderer/src/components/TerminalCanvas.tsx` | Replaces `TerminalGrid.tsx`. Owns `panelIds[]`, `positions: Record<string, CardRect>`, `topZ` counter. Scrollable viewport + dot-grid surface + floating cards + toolbar. |
-| `src/renderer/src/components/FloatingCard.tsx` | Absolute-positioned wrapper around `TerminalCard`. Handles drag (via header mousedown), resize (via edge/corner handles), z-index bring-to-front on click. |
+| `src/renderer/src/components/FloatingCard.tsx`   | Absolute-positioned wrapper around `TerminalCard`. Handles drag (via header mousedown), resize (via edge/corner handles), z-index bring-to-front on click.                |
 
 ### Modify
 
-| File | Changes |
-|------|---------|
-| `src/renderer/src/App.tsx` | Import `TerminalCanvas` instead of `TerminalGrid` |
-| `src/renderer/src/components/CardHeader.tsx` | Add `data-drag-handle` attr to `.panel-header` div. Add `cursor: grab` via CSS. |
-| `src/renderer/src/components/FileTree.tsx` | Replace emoji icons (`📂📁📄`) with text chevrons (`▸`/`▾`/space). Remove trailing `.file-tree-arrow` span (redundant with leading chevron). |
-| `src/renderer/src/assets/global.css` | Remove grid CSS. Add canvas/floating-card/resize-handle/dot-grid styles. Change `.terminal-card` from fixed height to `height: 100%; width: 100%`. |
-| `src/main/layoutManager.ts` | Add `LayoutSnapshotV3` type, `migrateV2toV3()`, update `loadLayout()` migration chain. |
+| File                                         | Changes                                                                                                                                            |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/renderer/src/App.tsx`                   | Import `TerminalCanvas` instead of `TerminalGrid`                                                                                                  |
+| `src/renderer/src/components/CardHeader.tsx` | Add `data-drag-handle` attr to `.panel-header` div. Add `cursor: grab` via CSS.                                                                    |
+| `src/renderer/src/components/FileTree.tsx`   | Replace emoji icons (`📂📁📄`) with text chevrons (`▸`/`▾`/space). Remove trailing `.file-tree-arrow` span (redundant with leading chevron).       |
+| `src/renderer/src/assets/global.css`         | Remove grid CSS. Add canvas/floating-card/resize-handle/dot-grid styles. Change `.terminal-card` from fixed height to `height: 100%; width: 100%`. |
+| `src/main/layoutManager.ts`                  | Add `LayoutSnapshotV3` type, `migrateV2toV3()`, update `loadLayout()` migration chain.                                                             |
 
 ### Delete
 
-| File | Reason |
-|------|--------|
+| File                                           | Reason                           |
+| ---------------------------------------------- | -------------------------------- |
 | `src/renderer/src/components/TerminalGrid.tsx` | Replaced by `TerminalCanvas.tsx` |
 
 ### Unchanged
@@ -85,6 +88,7 @@ CASCADE_OFFSET = 30, CANVAS_PADDING = 200
 ## Canvas Implementation (`TerminalCanvas.tsx`)
 
 **Structure:**
+
 ```
 <div className="terminal-canvas-toolbar">     // sticky toolbar
   <button>+ New terminal</button>
@@ -100,8 +104,9 @@ CASCADE_OFFSET = 30, CANVAS_PADDING = 200
 **Surface auto-sizing:** `surfaceW = max(viewportW, maxCardRight + CANVAS_PADDING)`, `surfaceH = max(viewportH, maxCardBottom + CANVAS_PADDING)`. Recalculated on position changes.
 
 **Dot grid background (CSS only):**
+
 ```css
-background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+background-image: radial-gradient(circle, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
 background-size: 24px 24px;
 ```
 
@@ -114,6 +119,7 @@ background-size: 24px 24px;
 ## Drag Implementation
 
 **On `FloatingCard`:** mousedown handler checks `e.target.closest('[data-drag-handle]')` exists and `e.target.closest('button, input')` does not. If valid:
+
 1. Record `startX/Y = e.clientX/Y` and starting card position
 2. Attach `mousemove`/`mouseup` to `document` (handles fast mouse leaving element)
 3. mousemove: `onMove(id, startCardX + dx, startCardY + dy)` — updates canvas position state
@@ -126,6 +132,7 @@ background-size: 24px 24px;
 ## Resize Implementation
 
 **Three handles on `FloatingCard`:**
+
 - **SE corner** (12×12px): `cursor: nwse-resize` — adjusts width + height
 - **E edge** (6px strip): `cursor: ew-resize` — adjusts width only
 - **S edge** (6px strip): `cursor: ns-resize` — adjusts height only
@@ -149,26 +156,32 @@ Cascade from last-added card: `{ x: lastCard.x + 30, y: lastCard.y + 30 }`. If n
 ## Execution Steps
 
 ### Step 1: Layout persistence v3
+
 - `src/main/layoutManager.ts` — add `LayoutSnapshotV3`, `migrateV2toV3()`, update `loadLayout()` chain
 - `tests/main/layoutManager.test.ts` — add v2→v3 migration test
 
 ### Step 2: FloatingCard + TerminalCanvas
+
 - Create `FloatingCard.tsx` — absolute positioning, drag logic (inline), resize handles + logic (inline), z-index bring-to-front
 - Create `TerminalCanvas.tsx` — port panel lifecycle from TerminalGrid, add position state, auto-placement, surface sizing, dot grid
 
 ### Step 3: Wire into App.tsx
+
 - Replace `TerminalGrid` import with `TerminalCanvas`
 
 ### Step 4: CSS overhaul
+
 - `global.css` — remove grid rules, add canvas/floating-card/resize-handle/dot-grid styles, change `.terminal-card` to `height/width: 100%`, add `cursor: grab` to `.panel-header`
 
 ### Step 5: CardHeader + FileTree cleanup
+
 - `CardHeader.tsx` — add `data-drag-handle` to header div
 - `FileTree.tsx` — replace emoji icons with `▸`/`▾`/space, remove trailing arrow span
 
 ### Step 6: Delete TerminalGrid.tsx
 
 ### Step 7: Update tests
+
 - Replace `TerminalGrid.test.tsx` with `TerminalCanvas.test.tsx`
 - Verify all 116 existing tests pass
 

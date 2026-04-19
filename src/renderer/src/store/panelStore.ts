@@ -19,7 +19,15 @@ export interface PanelMeta {
 
 export interface PanelStore {
   panels: Record<string, PanelMeta>
-  addPanel: (id: string, title?: string, color?: string, type?: 'terminal' | 'editor' | 'note' | 'image', filePath?: string, initialCommand?: string, cwd?: string) => void
+  addPanel: (
+    id: string,
+    title?: string,
+    color?: string,
+    type?: 'terminal' | 'editor' | 'note' | 'image',
+    filePath?: string,
+    initialCommand?: string,
+    cwd?: string
+  ) => void
   removePanel: (id: string) => void
   setTitle: (id: string, title: string) => void
   setColor: (id: string, color: string) => void
@@ -35,8 +43,6 @@ export interface PanelStore {
   pendingFocus: string | null
   requestFocus: (id: string) => void
   clearPendingFocus: () => void
-  agentNames: Record<string, string[]>
-  addAgentName: (ptySessionId: string, name: string) => void
 }
 
 export const usePanelStore = create<PanelStore>((set) => ({
@@ -47,7 +53,15 @@ export const usePanelStore = create<PanelStore>((set) => ({
       panels: {
         ...s.panels,
         [id]: {
-          title: title ?? (type === 'image' && filePath ? filePath.split('/').pop()! : type === 'editor' && filePath ? filePath.split('/').pop()! : type === 'note' ? 'Note' : 'Terminal'),
+          title:
+            title ??
+            (type === 'image' && filePath
+              ? filePath.split('/').pop()!
+              : type === 'editor' && filePath
+                ? filePath.split('/').pop()!
+                : type === 'note'
+                  ? 'Note'
+                  : 'Terminal'),
           color: color ?? colors.bgCard,
           attention: false,
           type: type ?? 'terminal',
@@ -106,7 +120,9 @@ export const usePanelStore = create<PanelStore>((set) => ({
   togglePreview: (id) =>
     set((s) => {
       if (!s.panels[id]) return s
-      return { panels: { ...s.panels, [id]: { ...s.panels[id], previewMode: !s.panels[id].previewMode } } }
+      return {
+        panels: { ...s.panels, [id]: { ...s.panels[id], previewMode: !s.panels[id].previewMode } }
+      }
     }),
 
   setAgentActive: (id, active) =>
@@ -118,7 +134,12 @@ export const usePanelStore = create<PanelStore>((set) => ({
   setHasProcess: (id, has, processName) =>
     set((s) => {
       if (!s.panels[id]) return s
-      return { panels: { ...s.panels, [id]: { ...s.panels[id], hasProcess: has, processName: processName ?? null } } }
+      return {
+        panels: {
+          ...s.panels,
+          [id]: { ...s.panels[id], hasProcess: has, processName: processName ?? null }
+        }
+      }
     }),
 
   setCwd: (id, cwd) =>
@@ -135,13 +156,5 @@ export const usePanelStore = create<PanelStore>((set) => ({
 
   pendingFocus: null,
   requestFocus: (id) => set({ pendingFocus: id }),
-  clearPendingFocus: () => set({ pendingFocus: null }),
-  agentNames: {},
-  addAgentName: (ptySessionId, name) =>
-    set((s) => ({
-      agentNames: {
-        ...s.agentNames,
-        [ptySessionId]: [...(s.agentNames[ptySessionId] ?? []), name]
-      }
-    }))
+  clearPendingFocus: () => set({ pendingFocus: null })
 }))
