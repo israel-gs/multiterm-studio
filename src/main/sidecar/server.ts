@@ -151,7 +151,7 @@ export class SidecarServer {
   // ── RPC handlers ────────────────────────────────────────────────────────────
 
   private handleCreate(socket: Socket, id: string | number, params: SessionCreateParams): void {
-    const { sessionId, shell, cwd, cols, rows, scrollbackBytes } = params
+    const { sessionId, shell, cwd, cols, rows, scrollbackBytes, initialCommand } = params
 
     if (this.sessions.has(sessionId)) {
       // Idempotent: return the existing session's endpoint instead of erroring.
@@ -238,12 +238,18 @@ export class SidecarServer {
 
     // Start the data server, then respond
     dataServer.listen(dataEndpoint, () => {
-      // Inject OSC 7 hook after a 300 ms delay so the shell prompt is ready
+      // After 300 ms the shell prompt is ready. Write in strict order:
+      //   1. OSC 7 hook (if the shell needs one)
+      //   2. initialCommand (if provided)
+      // Serialising both writes inside the same setTimeout ensures the hook is
+      // never overtaken by the initialCommand even when the command launches a
+      // TUI app that captures stdin immediately.
       const hook = osc7ShellHook(shell)
-      if (hook) {
+      if (hook || initialCommand) {
         setTimeout(() => {
           try {
-            ptyProcess.write(hook + '\n')
+            if (hook) ptyProcess.write(hook + '\n')
+            if (initialCommand) ptyProcess.write(initialCommand + '\n')
           } catch {
             // PTY may have exited already
           }

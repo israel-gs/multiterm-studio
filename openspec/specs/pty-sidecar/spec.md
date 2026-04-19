@@ -35,8 +35,15 @@ The sidecar MUST expose a JSON-RPC 2.0 control endpoint supporting `session.crea
 #### Scenario: Create session
 
 - GIVEN a connected control client
-- WHEN it sends `{method: "session.create", params: {shell, cwd, cols, rows}}`
+- WHEN it sends `{method: "session.create", params: {shell, cwd, cols, rows, initialCommand?: string}}`
 - THEN the response contains a `sessionId` AND a data endpoint path AND a session data socket is listening
+
+#### Scenario: Hook precedes initialCommand
+
+- GIVEN a `session.create` call with `shell = "/bin/zsh"` and `initialCommand = "claude"`
+- WHEN the session is created on a zsh host
+- THEN the OSC 7 hook is written to the PTY BEFORE the initial command
+- AND no write races into the TUI started by the initial command
 
 #### Scenario: Unknown method
 
@@ -50,6 +57,7 @@ The sidecar MUST expose a JSON-RPC 2.0 control endpoint supporting `session.crea
 - WHEN a client sends `{ method: "session.create", params: { sessionId: "X", ... } }`
 - THEN the response is a success with `{ sessionId: "X", dataEndpoint }` matching the existing session
 - AND no new PTY is spawned
+- AND `initialCommand` (if present in params) is NOT re-executed — only the first `session.create` triggers the hook and command writes
 
 ### Requirement: Per-session data transport
 

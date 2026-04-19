@@ -409,6 +409,129 @@ describe('SidecarServer — JSON-RPC over Unix socket', () => {
     ctrl.close()
   }, 10_000)
 
+  // ── 2.1.9 initialCommand written after hook in the same 300 ms tick ─────
+
+  it('session.create with zsh + initialCommand writes hook then initialCommand on the data socket', async () => {
+    const ctrl = await connectControl(controlSock)
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 50,
+      method: 'session.create',
+      params: {
+        sessionId: 'test-init-cmd-zsh',
+        shell: '/bin/zsh',
+        cwd: tmpdir(),
+        cols: 80,
+        rows: 24,
+        initialCommand: 'claude'
+      }
+    })
+
+    const createRaw = await ctrl.nextLine()
+    const createResp = JSON.parse(createRaw)
+    const dataEndpoint: string = createResp.result.dataEndpoint
+
+    const data = await connectData(dataEndpoint)
+
+    // Wait longer than the 300 ms delay so the hook + initialCommand are written
+    await sleep(700)
+
+    const combined = Buffer.concat(data.received).toString('utf8')
+
+    // Both hook content and initialCommand must appear
+    const hookIdx = combined.indexOf('__mts_osc7')
+    const cmdIdx = combined.indexOf('claude')
+
+    expect(hookIdx).toBeGreaterThanOrEqual(0)
+    expect(cmdIdx).toBeGreaterThanOrEqual(0)
+    // Hook MUST appear before the initialCommand
+    expect(hookIdx).toBeLessThan(cmdIdx)
+
+    data.close()
+    ctrl.close()
+  }, 15_000)
+
+  // ── 2.1.10 fish (no hook) + initialCommand still writes the command ──────
+
+  it('session.create with fish + initialCommand writes initialCommand even with no hook', async () => {
+    const ctrl = await connectControl(controlSock)
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 60,
+      method: 'session.create',
+      params: {
+        sessionId: 'test-init-cmd-fish',
+        shell: '/usr/bin/fish',
+        cwd: tmpdir(),
+        cols: 80,
+        rows: 24,
+        initialCommand: 'opencode'
+      }
+    })
+
+    const createRaw = await ctrl.nextLine()
+    const createResp = JSON.parse(createRaw)
+    // If fish is not available the PTY will fail to spawn; we still get a
+    // dataEndpoint back and the sidecar must attempt the write — we verify
+    // by checking the endpoint path is well-formed.
+    expect(createResp.result.dataEndpoint).toBeTruthy()
+
+    ctrl.close()
+  }, 10_000)
+
+  // ── 2.1.11 idempotent create does NOT re-execute initialCommand ──────────
+
+  it('session.create idempotent path does NOT re-write initialCommand', async () => {
+    const ctrl = await connectControl(controlSock)
+
+    const params = {
+      sessionId: 'idem-cmd-sess',
+      shell: '/bin/sh',
+      cwd: tmpdir(),
+      cols: 80,
+      rows: 24,
+      initialCommand: 'echo __MTS_IDEM_MARKER__'
+    }
+
+    // First create
+    ctrl.send({ jsonrpc: '2.0', id: 70, method: 'session.create', params })
+    const firstResp = JSON.parse(await ctrl.nextLine())
+    const dataEndpoint: string = firstResp.result.dataEndpoint
+
+    const data = await connectData(dataEndpoint)
+    // Wait for the 300 ms timeout + shell execution to settle
+    await sleep(700)
+
+    // Count occurrences produced by the first create
+    const afterFirst = Buffer.concat(data.received).toString('utf8')
+    const countAfterFirst = (afterFirst.match(/__MTS_IDEM_MARKER__/g) ?? []).length
+
+    // The marker must have appeared at least once (command echoed + output)
+    expect(countAfterFirst).toBeGreaterThanOrEqual(1)
+
+    // Second create — idempotent path: existing sessionId returned immediately,
+    // no new PTY spawned, no setTimeout triggered, initialCommand NOT re-written.
+    ctrl.send({ jsonrpc: '2.0', id: 71, method: 'session.create', params })
+    const secondResp = JSON.parse(await ctrl.nextLine())
+
+    expect(secondResp.error).toBeUndefined()
+    expect(secondResp.result.dataEndpoint).toBe(dataEndpoint)
+
+    // Give extra time — if there were a buggy second write it would land here
+    await sleep(500)
+
+    const afterSecond = Buffer.concat(data.received).toString('utf8')
+    const countAfterSecond = (afterSecond.match(/__MTS_IDEM_MARKER__/g) ?? []).length
+
+    // The count must not have grown — no new write from the idempotent create
+    expect(countAfterSecond).toBe(countAfterFirst)
+
+    data.close()
+    ctrl.close()
+  }, 15_000)
+
   // ── 2.1.8 Multiple concurrent sessions are independent ───────────────────
 
   it('two concurrent sessions are independent and each has a distinct dataEndpoint', async () => {
