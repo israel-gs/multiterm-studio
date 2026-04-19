@@ -17,6 +17,7 @@ export interface SessionCreateParams {
   cols: number
   rows: number
   scrollbackBytes?: number
+  initialCommand?: string
 }
 
 export interface SessionCreateResult {

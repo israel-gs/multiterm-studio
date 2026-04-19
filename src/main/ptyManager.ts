@@ -159,7 +159,11 @@ export function registerPtyHandlers(win: BrowserWindow, client: SidecarClient): 
       cwd: safeCwd,
       cols: 80,
       rows: 24,
-      scrollbackBytes: getScrollbackBytes()
+      scrollbackBytes: getScrollbackBytes(),
+      // Pass the initialCommand to the sidecar so it can serialize the OSC 7
+      // hook write and the command write inside the same 300 ms setTimeout,
+      // preventing the TUI from capturing the hook as user input.
+      ...(initialCommand && !isReconnect ? { initialCommand } : {})
     })
 
     sessions.set(id, { dataEndpoint })
@@ -194,11 +198,6 @@ export function registerPtyHandlers(win: BrowserWindow, client: SidecarClient): 
     await client.replay(id).catch(() => {
       // No prior scrollback — ignore
     })
-
-    // Write initial command last so any echo lands on the connected socket.
-    if (initialCommand) {
-      await client.write(id, initialCommand + '\n')
-    }
   })
 
   ipcMain.handle('pty:write', async (_event, id: string, data: string) => {

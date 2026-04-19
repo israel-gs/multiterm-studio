@@ -63,6 +63,8 @@ const mockClient = {
       cwd: string
       cols: number
       rows: number
+      scrollbackBytes?: number
+      initialCommand?: string
     }) => ({
       sessionId,
       dataEndpoint: `/tmp/mts-test-${sessionId}.sock`
@@ -163,10 +165,20 @@ describe('pty:create — delegates to SidecarClient', () => {
     expect(mockWebContents.send).toHaveBeenCalledWith('pty:data:sess-3', 'hello sidecar')
   })
 
-  test('calls client.write when initialCommand is provided', async () => {
+  test('passes initialCommand to client.create (sidecar handles timing)', async () => {
     await capturedHandlers['pty:create'](fakeEvent, 'sess-cmd', '/tmp', 'npm test')
 
-    expect(mockClient.write).toHaveBeenCalledWith('sess-cmd', 'npm test\n')
+    expect(mockClient.create).toHaveBeenCalledOnce()
+    const params = mockClient.create.mock.calls[0][0]
+    expect(params.initialCommand).toBe('npm test')
+  })
+
+  test('client.write is NOT called separately when initialCommand is provided', async () => {
+    await capturedHandlers['pty:create'](fakeEvent, 'sess-cmd-no-write', '/tmp', 'claude')
+
+    // The sidecar serialises the write inside its own setTimeout — ptyManager
+    // must NOT call client.write for the initialCommand itself.
+    expect(mockClient.write).not.toHaveBeenCalled()
   })
 
   test('pty:create passes scrollbackBytes from settingsManager to client.create', async () => {
