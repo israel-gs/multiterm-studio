@@ -62,9 +62,10 @@ process.stdin.on('end', () => {
 })
 `
 
-function makeHookEntry(
-  projectPath: string
-): { _source: string; hooks: Array<{ type: string; command: string; timeout: number }> } {
+function makeHookEntry(projectPath: string): {
+  _source: string
+  hooks: Array<{ type: string; command: string; timeout: number }>
+} {
   const scriptPath = join(projectPath, '.claude', 'hooks', 'multiterm-notify.cjs')
   return {
     _source: HOOK_MARKER,
@@ -72,9 +73,7 @@ function makeHookEntry(
   }
 }
 
-function makePostToolUseEntry(
-  projectPath: string
-): {
+function makePostToolUseEntry(projectPath: string): {
   _source: string
   matcher: string
   hooks: Array<{ type: string; command: string; timeout: number }>
@@ -87,9 +86,7 @@ function makePostToolUseEntry(
   }
 }
 
-function makePreToolUseEntry(
-  projectPath: string
-): {
+function makePreToolUseEntry(projectPath: string): {
   _source: string
   matcher: string
   hooks: Array<{ type: string; command: string; timeout: number }>
@@ -172,7 +169,8 @@ export async function injectHooks(projectPath: string): Promise<void> {
   for (const event of Object.keys(hooks)) {
     if (Array.isArray(hooks[event])) {
       hooks[event] = hooks[event].filter(
-        (e) => !(e && typeof e === 'object' && (e as Record<string, unknown>)._source === HOOK_MARKER)
+        (e) =>
+          !(e && typeof e === 'object' && (e as Record<string, unknown>)._source === HOOK_MARKER)
       )
     }
   }
@@ -376,7 +374,11 @@ export async function injectCodexHooks(projectPath: string): Promise<void> {
 }
 
 export async function removeCodexHooks(projectPath: string): Promise<void> {
-  try { unlinkSync(join(projectPath, '.codex', 'instructions', CODEX_INSTRUCTION_FILE)) } catch { /* ignore */ }
+  try {
+    unlinkSync(join(projectPath, '.codex', 'instructions', CODEX_INSTRUCTION_FILE))
+  } catch {
+    /* ignore */
+  }
 }
 
 // --- Gemini CLI integration ---
@@ -402,5 +404,9 @@ export async function injectGeminiHooks(projectPath: string): Promise<void> {
 }
 
 export async function removeGeminiHooks(projectPath: string): Promise<void> {
-  try { unlinkSync(join(projectPath, '.gemini', 'instructions', GEMINI_INSTRUCTION_FILE)) } catch { /* ignore */ }
+  try {
+    unlinkSync(join(projectPath, '.gemini', 'instructions', GEMINI_INSTRUCTION_FILE))
+  } catch {
+    /* ignore */
+  }
 }

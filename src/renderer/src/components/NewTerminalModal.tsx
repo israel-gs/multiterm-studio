@@ -15,9 +15,24 @@ interface Preset {
 }
 
 const PRESETS: Preset[] = [
-  { id: 'claude', name: 'Claude Code', command: 'claude', icon: () => <Sparkles size={24} strokeWidth={1.3} /> },
-  { id: 'codex', name: 'Codex', command: 'codex', icon: () => <Brain size={24} strokeWidth={1.3} /> },
-  { id: 'opencode', name: 'OpenCode', command: 'opencode', icon: () => <Code2 size={24} strokeWidth={1.3} /> },
+  {
+    id: 'claude',
+    name: 'Claude Code',
+    command: 'claude',
+    icon: () => <Sparkles size={24} strokeWidth={1.3} />
+  },
+  {
+    id: 'codex',
+    name: 'Codex',
+    command: 'codex',
+    icon: () => <Brain size={24} strokeWidth={1.3} />
+  },
+  {
+    id: 'opencode',
+    name: 'OpenCode',
+    command: 'opencode',
+    icon: () => <Code2 size={24} strokeWidth={1.3} />
+  },
   { id: 'shell', name: 'Shell', command: '', icon: () => <Terminal size={24} strokeWidth={1.3} /> }
 ]
 
@@ -91,7 +106,9 @@ export function NewTerminalModal({ onCreateTerminal, onDismiss }: Props): React.
                 className={`ntm-preset${selectedPreset === preset.id ? ' ntm-preset--active' : ''}`}
                 onClick={() => selectPreset(preset)}
               >
-                <span className="ntm-preset-icon"><Icon /></span>
+                <span className="ntm-preset-icon">
+                  <Icon />
+                </span>
                 <span className="ntm-preset-name">{preset.name}</span>
               </button>
             )
@@ -106,7 +123,9 @@ export function NewTerminalModal({ onCreateTerminal, onDismiss }: Props): React.
               className="ntm-input"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreate()
+              }}
             />
           </label>
           <label className="ntm-field">
@@ -116,14 +135,20 @@ export function NewTerminalModal({ onCreateTerminal, onDismiss }: Props): React.
               value={command}
               onChange={(e) => setCommand(e.target.value)}
               placeholder="(default shell)"
-              onKeyDown={(e) => { if (e.key === 'Enter') handleCreate() }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreate()
+              }}
             />
           </label>
         </div>
 
         <div className="ntm-actions">
-          <button className="ntm-btn ntm-btn--secondary" onClick={onDismiss}>Cancel</button>
-          <button className="ntm-btn ntm-btn--primary" onClick={handleCreate}>Create</button>
+          <button className="ntm-btn ntm-btn--secondary" onClick={onDismiss}>
+            Cancel
+          </button>
+          <button className="ntm-btn ntm-btn--primary" onClick={handleCreate}>
+            Create
+          </button>
         </div>
       </div>
     </div>,

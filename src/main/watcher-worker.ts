@@ -1,5 +1,5 @@
 import { subscribe, type AsyncSubscription, type Event } from '@parcel/watcher'
-import { dirname, relative } from 'path'
+import { relative } from 'path'
 
 const IGNORE_PATTERNS = [
   '**/.git/**',
@@ -64,7 +64,7 @@ async function startWatchingMulti(folderPaths: string[]): Promise<void> {
   await Promise.all(folderPaths.map((fp) => subscribeFolder(fp)))
 }
 
-process.parentPort!.on('message', (e: MessageEvent) => {
+process.parentPort!.on('message', (e: { data: unknown }) => {
   const msg = e.data as { type: string; folderPath?: string; folderPaths?: string[] }
   if (msg.type === 'start' && msg.folderPath) {
     startWatching(msg.folderPath).catch((err) => {

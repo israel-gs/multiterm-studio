@@ -64,13 +64,14 @@ Terminals that are project-aware: every panel inherits the project's working dir
 
 ## Key Decisions
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| electron-vite over webpack | Faster dev builds, simpler config, modern tooling | — Pending |
-| react-mosaic for tiling | Battle-tested tiling library, good API for split/resize | — Pending |
-| node-pty in main process only | Security: PTY access isolated from renderer via IPC | — Pending |
-| zustand for state | Lightweight, no boilerplate, good for panel state | — Pending |
-| CSS modules over styled-components | Simpler, no runtime cost, matches terminal aesthetic | — Pending |
+| Decision                           | Rationale                                               | Outcome   |
+| ---------------------------------- | ------------------------------------------------------- | --------- |
+| electron-vite over webpack         | Faster dev builds, simpler config, modern tooling       | — Pending |
+| react-mosaic for tiling            | Battle-tested tiling library, good API for split/resize | — Pending |
+| node-pty in main process only      | Security: PTY access isolated from renderer via IPC     | — Pending |
+| zustand for state                  | Lightweight, no boilerplate, good for panel state       | — Pending |
+| CSS modules over styled-components | Simpler, no runtime cost, matches terminal aesthetic    | — Pending |
 
 ---
-*Last updated: 2026-03-14 after initialization*
+
+_Last updated: 2026-03-14 after initialization_

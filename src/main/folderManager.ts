@@ -22,15 +22,18 @@ export function registerFolderHandlers(win: BrowserWindow): void {
     return result.filePaths[0]
   })
 
-  ipcMain.handle('file:open-dialog', async (_event, filters?: { name: string; extensions: string[] }[]) => {
-    if (!currentWin) return null
-    const result = await dialog.showOpenDialog(currentWin, {
-      properties: ['openFile'],
-      filters: filters ?? []
-    })
-    if (result.canceled || result.filePaths.length === 0) return null
-    return result.filePaths[0]
-  })
+  ipcMain.handle(
+    'file:open-dialog',
+    async (_event, filters?: { name: string; extensions: string[] }[]) => {
+      if (!currentWin) return null
+      const result = await dialog.showOpenDialog(currentWin, {
+        properties: ['openFile'],
+        filters: filters ?? []
+      })
+      if (result.canceled || result.filePaths.length === 0) return null
+      return result.filePaths[0]
+    }
+  )
 
   ipcMain.handle('folder:readdir', async (_event, dirPath: string) => {
     const entries = await readdir(dirPath, { withFileTypes: true })

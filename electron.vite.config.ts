@@ -3,8 +3,9 @@ import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import monacoEditorPlugin from 'vite-plugin-monaco-editor'
 
-const monacoPlugin = (monacoEditorPlugin as unknown as { default: typeof monacoEditorPlugin })
-  .default || monacoEditorPlugin
+const monacoPlugin =
+  (monacoEditorPlugin as unknown as { default: typeof monacoEditorPlugin }).default ||
+  monacoEditorPlugin
 
 export default defineConfig({
   main: {
@@ -13,7 +14,8 @@ export default defineConfig({
         external: ['node-pty', '@parcel/watcher'],
         input: {
           index: resolve('src/main/index.ts'),
-          'watcher-worker': resolve('src/main/watcher-worker.ts')
+          'watcher-worker': resolve('src/main/watcher-worker.ts'),
+          'sidecar-entry': resolve('src/main/sidecar/entry.ts')
         }
       }
     }

@@ -10,10 +10,7 @@ import { resolve } from 'path'
  * CSS custom properties are defined with the correct values.
  */
 describe('Dark theme CSS custom properties (INFRA-05)', () => {
-  const css = readFileSync(
-    resolve(__dirname, '../../src/renderer/src/assets/global.css'),
-    'utf-8'
-  )
+  const css = readFileSync(resolve(__dirname, '../../src/renderer/src/assets/global.css'), 'utf-8')
 
   test('--bg-canvas is defined as #111', () => {
     expect(css).toContain('--bg-canvas: #111')

@@ -13,6 +13,12 @@ function workerPath(): string {
   return join(__dirname, 'watcher-worker.js')
 }
 
+/** Returns the current worker instance. Defeats TS control-flow narrowing when
+ *  `worker` has been narrowed to `null` earlier in a function body. */
+function getWorker(): UtilityProcess | null {
+  return worker
+}
+
 function spawnWorker(): void {
   if (worker) return
   stopping = false
@@ -37,11 +43,13 @@ function spawnWorker(): void {
     console.warn(`[file-watcher] Worker exited with code ${code}, restarting`)
     restartCount++
     spawnWorker()
-    // Re-start watching after respawn
+    // Re-start watching after respawn. TS narrows `worker` to null from the
+    // assignment above and cannot track that spawnWorker() mutates the module
+    // variable — read it through a helper to widen the type.
     if (currentFolders.length > 1) {
-      worker?.postMessage({ type: 'start-multi', folderPaths: currentFolders })
+      getWorker()?.postMessage({ type: 'start-multi', folderPaths: currentFolders })
     } else if (currentFolders.length === 1) {
-      worker?.postMessage({ type: 'start', folderPath: currentFolders[0] })
+      getWorker()?.postMessage({ type: 'start', folderPath: currentFolders[0] })
     }
   })
 }

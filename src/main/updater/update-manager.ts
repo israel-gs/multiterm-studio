@@ -41,7 +41,10 @@ class UpdateManager {
       const electronUpdater = require('electron-updater')
       autoUpdater = electronUpdater.autoUpdater ?? electronUpdater.default?.autoUpdater
     } catch (err) {
-      console.warn('[updater] electron-updater not available, auto-updates disabled:', (err as Error).message)
+      console.warn(
+        '[updater] electron-updater not available, auto-updates disabled:',
+        (err as Error).message
+      )
       this.initialized = true
       return
     }
@@ -67,25 +70,27 @@ class UpdateManager {
       this.setState({ status: 'checking' })
     })
 
-    autoUpdater.on('update-available', (info: { version: string; releaseNotes?: string | unknown }) => {
-      const releaseNotes =
-        typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined
-      // On macOS, skip the download step — quitAndInstall doesn't work without
-      // notarization. Go straight to 'ready' so the button opens the release page.
-      if (process.platform === 'darwin') {
-        this.setState({
-          status: 'ready',
-          version: info.version,
-          releaseNotes
-        })
-      } else {
-        this.setState({
-          status: 'available',
-          version: info.version,
-          releaseNotes
-        })
+    autoUpdater.on(
+      'update-available',
+      (info: { version: string; releaseNotes?: string | unknown }) => {
+        const releaseNotes = typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined
+        // On macOS, skip the download step — quitAndInstall doesn't work without
+        // notarization. Go straight to 'ready' so the button opens the release page.
+        if (process.platform === 'darwin') {
+          this.setState({
+            status: 'ready',
+            version: info.version,
+            releaseNotes
+          })
+        } else {
+          this.setState({
+            status: 'available',
+            version: info.version,
+            releaseNotes
+          })
+        }
       }
-    })
+    )
 
     autoUpdater.on('update-not-available', () => {
       this.setState({ status: 'idle' })
@@ -98,15 +103,17 @@ class UpdateManager {
       })
     })
 
-    autoUpdater.on('update-downloaded', (info: { version: string; releaseNotes?: string | unknown }) => {
-      const releaseNotes =
-        typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined
-      this.setState({
-        status: 'ready',
-        version: info.version,
-        releaseNotes
-      })
-    })
+    autoUpdater.on(
+      'update-downloaded',
+      (info: { version: string; releaseNotes?: string | unknown }) => {
+        const releaseNotes = typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined
+        this.setState({
+          status: 'ready',
+          version: info.version,
+          releaseNotes
+        })
+      }
+    )
 
     autoUpdater.on('error', (err: Error) => {
       this.handleError(err.message)

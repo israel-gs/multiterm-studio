@@ -49,7 +49,7 @@ function detectLanguage(filePath: string): string {
   const lower = name.toLowerCase()
   if (lower === 'dockerfile') return 'dockerfile'
   if (lower === 'makefile') return 'makefile'
-  const ext = name.includes('.') ? name.split('.').pop()?.toLowerCase() ?? '' : ''
+  const ext = name.includes('.') ? (name.split('.').pop()?.toLowerCase() ?? '') : ''
   return EXT_TO_LANG[ext] ?? 'plaintext'
 }
 
@@ -97,7 +97,9 @@ function resolveMonacoTheme(): string {
   const mode = useAppearanceStore.getState().mode
   if (mode === 'light') return 'multiterm-light'
   if (mode === 'system') {
-    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'multiterm-light' : 'multiterm-dark'
+    return window.matchMedia('(prefers-color-scheme: light)').matches
+      ? 'multiterm-light'
+      : 'multiterm-dark'
   }
   return 'multiterm-dark'
 }
@@ -116,7 +118,10 @@ export function EditorPanel({ sessionId, filePath }: EditorPanelProps): React.JS
       if (editorRef.current) {
         setPreviewContent(editorRef.current.getValue())
       } else {
-        window.electronAPI.fileRead(filePath).then(setPreviewContent).catch(() => {})
+        window.electronAPI
+          .fileRead(filePath)
+          .then(setPreviewContent)
+          .catch(() => {})
       }
     }
   }, [previewMode, filePath])
@@ -214,7 +219,10 @@ export function EditorPanel({ sessionId, filePath }: EditorPanelProps): React.JS
       />
       {/* Markdown preview overlay */}
       {isMarkdown && previewMode && (
-        <MarkdownPreview content={previewContent} basePath={filePath.substring(0, filePath.lastIndexOf('/'))} />
+        <MarkdownPreview
+          content={previewContent}
+          basePath={filePath.substring(0, filePath.lastIndexOf('/'))}
+        />
       )}
     </div>
   )

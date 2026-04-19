@@ -1,0 +1,66 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Electron 39, React 19, TypeScript 5.9, electron-vite 5, Vite 7.
+  Terminal: xterm.js 6 + node-pty 1.1. Currently bundles tmux (scheduled for removal).
+  UI: TipTap, Monaco, Mermaid, Lucide, Zustand state.
+  Architecture: src/main (Electron main + PTY), src/preload (IPC bridge),
+    src/renderer (React UI). No src/shared layer.
+  Testing: vitest + jsdom + @testing-library/react configured; no tests in src/ yet.
+  Quality: ESLint 9 flat config (eslint.config.mjs), Prettier 3, TypeScript strict.
+  Packaging: electron-builder; macOS / Windows / Linux targets.
+
+strict_tdd: true
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected modules (main, preload, renderer, resources, docs)
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for IPC and cross-process flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group tasks by phase (infrastructure, implementation, testing, docs)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
+    - Keep tasks small enough to complete in one session
+  apply:
+    - Follow existing code patterns and conventions
+    - Load relevant coding skills for the project stack
+    - Respect Electron process boundaries (main vs preload vs renderer)
+  verify:
+    - Run vitest, typecheck, and lint
+    - Compare implementation against every spec scenario
+  archive:
+    - Warn before merging destructive deltas (large removals)
+
+testing:
+  strict_tdd: true
+  runner:
+    command: 'npm run test'
+    framework: 'vitest'
+  layers:
+    unit:
+      available: true
+      tool: 'vitest'
+    integration:
+      available: true
+      tool: '@testing-library/react + jsdom'
+    e2e:
+      available: false
+      tool: null
+  coverage:
+    available: true
+    command: 'npx vitest run --coverage'
+  quality:
+    linter:
+      command: 'npm run lint'
+      tool: 'eslint'
+    type_checker:
+      command: 'npm run typecheck'
+      tool: 'tsc'
+    formatter:
+      command: 'npm run format'
+      tool: 'prettier'

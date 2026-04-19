@@ -24,9 +24,8 @@ export function scheduleSave(target: SaveTarget | string, snapshot: unknown): vo
   }
 
   // Backwards compat: accept plain folderPath string
-  const resolved: SaveTarget = typeof target === 'string'
-    ? { mode: 'folder', folderPath: target }
-    : target
+  const resolved: SaveTarget =
+    typeof target === 'string' ? { mode: 'folder', folderPath: target } : target
 
   debounceTimer = setTimeout(() => {
     debounceTimer = null

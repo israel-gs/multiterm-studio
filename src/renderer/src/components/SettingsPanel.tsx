@@ -4,6 +4,10 @@ import { Sun, TerminalSquare, Pencil, Keyboard, Moon, Monitor, X } from 'lucide-
 import { useAppearanceStore } from '../store/appearanceStore'
 import type { AppearanceMode } from '../tokens'
 
+const SCROLLBACK_DEFAULT = 8 * 1024 * 1024
+const SCROLLBACK_MIN = 16 * 1024
+const SCROLLBACK_MAX = 64 * 1024 * 1024
+
 interface SettingsPanelProps {
   onClose: () => void
 }
@@ -88,19 +92,33 @@ function AppearanceSettings(): React.JSX.Element {
 }
 
 function TerminalSettings(): React.JSX.Element {
-  const [mouseMode, setMouseMode] = useState(true)
+  const [scrollbackBytes, setScrollbackBytesState] = useState<number>(SCROLLBACK_DEFAULT)
 
   useEffect(() => {
-    window.electronAPI.settingsGet('terminal.mouseMode').then((v) => {
-      if (typeof v === 'boolean') setMouseMode(v)
-    })
+    window.electronAPI
+      .settingsGet('terminal.scrollbackBytes')
+      .then((raw) => {
+        if (typeof raw === 'number' && Number.isFinite(raw)) {
+          const clamped = Math.min(SCROLLBACK_MAX, Math.max(SCROLLBACK_MIN, raw))
+          setScrollbackBytesState(clamped)
+        }
+      })
+      .catch(() => {
+        // silently keep default
+      })
   }, [])
 
-  const handleToggle = (): void => {
-    const next = !mouseMode
-    setMouseMode(next)
-    window.electronAPI.settingsSet('terminal.mouseMode', next)
-    window.electronAPI.terminalSetMouseMode(next)
+  const scrollbackMb = scrollbackBytes / (1024 * 1024)
+
+  function handleScrollbackChange(e: React.ChangeEvent<HTMLInputElement>): void {
+    const mb = parseFloat(e.target.value)
+    if (!Number.isFinite(mb)) return
+    const bytes = Math.round(mb * 1024 * 1024)
+    const clamped = Math.min(SCROLLBACK_MAX, Math.max(SCROLLBACK_MIN, bytes))
+    setScrollbackBytesState(clamped)
+    window.electronAPI.settingsSet('terminal.scrollbackBytes', clamped).catch(() => {
+      // silent
+    })
   }
 
   return (
@@ -109,22 +127,27 @@ function TerminalSettings(): React.JSX.Element {
         <h2 className="stg-content-title">Terminal</h2>
         <p className="stg-content-desc">Configure terminal behavior and defaults</p>
       </div>
+
       <div className="stg-group">
-        <div className="stg-group-label">Mouse</div>
-        <div className="stg-toggle-row">
-          <div className="stg-toggle-info">
-            <span className="stg-toggle-label">Tmux mouse mode</span>
-            <span className="stg-toggle-desc">Enable mouse scrolling, clicking and selection inside tmux panes</span>
-          </div>
-          <button
-            className={`stg-toggle${mouseMode ? ' stg-toggle--on' : ''}`}
-            onClick={handleToggle}
-            role="switch"
-            aria-checked={mouseMode}
-          >
-            <span className="stg-toggle-knob" />
-          </button>
+        <div className="stg-group-label">Scrollback size</div>
+        <div className="stg-setting-row">
+          <input
+            type="number"
+            role="spinbutton"
+            className="stg-input"
+            min={SCROLLBACK_MIN / (1024 * 1024)}
+            max={SCROLLBACK_MAX / (1024 * 1024)}
+            step={1}
+            value={scrollbackMb}
+            onChange={handleScrollbackChange}
+            aria-label="Scrollback size in megabytes"
+          />
+          <span className="stg-input-unit">MB</span>
         </div>
+        <p className="stg-setting-hint">
+          Maximum in-memory scrollback retained by the sidecar per terminal session. Changes apply
+          to newly created sessions only.
+        </p>
       </div>
     </div>
   )

@@ -15,7 +15,20 @@ describe('panelStore', () => {
   it('addPanel adds entry with default title "Terminal" and default color "#1c1c1c"', () => {
     usePanelStore.getState().addPanel('panel-1')
     const panels = usePanelStore.getState().panels
-    expect(panels['panel-1']).toEqual({ title: 'Terminal', color: '#1c1c1c', attention: false, type: 'terminal', filePath: undefined, dirty: false, previewMode: false })
+    // UPDATED: store now includes agentActive, hasProcess, cwd, initialCommand fields
+    expect(panels['panel-1']).toEqual({
+      title: 'Terminal',
+      color: '#1c1c1c',
+      attention: false,
+      type: 'terminal',
+      filePath: undefined,
+      dirty: false,
+      previewMode: false,
+      agentActive: false,
+      hasProcess: false,
+      initialCommand: undefined,
+      cwd: undefined
+    })
   })
 
   it('removePanel removes entry for existing id', () => {
@@ -78,12 +91,38 @@ describe('panelStore', () => {
   it('addPanel with optional title and color uses provided values instead of defaults', () => {
     usePanelStore.getState().addPanel('panel-restore', 'My Build', '#f44747')
     const panel = usePanelStore.getState().panels['panel-restore']
-    expect(panel).toEqual({ title: 'My Build', color: '#f44747', attention: false, type: 'terminal', filePath: undefined, dirty: false, previewMode: false })
+    // UPDATED: store now includes agentActive, hasProcess, cwd, initialCommand fields
+    expect(panel).toEqual({
+      title: 'My Build',
+      color: '#f44747',
+      attention: false,
+      type: 'terminal',
+      filePath: undefined,
+      dirty: false,
+      previewMode: false,
+      agentActive: false,
+      hasProcess: false,
+      initialCommand: undefined,
+      cwd: undefined
+    })
   })
 
   it('addPanel without optional parameters still uses "Terminal" and "#1c1c1c" defaults', () => {
     usePanelStore.getState().addPanel('panel-default')
     const panel = usePanelStore.getState().panels['panel-default']
-    expect(panel).toEqual({ title: 'Terminal', color: '#1c1c1c', attention: false, type: 'terminal', filePath: undefined, dirty: false, previewMode: false })
+    // UPDATED: store now includes agentActive, hasProcess, cwd, initialCommand fields
+    expect(panel).toEqual({
+      title: 'Terminal',
+      color: '#1c1c1c',
+      attention: false,
+      type: 'terminal',
+      filePath: undefined,
+      dirty: false,
+      previewMode: false,
+      agentActive: false,
+      hasProcess: false,
+      initialCommand: undefined,
+      cwd: undefined
+    })
   })
 })

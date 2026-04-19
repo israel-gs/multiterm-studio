@@ -68,20 +68,25 @@ export async function saveWorkspaceFile(
     await writeFile(tmp, JSON.stringify(workspace, null, 2), 'utf-8')
     await rename(tmp, filePath)
   } catch {
-    try { await unlink(tmp) } catch { /* ignore */ }
+    try {
+      await unlink(tmp)
+    } catch {
+      /* ignore */
+    }
   }
 }
 
-export function saveWorkspaceFileSync(
-  filePath: string,
-  workspace: MultiTermWorkspace
-): void {
+export function saveWorkspaceFileSync(filePath: string, workspace: MultiTermWorkspace): void {
   const tmp = `${filePath}.${randomUUID()}.tmp`
   try {
     mkdirSync(dirname(filePath), { recursive: true })
     writeFileSync(tmp, JSON.stringify(workspace, null, 2), 'utf-8')
     renameSync(tmp, filePath)
   } catch {
-    try { unlinkSync(tmp) } catch { /* ignore */ }
+    try {
+      unlinkSync(tmp)
+    } catch {
+      /* ignore */
+    }
   }
 }

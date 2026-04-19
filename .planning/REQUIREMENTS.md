@@ -79,60 +79,62 @@ Deferred to future release. Tracked but not in current roadmap.
 
 Explicitly excluded. Documented to prevent scope creep.
 
-| Feature | Reason |
-|---------|--------|
-| SSH / remote terminal sessions | Large scope addition; users can `ssh` in a panel normally |
-| Plugin / extension API | Requires stable internal APIs; defer until architecture is proven |
-| Built-in text editor | This is a terminal tool, not an IDE; file tree is read-only reference |
-| Tabs alongside tiles | Two layout paradigms conflict; tiles-only is a deliberate UX decision |
-| AI command assistant | Requires cloud API, privacy policy; contradicts local-first philosophy |
-| Settings / preferences UI | Ship with sensible defaults; JSON config for power users in v1 |
+| Feature                                  | Reason                                                                             |
+| ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| SSH / remote terminal sessions           | Large scope addition; users can `ssh` in a panel normally                          |
+| Plugin / extension API                   | Requires stable internal APIs; defer until architecture is proven                  |
+| Built-in text editor                     | This is a terminal tool, not an IDE; file tree is read-only reference              |
+| Tabs alongside tiles                     | Two layout paradigms conflict; tiles-only is a deliberate UX decision              |
+| AI command assistant                     | Requires cloud API, privacy policy; contradicts local-first philosophy             |
+| Settings / preferences UI                | Ship with sensible defaults; JSON config for power users in v1                     |
 | Session content restoration after reboot | Requires PTY daemon architecture; layout metadata persists, shell content does not |
-| Multiple windows for same project | State sync creates race conditions; single window per project |
+| Multiple windows for same project        | State sync creates race conditions; single window per project                      |
 
 ## Traceability
 
 Which phases cover which requirements. Updated during roadmap creation.
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| TERM-01 | Phase 1 | Complete (01-02) |
-| TERM-02 | Phase 1 | Complete (01-02) |
-| TERM-03 | Phase 1 | Complete |
-| TERM-04 | Phase 1 | Complete |
-| TERM-05 | Phase 1 | Complete |
-| TERM-06 | Phase 1 | Complete |
-| TERM-07 | Phase 1 | Complete |
-| TERM-08 | Phase 1 | Complete |
-| TERM-09 | Phase 1 | Complete |
-| ATTN-01 | Phase 4 | Complete |
-| ATTN-02 | Phase 4 | Complete |
-| ATTN-03 | Phase 4 | Complete |
-| LAYOUT-01 | Phase 2 | Complete |
-| LAYOUT-02 | Phase 2 | Complete |
-| LAYOUT-03 | Phase 2 | Complete |
-| LAYOUT-04 | Phase 2 | Complete |
-| LAYOUT-05 | Phase 2 | Complete |
-| LAYOUT-06 | Phase 2 | Complete |
-| LAYOUT-07 | Phase 2 | Complete |
-| LAYOUT-08 | Phase 2 | Complete |
-| PROJ-01 | Phase 3 | Complete |
-| PROJ-02 | Phase 3 | Complete |
-| PROJ-03 | Phase 3 | Complete |
-| PERS-01 | Phase 4 | Complete |
-| PERS-02 | Phase 4 | Complete |
-| PERS-03 | Phase 4 | Complete |
-| INFRA-01 | Phase 1 | Complete (01-01) |
-| INFRA-02 | Phase 1 | Complete (01-01) |
-| INFRA-03 | Phase 1 | Complete (01-02) |
-| INFRA-04 | Phase 1 | Complete (01-01) |
-| INFRA-05 | Phase 1 | Complete (01-01) |
+| Requirement | Phase   | Status           |
+| ----------- | ------- | ---------------- |
+| TERM-01     | Phase 1 | Complete (01-02) |
+| TERM-02     | Phase 1 | Complete (01-02) |
+| TERM-03     | Phase 1 | Complete         |
+| TERM-04     | Phase 1 | Complete         |
+| TERM-05     | Phase 1 | Complete         |
+| TERM-06     | Phase 1 | Complete         |
+| TERM-07     | Phase 1 | Complete         |
+| TERM-08     | Phase 1 | Complete         |
+| TERM-09     | Phase 1 | Complete         |
+| ATTN-01     | Phase 4 | Complete         |
+| ATTN-02     | Phase 4 | Complete         |
+| ATTN-03     | Phase 4 | Complete         |
+| LAYOUT-01   | Phase 2 | Complete         |
+| LAYOUT-02   | Phase 2 | Complete         |
+| LAYOUT-03   | Phase 2 | Complete         |
+| LAYOUT-04   | Phase 2 | Complete         |
+| LAYOUT-05   | Phase 2 | Complete         |
+| LAYOUT-06   | Phase 2 | Complete         |
+| LAYOUT-07   | Phase 2 | Complete         |
+| LAYOUT-08   | Phase 2 | Complete         |
+| PROJ-01     | Phase 3 | Complete         |
+| PROJ-02     | Phase 3 | Complete         |
+| PROJ-03     | Phase 3 | Complete         |
+| PERS-01     | Phase 4 | Complete         |
+| PERS-02     | Phase 4 | Complete         |
+| PERS-03     | Phase 4 | Complete         |
+| INFRA-01    | Phase 1 | Complete (01-01) |
+| INFRA-02    | Phase 1 | Complete (01-01) |
+| INFRA-03    | Phase 1 | Complete (01-02) |
+| INFRA-04    | Phase 1 | Complete (01-01) |
+| INFRA-05    | Phase 1 | Complete (01-01) |
 
 **Coverage:**
+
 - v1 requirements: 31 total
 - Mapped to phases: 31
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-03-14*
-*Last updated: 2026-03-14 after plan 01-02 — INFRA-03, TERM-01, TERM-02 complete*
+
+_Requirements defined: 2026-03-14_
+_Last updated: 2026-03-14 after plan 01-02 — INFRA-03, TERM-01, TERM-02 complete_

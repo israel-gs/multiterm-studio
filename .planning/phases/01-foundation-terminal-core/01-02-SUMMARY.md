@@ -7,14 +7,14 @@ tags: [node-pty, electron, ipc, ipcMain, pty, shell, vitest, mocking]
 # Dependency graph
 requires:
   - phase: 01-01
-    provides: "Electron scaffold with stub registerPtyHandlers, contextBridge IPC bridge, and ptyManager.test.ts todo stubs"
+    provides: 'Electron scaffold with stub registerPtyHandlers, contextBridge IPC bridge, and ptyManager.test.ts todo stubs'
 provides:
-  - "PTY session lifecycle management via Map<string, PtySession>"
-  - "ipcMain.handle for pty:create, pty:write, pty:resize, pty:kill"
+  - 'PTY session lifecycle management via Map<string, PtySession>'
+  - 'ipcMain.handle for pty:create, pty:write, pty:resize, pty:kill'
   - "pty:create spawns user's SHELL with xterm-256color and provided cwd"
-  - "pty:create registers onData pushing data to renderer via webContents.send(pty:data:{id})"
-  - "Defensive null-checks on all handlers for unknown session ids"
-  - "Unit tests: 11 passing tests covering all IPC handler behaviors"
+  - 'pty:create registers onData pushing data to renderer via webContents.send(pty:data:{id})'
+  - 'Defensive null-checks on all handlers for unknown session ids'
+  - 'Unit tests: 11 passing tests covering all IPC handler behaviors'
 affects: [01-03-PLAN.md]
 
 # Tech tracking
@@ -23,22 +23,22 @@ tech-stack:
   patterns:
     - "IPC handler unit testing: vi.mock('electron') captures ipcMain.handle calls into capturedHandlers dict; handlers invoked directly in tests"
     - "node-pty mock: vi.mock('node-pty') with { default: { spawn }, spawn } to handle both named and default import shapes"
-    - "Sessions Map pattern: Map<string, { process: IPty }> keyed by renderer-supplied id for O(1) lookup and clean lifecycle"
+    - 'Sessions Map pattern: Map<string, { process: IPty }> keyed by renderer-supplied id for O(1) lookup and clean lifecycle'
     - "Shell detection: process.env.SHELL || (process.platform === 'win32' ? 'cmd.exe' : '/bin/bash')"
 
 key-files:
   created: []
   modified:
-    - "src/main/ptyManager.ts — full implementation: sessions Map, registerPtyHandlers with 4 ipcMain.handle calls"
-    - "tests/main/ptyManager.test.ts — 11 passing tests replacing 6 todo stubs; mocks electron and node-pty"
+    - 'src/main/ptyManager.ts — full implementation: sessions Map, registerPtyHandlers with 4 ipcMain.handle calls'
+    - 'tests/main/ptyManager.test.ts — 11 passing tests replacing 6 todo stubs; mocks electron and node-pty'
 
 key-decisions:
-  - "Used vi.clearAllMocks() in beforeEach (clears call history, preserves implementations) — allows shared mockIpcMain.handle to capture handlers across tests without module cache invalidation"
-  - "IPC handler returns void (not Promise) for no-op early-returns — test assertions use expect().not.toThrow() not .resolves; handlers that do work are also synchronous except onData callback"
-  - "Sessions Map is module-level (not per-call) — persists across handler invocations as designed, one shared registry per main process lifetime"
+  - 'Used vi.clearAllMocks() in beforeEach (clears call history, preserves implementations) — allows shared mockIpcMain.handle to capture handlers across tests without module cache invalidation'
+  - 'IPC handler returns void (not Promise) for no-op early-returns — test assertions use expect().not.toThrow() not .resolves; handlers that do work are also synchronous except onData callback'
+  - 'Sessions Map is module-level (not per-call) — persists across handler invocations as designed, one shared registry per main process lifetime'
 
 patterns-established:
-  - "capturedHandlers dict pattern: store ipcMain.handle second argument by channel name; invoke in tests to simulate IPC calls without Electron runtime"
+  - 'capturedHandlers dict pattern: store ipcMain.handle second argument by channel name; invoke in tests to simulate IPC calls without Electron runtime'
 
 requirements-completed: [INFRA-03, TERM-01, TERM-02]
 
@@ -95,6 +95,7 @@ _Note: TDD task — RED commit (failing tests) + GREEN commit (implementation + 
 ### Auto-fixed Issues
 
 **1. [Rule 1 - Bug] Fixed `.resolves.not.toThrow()` on void-returning handlers**
+
 - **Found during:** Task 1 GREEN phase
 - **Issue:** Test used `.resolves.not.toThrow()` for handlers returning void (synchronous early-return) — Vitest requires a Promise for `.resolves`
 - **Fix:** Changed to `expect(() => capturedHandlers[channel](...)).not.toThrow()` for unknown-id defensive tests
@@ -126,5 +127,6 @@ None — no external service configuration required.
 All created files verified present on disk. Both task commits (6e52753, ec5fe2b) verified in git history.
 
 ---
-*Phase: 01-foundation-terminal-core*
-*Completed: 2026-03-14*
+
+_Phase: 01-foundation-terminal-core_
+_Completed: 2026-03-14_

@@ -1,34 +1,10 @@
-import * as pty from 'node-pty'
-import { ipcMain, BrowserWindow, app } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import { homedir } from 'os'
 import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, readdirSync } from 'fs'
 import { resolve, join } from 'path'
-import { execFileSync } from 'child_process'
 import { handleAttentionEvent } from './attentionService'
-
-const TMUX_SOCKET = 'multiterm'
-
-interface PtySession {
-  process: pty.IPty
-  tmuxName: string
-}
-
-const sessions = new Map<string, PtySession>()
-
-let tmuxMouseEnabled = true
-
-export function setTmuxMouseMode(enabled: boolean): void {
-  tmuxMouseEnabled = enabled
-  try {
-    tmuxExec('set-option', '-g', 'mouse', enabled ? 'on' : 'off')
-  } catch {
-    // tmux server might not be running yet
-  }
-}
-
-export function getTmuxMouseMode(): boolean {
-  return tmuxMouseEnabled
-}
+import { getScrollbackBytes } from './settingsManager'
+import type { SidecarClient } from './sidecar/client'
 
 // Per-session cooldown: maps session id -> timestamp of last attention event (ms since epoch)
 export const attentionCooldown = new Map<string, number>()
@@ -39,56 +15,45 @@ export const ATTENTION_COOLDOWN_MS = 5_000
 export const ATTENTION_PATTERN =
   /\([yYnN]\/[yYnN]\)|\[[yYnN]\/[yYnN]\]|Do you want|password:|press enter to continue|confirm\?/i
 
-// --- Bundle-aware tmux helpers ---
-
-function getTmuxBin(): string {
-  if (app?.isPackaged) return join(process.resourcesPath, 'tmux')
-  return 'tmux'
-}
-
-function getTmuxConf(): string {
-  if (app?.isPackaged) return join(process.resourcesPath, 'tmux.conf')
-  return join(app?.getAppPath() ?? process.cwd(), 'resources', 'tmux.conf')
-}
-
-function getTerminfoDir(): string | undefined {
-  if (app?.isPackaged) return join(process.resourcesPath, 'terminfo')
-  return undefined
-}
-
-function tmuxEnv(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env }
-  const dir = getTerminfoDir()
-  if (dir) env.TERMINFO = dir
-  // When packaged, the tmux server forks/daemonizes and loses @loader_path
-  // context. Set DYLD_LIBRARY_PATH so the forked server finds its dylibs.
-  if (app?.isPackaged) {
-    env.DYLD_LIBRARY_PATH = join(process.resourcesPath, 'lib')
-  }
-  return env
-}
-
-/** Shell-quote a string with single quotes (for embedding in sh -c). */
-function shellQuote(s: string): string {
-  return `'${s.replace(/'/g, "'\\''")}'`
-}
-
-function tmuxExec(...args: string[]): string {
-  return execFileSync(getTmuxBin(), ['-L', TMUX_SOCKET, '-f', getTmuxConf(), ...args], {
-    encoding: 'utf-8',
-    stdio: 'pipe',
-    timeout: 5_000,
-    env: tmuxEnv()
-  }).trim()
-}
-
-function tmuxSessionName(id: string): string {
-  return `mts-${id.replace(/-/g, '').slice(0, 16)}`
-}
-
 // --- Session metadata persistence ---
 
 const SESSION_DIR = join(homedir(), '.multiterm-studio', 'sessions')
+
+/**
+ * One-shot migration: remove any session JSON files that were written by the
+ * legacy tmux backend. A file is considered legacy if it is missing the
+ * `backend` field, has `backend === 'tmux'`, or contains any tmux-specific
+ * field (e.g. `tmuxName`).
+ *
+ * Called once at module load — errors are logged but never thrown upward.
+ */
+function purgeLegacyTmuxSessions(): void {
+  try {
+    if (!existsSync(SESSION_DIR)) return
+    const files = readdirSync(SESSION_DIR)
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue
+      const filePath = join(SESSION_DIR, file)
+      try {
+        const raw = readFileSync(filePath, 'utf-8')
+        const parsed = JSON.parse(raw) as Record<string, unknown>
+        const isLegacy =
+          !('backend' in parsed) || parsed['backend'] === 'tmux' || 'tmuxName' in parsed
+        if (isLegacy) {
+          unlinkSync(filePath)
+          console.warn(`[ptyManager] purged legacy tmux session: ${file}`)
+        }
+      } catch (fileErr) {
+        console.warn(`[ptyManager] skipped ${file} during legacy purge:`, fileErr)
+      }
+    }
+  } catch (err) {
+    console.warn('[ptyManager] purgeLegacyTmuxSessions failed:', err)
+  }
+}
+
+// Run migration once at module load
+purgeLegacyTmuxSessions()
 
 interface SessionMeta {
   shell: string
@@ -121,71 +86,37 @@ function deleteSessionMeta(id: string): void {
   }
 }
 
-// --- Orphan tmux session cleanup ---
+// --- In-memory CWD cache (populated via OSC 7 push from renderer) ---
 
-export function cleanupOrphanSessions(knownPanelIds: string[]): void {
-  let tmuxNames: string[]
-  try {
-    const raw = tmuxExec('list-sessions', '-F', '#' + '{session_name}')
-    tmuxNames = raw.split('\n').filter(Boolean)
-  } catch {
-    tmuxNames = []
-  }
+const cwdCache = new Map<string, string>()
 
-  const knownNames = new Set(knownPanelIds.map(tmuxSessionName))
+// --- Session data-endpoint tracking (for onData unsubscription) ---
 
-  // Read metadata files to also consider known sessions
-  try {
-    const metaFiles = readdirSync(SESSION_DIR).filter((f) => f.endsWith('.json'))
-    for (const file of metaFiles) {
-      const id = file.replace('.json', '')
-      const name = tmuxSessionName(id)
-      if (!knownNames.has(name)) {
-        // Metadata exists but not in layout — delete metadata
-        deleteSessionMeta(id)
-      }
-    }
-  } catch {
-    // SESSION_DIR doesn't exist yet — fine
-  }
-
-  for (const name of tmuxNames) {
-    if (name.startsWith('mts-') && !knownNames.has(name)) {
-      try {
-        tmuxExec('kill-session', '-t', name)
-      } catch {
-        // ignore
-      }
-    }
-  }
+interface SessionEntry {
+  dataEndpoint: string
 }
 
-// --- PTY exports for RPC server ---
+const sessions = new Map<string, SessionEntry>()
 
-export function writeToPty(id: string, data: string): boolean {
-  const session = sessions.get(id)
-  if (!session) return false
-  session.process.write(data)
-  return true
-}
-
-export function sendRawKeys(id: string, data: string): boolean {
-  const session = sessions.get(id)
-  if (!session) return false
-  try {
-    tmuxExec('send-keys', '-l', '-t', session.tmuxName, data)
-    return true
-  } catch {
-    return false
-  }
-}
-
-export function listPtySessions(): string[] {
-  return Array.from(sessions.keys())
-}
+// Module-level client reference (set by registerPtyHandlers) for use in exported helpers
+let activeClient: SidecarClient | null = null
 
 let currentWin: BrowserWindow | null = null
 let ptyHandlersRegistered = false
+
+/** Write data to a PTY session. Used by rpcServer for pane.sendText / pane.runCommand. */
+export function writeToPty(id: string, data: string): boolean {
+  if (!activeClient || !sessions.has(id)) return false
+  activeClient.write(id, data).catch(() => {
+    /* ignore */
+  })
+  return true
+}
+
+/** Return the list of active session IDs. Used by rpcServer for pane.list. */
+export function listPtySessions(): string[] {
+  return Array.from(sessions.keys())
+}
 
 /** Update the BrowserWindow reference used by PTY data push (called when window is re-created). */
 export function setPtyWindow(win: BrowserWindow): void {
@@ -196,101 +127,54 @@ export function setPtyWindow(win: BrowserWindow): void {
 export function _resetPtyHandlersForTests(): void {
   ptyHandlersRegistered = false
   currentWin = null
+  activeClient = null
+  sessions.clear()
+  cwdCache.clear()
+  attentionCooldown.clear()
 }
 
-export function registerPtyHandlers(win: BrowserWindow): void {
+export function registerPtyHandlers(win: BrowserWindow, client: SidecarClient): void {
   currentWin = win
+  activeClient = client
 
   if (ptyHandlersRegistered) return
   ptyHandlersRegistered = true
 
-  ipcMain.handle('pty:create', (_event, id: string, cwd: string, initialCommand?: string) => {
-    const shell =
-      process.env.SHELL || (process.platform === 'win32' ? 'cmd.exe' : '/bin/bash')
+  ipcMain.handle('pty:create', async (_event, id: string, cwd: string, initialCommand?: string) => {
+    const shell = process.env.SHELL || (process.platform === 'win32' ? 'cmd.exe' : '/bin/bash')
 
     const resolvedCwd = resolve(cwd)
     const safeCwd = existsSync(resolvedCwd) ? resolvedCwd : homedir()
-    const tmuxName = tmuxSessionName(id)
 
-    // Kill previous PTY attach process if it exists (React StrictMode calls
-    // ptyCreate twice in dev — the first node-pty process must be killed or
-    // both will send data to the same channel, causing duplicate output).
-    const prevSession = sessions.get(id)
-    if (prevSession) {
-      prevSession.process.kill()
-      sessions.delete(id)
-    }
+    // Detect reconnect BEFORE calling client.create so we can skip metadata
+    // writes that only apply to the first-time session creation.
+    const isReconnect = sessions.has(id)
 
-    // Create or reconnect to tmux session
-    let sessionExists = false
-    let scrollback = ''
-    try {
-      tmuxExec('has-session', '-t', tmuxName)
-      sessionExists = true
-    } catch {
-      // doesn't exist
-    }
-
-    if (sessionExists) {
-      // Recover scrollback (plain text, no escape sequences)
-      try {
-        const raw = tmuxExec('capture-pane', '-t', tmuxName, '-p', '-S', '-10000')
-        const lines = raw.split('\n')
-        let end = lines.length
-        while (end > 0 && lines[end - 1].trim() === '') end--
-        if (end > 0) scrollback = lines.slice(0, end).join('\r\n') + '\r\n'
-      } catch {
-        // ignore
-      }
-      // Resize to match current terminal size
-      try {
-        tmuxExec('resize-window', '-t', tmuxName, '-x', '80', '-y', '24')
-      } catch {
-        // ignore
-      }
-    } else {
-      // Always start with a login shell so the pane stays alive after
-      // any command exits. If there's an initial command, send it as
-      // keystrokes after the session is created.
-      tmuxExec(
-        'new-session', '-d', '-s', tmuxName,
-        '-c', safeCwd,
-        '-x', '80', '-y', '24',
-        shell, '-l'
-      )
-      tmuxExec('set-option', '-t', tmuxName, 'status', 'off')
-      tmuxExec('set-option', '-g', 'mouse', tmuxMouseEnabled ? 'on' : 'off')
-      tmuxExec('set-environment', '-t', tmuxName, 'MULTITERM_PTY_SESSION_ID', id)
-      tmuxExec('set-environment', '-t', tmuxName, 'SHELL', shell)
-      tmuxExec('set-environment', '-t', tmuxName, 'TERM_PROGRAM', 'multiterm-studio')
-      writeSessionMeta(id, { shell, cwd: safeCwd, createdAt: new Date().toISOString() })
-
-      if (initialCommand) {
-        tmuxExec('send-keys', '-t', tmuxName, initialCommand, 'Enter')
-      }
-    }
-
-    // Attach to tmux session via node-pty
-    const ptyProcess = pty.spawn(getTmuxBin(), ['-L', TMUX_SOCKET, '-f', getTmuxConf(), '-u', 'attach-session', '-t', tmuxName], {
-      name: 'xterm-256color',
+    // Create (or reconnect to) the PTY session in the sidecar.
+    // After Fix A, session.create is idempotent: returns the existing endpoint
+    // when the session already exists.
+    const { dataEndpoint } = await client.create({
+      sessionId: id,
+      shell,
+      cwd: safeCwd,
       cols: 80,
       rows: 24,
-      cwd: safeCwd,
-      env: {
-        ...tmuxEnv(),
-        TERM: 'xterm-256color',
-        MULTITERM_PTY_SESSION_ID: id
-      }
+      scrollbackBytes: getScrollbackBytes()
     })
 
-    // Send recovered scrollback before live data
-    if (scrollback && currentWin && !currentWin.isDestroyed()) {
-      currentWin.webContents.send(`pty:scrollback:${id}`, scrollback)
+    sessions.set(id, { dataEndpoint })
+
+    if (!isReconnect) {
+      cwdCache.set(id, safeCwd)
+      writeSessionMeta(id, { shell, cwd: safeCwd, createdAt: new Date().toISOString() })
     }
 
-    ptyProcess.onData((data: string) => {
+    // Wire the data socket FIRST (await ensures server has accepted the
+    // connection and added this client to session.dataClients before replay).
+    await client.onData(id, dataEndpoint, (chunk: Buffer) => {
       if (!currentWin || currentWin.isDestroyed()) return
 
+      const data = chunk.toString('utf8')
       currentWin.webContents.send(`pty:data:${id}`, data)
 
       if (ATTENTION_PATTERN.test(data)) {
@@ -305,129 +189,56 @@ export function registerPtyHandlers(win: BrowserWindow): void {
       }
     })
 
-    sessions.set(id, { process: ptyProcess, tmuxName })
-  })
+    // Replay scrollback AFTER the data socket is connected so the ring buffer
+    // flush reaches the renderer immediately.
+    await client.replay(id).catch(() => {
+      // No prior scrollback — ignore
+    })
 
-  ipcMain.handle('pty:write', (_event, id: string, data: string) => {
-    const session = sessions.get(id)
-    if (!session) return
-    session.process.write(data)
-  })
-
-  ipcMain.handle('pty:resize', (_event, id: string, cols: number, rows: number) => {
-    const session = sessions.get(id)
-    if (!session) return
-    try {
-      tmuxExec('resize-window', '-t', session.tmuxName, '-x', String(cols), '-y', String(rows))
-    } catch {
-      // ignore
-    }
-    session.process.resize(cols, rows)
-  })
-
-  ipcMain.handle('pty:list-panes', (_event, id: string) => {
-    const session = sessions.get(id)
-    if (!session) return []
-    try {
-      const fmt = ['pane_index', 'pane_current_command', 'pane_active', 'pane_pid', 'pane_title']
-        .map((k) => '#' + '{' + k + '}').join('\t')
-      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', fmt)
-      return raw.split('\n').filter(Boolean).map((line) => {
-        const [index, command, active, pid, ...titleParts] = line.split('\t')
-        const title = titleParts.join('\t')
-        return {
-          index: Number(index),
-          command: command ?? '',
-          title: title ?? '',
-          active: active === '1',
-          pid: Number(pid)
-        }
-      })
-    } catch {
-      return []
+    // Write initial command last so any echo lands on the connected socket.
+    if (initialCommand) {
+      await client.write(id, initialCommand + '\n')
     }
   })
 
-  ipcMain.handle('pty:select-pane', (_event, id: string, paneIndex: number) => {
-    const session = sessions.get(id)
-    if (!session) return
-    try {
-      tmuxExec('select-pane', '-t', `${session.tmuxName}.${paneIndex}`)
-    } catch {
-      // ignore
-    }
+  ipcMain.handle('pty:write', async (_event, id: string, data: string) => {
+    if (!sessions.has(id)) return
+    await client.write(id, data)
   })
 
-  ipcMain.handle('pty:send-keys', (_event, id: string, text: string, enter: boolean) => {
-    const session = sessions.get(id)
-    if (!session) return
-    try {
-      // -l sends text literally (not as key names)
-      tmuxExec('send-keys', '-l', '-t', session.tmuxName, text)
-      if (enter) {
-        tmuxExec('send-keys', '-t', session.tmuxName, 'Enter')
-      }
-    } catch {
-      // ignore
-    }
+  ipcMain.handle('pty:resize', async (_event, id: string, cols: number, rows: number) => {
+    if (!sessions.has(id)) return
+    await client.resize(id, cols, rows)
+  })
+
+  ipcMain.handle('pty:has-process', async (_event, id: string) => {
+    // The sidecar does not expose process detection; return false so the UI
+    // does not block on a broken IPC. A future phase can add this.
+    if (!sessions.has(id)) return { hasProcess: false, processName: null }
+    return { hasProcess: false, processName: null }
   })
 
   ipcMain.handle('pty:get-cwd', (_event, id: string) => {
-    const session = sessions.get(id)
-    if (!session) return null
-    try {
-      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', '#' + '{pane_current_path}')
-      return raw.split('\n')[0]?.trim() || null
-    } catch {
-      return null
-    }
+    // First try the live cache populated by OSC 7
+    const cached = cwdCache.get(id)
+    if (cached) return cached
+
+    // Fall back to the spawn cwd stored in session metadata
+    const meta = readSessionMeta(id)
+    return meta ? meta.cwd : null
   })
 
-  ipcMain.handle('pty:has-process', (_event, id: string) => {
-    const session = sessions.get(id)
-    if (!session) return { hasProcess: false, processName: null }
-    try {
-      const fmt = ['pane_current_command', 'pane_pid'].map((k) => '#' + '{' + k + '}').join('\t')
-      const raw = tmuxExec('list-panes', '-t', session.tmuxName, '-F', fmt)
-      const parts = raw.split('\n')[0]?.split('\t') ?? []
-      const cmd = (parts[0] ?? '').trim()
-      const panePid = (parts[1] ?? '').trim()
-      const shells = ['zsh', 'bash', 'sh', 'fish']
-      const isShell = shells.includes(cmd.toLowerCase())
-
-      if (isShell) return { hasProcess: false, processName: null }
-
-      // Try to get the actual foreground process name via ps
-      let processName = cmd
-      if (panePid) {
-        try {
-          const psOut = execFileSync('ps', ['-o', 'comm=', '-p', panePid], {
-            encoding: 'utf-8',
-            timeout: 2_000
-          }).trim()
-          if (psOut) processName = psOut.split('/').pop() ?? psOut
-        } catch {
-          // fall back to tmux command name
-        }
-      }
-
-      return { hasProcess: true, processName }
-    } catch {
-      return { hasProcess: false, processName: null }
-    }
-  })
-
-  ipcMain.handle('pty:kill', (_event, id: string) => {
-    const session = sessions.get(id)
-    if (!session) return
-    try {
-      tmuxExec('kill-session', '-t', session.tmuxName)
-    } catch {
-      // ignore
-    }
-    session.process.kill()
+  ipcMain.handle('pty:kill', async (_event, id: string) => {
+    if (!sessions.has(id)) return
+    await client.kill(id)
     sessions.delete(id)
     attentionCooldown.delete(id)
+    cwdCache.delete(id)
     deleteSessionMeta(id)
+  })
+
+  // OSC 7 CWD push: renderer fires this after parsing an OSC 7 sequence
+  ipcMain.on('pty:cwd-changed', (_event, id: string, cwd: string) => {
+    cwdCache.set(id, cwd)
   })
 }

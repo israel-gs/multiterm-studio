@@ -7,7 +7,10 @@ interface GitBranchSectionProps {
   folderPaths?: string[]
 }
 
-export function GitBranchSection({ folderPath, folderPaths }: GitBranchSectionProps): React.JSX.Element | null {
+export function GitBranchSection({
+  folderPath,
+  folderPaths
+}: GitBranchSectionProps): React.JSX.Element | null {
   const effectivePaths = folderPaths && folderPaths.length > 0 ? folderPaths : [folderPath]
   const isMulti = effectivePaths.length > 1
   const [activeFolderIdx, setActiveFolderIdx] = useState(0)
@@ -195,7 +198,11 @@ export function GitBranchSection({ folderPath, folderPaths }: GitBranchSectionPr
               />
             </button>
             {folderDropdownOpen && (
-              <div className="sidebar-branch-folder-dropdown" role="listbox" aria-label="Select project">
+              <div
+                className="sidebar-branch-folder-dropdown"
+                role="listbox"
+                aria-label="Select project"
+              >
                 {effectivePaths.map((fp, idx) => {
                   const name = fp.split('/').pop() ?? fp
                   const isCurrent = idx === activeFolderIdx
@@ -228,7 +235,9 @@ export function GitBranchSection({ folderPath, folderPaths }: GitBranchSectionPr
             disabled={loading}
           >
             <GitBranch size={12} strokeWidth={1.8} aria-hidden="true" />
-            <span className={`sidebar-branch-trigger-name${detached ? ' sidebar-branch-trigger-name--detached' : ''}`}>
+            <span
+              className={`sidebar-branch-trigger-name${detached ? ' sidebar-branch-trigger-name--detached' : ''}`}
+            >
               {loading ? 'Loading...' : currentBranch}
               {detached && ' (detached)'}
             </span>
@@ -301,7 +310,12 @@ export function GitBranchSection({ folderPath, folderPaths }: GitBranchSectionPr
           <div className="sidebar-branch-popover-section">
             <span className="sidebar-branch-popover-section-label">Find branch</span>
             <div className="sidebar-branch-popover-search">
-              <Search size={12} strokeWidth={1.5} className="sidebar-branch-popover-search-icon" aria-hidden="true" />
+              <Search
+                size={12}
+                strokeWidth={1.5}
+                className="sidebar-branch-popover-search-icon"
+                aria-hidden="true"
+              />
               <input
                 className="sidebar-branch-popover-search-input"
                 type="text"
@@ -334,7 +348,12 @@ export function GitBranchSection({ folderPath, folderPaths }: GitBranchSectionPr
               </div>
             ) : (
               filteredBranches.map((branch) => (
-                <div key={branch} className={`sidebar-branch-popover-item${branch === currentBranch ? ' sidebar-branch-popover-item--current' : ''}`} role="option" aria-selected={branch === currentBranch}>
+                <div
+                  key={branch}
+                  className={`sidebar-branch-popover-item${branch === currentBranch ? ' sidebar-branch-popover-item--current' : ''}`}
+                  role="option"
+                  aria-selected={branch === currentBranch}
+                >
                   <button
                     className="sidebar-branch-popover-item-btn"
                     onClick={() => {
@@ -343,9 +362,19 @@ export function GitBranchSection({ folderPath, folderPaths }: GitBranchSectionPr
                     disabled={loading}
                   >
                     {branch === currentBranch ? (
-                      <Check size={11} strokeWidth={2} className="sidebar-branch-popover-item-icon sidebar-branch-popover-item-icon--check" aria-hidden="true" />
+                      <Check
+                        size={11}
+                        strokeWidth={2}
+                        className="sidebar-branch-popover-item-icon sidebar-branch-popover-item-icon--check"
+                        aria-hidden="true"
+                      />
                     ) : (
-                      <GitBranch size={11} strokeWidth={1.5} className="sidebar-branch-popover-item-icon" aria-hidden="true" />
+                      <GitBranch
+                        size={11}
+                        strokeWidth={1.5}
+                        className="sidebar-branch-popover-item-icon"
+                        aria-hidden="true"
+                      />
                     )}
                     <span className="sidebar-branch-popover-item-name">{branch}</span>
                     {branch === currentBranch && (

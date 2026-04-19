@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, writeFileSync, unlinkSync, readFileSync } from '
 import { join } from 'path'
 import { homedir } from 'os'
 import { randomUUID } from 'crypto'
-import { writeToPty, sendRawKeys, listPtySessions } from './ptyManager'
+import { writeToPty, listPtySessions } from './ptyManager'
 
 const DISCOVERY_DIR = join(homedir(), '.multiterm-studio')
 const DISCOVERY_FILE = join(DISCOVERY_DIR, 'socket-path')
@@ -35,21 +35,13 @@ interface MethodEntry {
 
 const methods = new Map<string, MethodEntry>()
 
-function registerMethod(
-  name: string,
-  handler: RpcHandler,
-  meta?: { description: string }
-): void {
+function registerMethod(name: string, handler: RpcHandler, meta?: { description: string }): void {
   methods.set(name, { handler, description: meta?.description ?? '' })
 }
 
 // --- JSON-RPC helpers ---
 
-function makeErrorResponse(
-  id: number | string | null,
-  code: number,
-  message: string
-): object {
+function makeErrorResponse(id: number | string | null, code: number, message: string): object {
   return { jsonrpc: '2.0', id, error: { code, message } }
 }
 
@@ -79,11 +71,7 @@ function tryRemoveStaleSocket(socketPath: string): Promise<void> {
 
 // --- Main message handler (bidirectional) ---
 
-async function handleMessage(
-  raw: string,
-  win: BrowserWindow,
-  conn: Socket
-): Promise<void> {
+async function handleMessage(raw: string, _win: BrowserWindow, conn: Socket): Promise<void> {
   let msg: {
     jsonrpc?: string
     id?: number | string
@@ -112,9 +100,7 @@ async function handleMessage(
   if (!entry) {
     if (msg.id != null && conn && !conn.destroyed) {
       conn.write(
-        JSON.stringify(
-          makeErrorResponse(msg.id, -32601, `Method not found: ${msg.method}`)
-        ) + '\n'
+        JSON.stringify(makeErrorResponse(msg.id, -32601, `Method not found: ${msg.method}`)) + '\n'
       )
     }
     return
@@ -166,164 +152,210 @@ export async function startRpcServer(
 
   // --- Register all methods ---
 
-  registerMethod('rpc.discover', () => {
-    return {
-      methods: [...methods.entries()].map(([name, entry]) => ({
-        name,
-        description: entry.description
-      }))
-    }
-  }, { description: 'List all available RPC methods' })
+  registerMethod(
+    'rpc.discover',
+    () => {
+      return {
+        methods: [...methods.entries()].map(([name, entry]) => ({
+          name,
+          description: entry.description
+        }))
+      }
+    },
+    { description: 'List all available RPC methods' }
+  )
 
   // --- Agent session methods ---
 
-  registerMethod('agent.spawning', (params) => {
-    const agentName = String(params.agent_name ?? 'agent')
-    const toolUseId = String(params.tool_use_id ?? '')
-    const subagentsDir = String(params.subagents_dir ?? '')
-    const ptySessionId = String(params.pty_session_id ?? '')
-    const cwd = String(params.cwd ?? '')
+  registerMethod(
+    'agent.spawning',
+    (params) => {
+      const agentName = String(params.agent_name ?? 'agent')
+      const toolUseId = String(params.tool_use_id ?? '')
+      const subagentsDir = String(params.subagents_dir ?? '')
+      const ptySessionId = String(params.pty_session_id ?? '')
+      const cwd = String(params.cwd ?? '')
 
-    win.webContents.send('agent:spawning', {
-      agentName,
-      toolUseId,
-      subagentsDir,
-      ptySessionId,
-      cwd
-    })
-    return { ok: true }
-  }, { description: 'Handle agent subagent spawning — notifies pane sidebar' })
+      win.webContents.send('agent:spawning', {
+        agentName,
+        toolUseId,
+        subagentsDir,
+        ptySessionId,
+        cwd
+      })
+      return { ok: true }
+    },
+    { description: 'Handle agent subagent spawning — notifies pane sidebar' }
+  )
 
-  registerMethod('agent.sessionStart', (params) => {
-    const sessionId = String(params.session_id ?? '')
-    const cwd = String(params.cwd ?? '')
-    const ptySessionId = String(params.pty_session_id ?? '') || null
+  registerMethod(
+    'agent.sessionStart',
+    (params) => {
+      const sessionId = String(params.session_id ?? '')
+      const cwd = String(params.cwd ?? '')
+      const ptySessionId = String(params.pty_session_id ?? '') || null
 
-    if (!sessionId || agentSessions.has(sessionId)) return { ok: true }
+      if (!sessionId || agentSessions.has(sessionId)) return { ok: true }
 
-    agentSessions.set(sessionId, {
-      sessionId,
-      cwd,
-      ptySessionId,
-      startedAt: Date.now()
-    })
+      agentSessions.set(sessionId, {
+        sessionId,
+        cwd,
+        ptySessionId,
+        startedAt: Date.now()
+      })
 
-    win.webContents.send('agent:session-started', { sessionId, ptySessionId, cwd })
-    return { ok: true }
-  }, { description: 'Register a new agent session' })
+      win.webContents.send('agent:session-started', { sessionId, ptySessionId, cwd })
+      return { ok: true }
+    },
+    { description: 'Register a new agent session' }
+  )
 
-  registerMethod('agent.fileTouched', (params) => {
-    const sessionId = String(params.session_id ?? '')
-    const session = agentSessions.get(sessionId)
-    if (!session) return { ok: false }
+  registerMethod(
+    'agent.fileTouched',
+    (params) => {
+      const sessionId = String(params.session_id ?? '')
+      const session = agentSessions.get(sessionId)
+      if (!session) return { ok: false }
 
-    const filePath = params.file_path ? String(params.file_path) : null
-    if (!filePath) return { ok: false }
+      const filePath = params.file_path ? String(params.file_path) : null
+      if (!filePath) return { ok: false }
 
-    const toolName = String(params.tool_name ?? '')
-    const touchType = toolName === 'Read' ? 'read' : 'write'
+      const toolName = String(params.tool_name ?? '')
+      const touchType = toolName === 'Read' ? 'read' : 'write'
 
-    win.webContents.send('agent:file-touched', {
-      sessionId,
-      ptySessionId: session.ptySessionId,
-      filePath,
-      touchType
-    })
-    return { ok: true }
-  }, { description: 'Log a file read/write by an agent' })
+      win.webContents.send('agent:file-touched', {
+        sessionId,
+        ptySessionId: session.ptySessionId,
+        filePath,
+        touchType
+      })
+      return { ok: true }
+    },
+    { description: 'Log a file read/write by an agent' }
+  )
 
-  registerMethod('agent.sessionEnd', (params) => {
-    const sessionId = String(params.session_id ?? '')
-    const session = agentSessions.get(sessionId)
-    if (!session) return { ok: true }
+  registerMethod(
+    'agent.sessionEnd',
+    (params) => {
+      const sessionId = String(params.session_id ?? '')
+      const session = agentSessions.get(sessionId)
+      if (!session) return { ok: true }
 
-    agentSessions.delete(sessionId)
+      agentSessions.delete(sessionId)
 
-    win.webContents.send('agent:session-ended', {
-      sessionId,
-      ptySessionId: session.ptySessionId
-    })
-    return { ok: true }
-  }, { description: 'End an agent session' })
+      win.webContents.send('agent:session-ended', {
+        sessionId,
+        ptySessionId: session.ptySessionId
+      })
+      return { ok: true }
+    },
+    { description: 'End an agent session' }
+  )
 
   // --- Pane management methods ---
 
-  registerMethod('pane.split', (params) => {
-    const newId = randomUUID()
-    const cwd = String(params.cwd ?? '')
-    const title = params.title ? String(params.title) : undefined
-    const parentSessionId = params.session_id ? String(params.session_id) : undefined
+  registerMethod(
+    'pane.split',
+    (params) => {
+      const newId = randomUUID()
+      const cwd = String(params.cwd ?? '')
+      const title = params.title ? String(params.title) : undefined
+      const parentSessionId = params.session_id ? String(params.session_id) : undefined
 
-    return new Promise<{ session_id: string }>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        ipcMain.removeAllListeners(`pane:created:${newId}`)
-        reject(new Error('Pane creation timed out'))
-      }, 5_000)
+      return new Promise<{ session_id: string }>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          ipcMain.removeAllListeners(`pane:created:${newId}`)
+          reject(new Error('Pane creation timed out'))
+        }, 5_000)
 
-      ipcMain.once(`pane:created:${newId}`, () => {
-        clearTimeout(timeout)
-        resolve({ session_id: newId })
+        ipcMain.once(`pane:created:${newId}`, () => {
+          clearTimeout(timeout)
+          resolve({ session_id: newId })
+        })
+
+        win.webContents.send('pane:create', { sessionId: newId, cwd, title, parentSessionId })
       })
+    },
+    { description: 'Create a new interactive terminal pane' }
+  )
 
-      win.webContents.send('pane:create', { sessionId: newId, cwd, title, parentSessionId })
-    })
-  }, { description: 'Create a new interactive terminal pane' })
+  registerMethod(
+    'pane.sendText',
+    (params) => {
+      const id = String(params.session_id ?? '')
+      const text = String(params.text ?? '')
+      return { ok: writeToPty(id, text) }
+    },
+    { description: 'Send text to a PTY session' }
+  )
 
-  registerMethod('pane.sendText', (params) => {
-    const id = String(params.session_id ?? '')
-    const text = String(params.text ?? '')
-    return { ok: writeToPty(id, text) }
-  }, { description: 'Send text to a PTY session' })
+  registerMethod(
+    'pane.runCommand',
+    (params) => {
+      const id = String(params.session_id ?? '')
+      const command = String(params.command ?? '')
+      return { ok: writeToPty(id, command + '\r') }
+    },
+    { description: 'Run a command in a PTY session' }
+  )
 
-  registerMethod('pane.runCommand', (params) => {
-    const id = String(params.session_id ?? '')
-    const command = String(params.command ?? '')
-    return { ok: writeToPty(id, command + '\r') }
-  }, { description: 'Run a command in a PTY session' })
+  registerMethod(
+    'pane.list',
+    () => {
+      return { sessions: listPtySessions().map((id) => ({ session_id: id })) }
+    },
+    { description: 'List all active PTY sessions' }
+  )
 
-  registerMethod('pane.list', () => {
-    return { sessions: listPtySessions().map((id) => ({ session_id: id })) }
-  }, { description: 'List all active PTY sessions' })
+  registerMethod(
+    'pane.focus',
+    (params) => {
+      const id = String(params.session_id ?? '')
+      win.webContents.send('pane:focus', { sessionId: id })
+      return { ok: true }
+    },
+    { description: 'Focus a specific terminal pane' }
+  )
 
-  registerMethod('pane.focus', (params) => {
-    const id = String(params.session_id ?? '')
-    win.webContents.send('pane:focus', { sessionId: id })
-    return { ok: true }
-  }, { description: 'Focus a specific terminal pane' })
+  registerMethod(
+    'pane.setVar',
+    (params) => {
+      const id = String(params.session_id ?? '')
+      const variable = String(params.variable ?? '')
+      const value = String(params.value ?? '')
+      if (!sessionVars.has(id)) sessionVars.set(id, new Map())
+      sessionVars.get(id)!.set(variable, value)
+      return { ok: true }
+    },
+    { description: 'Set a session variable' }
+  )
 
-  registerMethod('pane.setVar', (params) => {
-    const id = String(params.session_id ?? '')
-    const variable = String(params.variable ?? '')
-    const value = String(params.value ?? '')
-    if (!sessionVars.has(id)) sessionVars.set(id, new Map())
-    sessionVars.get(id)!.set(variable, value)
-    return { ok: true }
-  }, { description: 'Set a session variable' })
-
-  registerMethod('pane.getVar', (params) => {
-    const id = String(params.session_id ?? '')
-    const variable = String(params.variable ?? '')
-    const value = sessionVars.get(id)?.get(variable) ?? null
-    return { value }
-  }, { description: 'Get a session variable' })
-
-  registerMethod('pane.sendKeys', (params) => {
-    const id = String(params.session_id ?? '')
-    const data = String(params.data ?? '')
-    return { ok: sendRawKeys(id, data) }
-  }, { description: 'Send raw keys to a PTY session via tmux' })
+  registerMethod(
+    'pane.getVar',
+    (params) => {
+      const id = String(params.session_id ?? '')
+      const variable = String(params.variable ?? '')
+      const value = sessionVars.get(id)?.get(variable) ?? null
+      return { value }
+    },
+    { description: 'Get a session variable' }
+  )
 
   // --- App methods ---
 
-  registerMethod('app.notify', (params) => {
-    const { Notification } = require('electron')
-    const note = new Notification({
-      title: String(params.title ?? 'Multiterm Studio'),
-      body: String(params.body ?? '')
-    })
-    note.show()
-    return { ok: true }
-  }, { description: 'Show a native macOS notification' })
+  registerMethod(
+    'app.notify',
+    (params) => {
+      const { Notification } = require('electron')
+      const note = new Notification({
+        title: String(params.title ?? 'Multiterm Studio'),
+        body: String(params.body ?? '')
+      })
+      note.show()
+      return { ok: true }
+    },
+    { description: 'Show a native macOS notification' }
+  )
 
   registerMethod('ping', () => ({ pong: true }), {
     description: 'Health check'

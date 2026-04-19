@@ -15,36 +15,41 @@ The most significant integration points are: (1) `dialog.showOpenDialog` must be
 **Primary recommendation:** Add `folderOpen` and `folderReaddir` methods to the existing `electronAPI` contextBridge, register handlers in a new `src/main/folderManager.ts` file following the `ptyManager.ts` pattern, create a minimal `useProjectStore` Zustand slice for the opened folder path, build a `FileTree.tsx` recursive component with per-node open/closed state, and inject the project path as `cwd` into each `TerminalPanel`.
 
 <phase_requirements>
+
 ## Phase Requirements
 
-| ID | Description | Research Support |
-|----|-------------|-----------------|
-| PROJ-01 | On launch, if no folder is loaded, a native folder picker dialog opens | `dialog.showOpenDialog({ properties: ['openDirectory'] })` from main process via IPC; trigger from renderer via `window.electronAPI.folderOpen()` on mount when no folder in store |
-| PROJ-02 | Left sidebar displays a file tree of the opened project folder | `folder:readdir` IPC handler using `fs.promises.readdir(path, { withFileTypes: true })`; React `FileTree.tsx` recursive component; sidebar fixed-width column alongside mosaic canvas |
-| PROJ-03 | File tree supports expand/collapse of directories | Per-node `Set<string>` open state in `FileTree.tsx`; lazy: only call `folder:readdir` when a directory is first expanded; never eagerly load entire tree |
+| ID      | Description                                                            | Research Support                                                                                                                                                                      |
+| ------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROJ-01 | On launch, if no folder is loaded, a native folder picker dialog opens | `dialog.showOpenDialog({ properties: ['openDirectory'] })` from main process via IPC; trigger from renderer via `window.electronAPI.folderOpen()` on mount when no folder in store    |
+| PROJ-02 | Left sidebar displays a file tree of the opened project folder         | `folder:readdir` IPC handler using `fs.promises.readdir(path, { withFileTypes: true })`; React `FileTree.tsx` recursive component; sidebar fixed-width column alongside mosaic canvas |
+| PROJ-03 | File tree supports expand/collapse of directories                      | Per-node `Set<string>` open state in `FileTree.tsx`; lazy: only call `folder:readdir` when a directory is first expanded; never eagerly load entire tree                              |
+
 </phase_requirements>
 
 ## Standard Stack
 
 ### Core
-| Library | Version | Purpose | Why Standard |
-|---------|---------|---------|--------------|
-| Electron `dialog` | built-in (Electron 39.x) | Native folder picker OS dialog | Only option that gives real native dialog; no npm package needed |
-| Node.js `fs/promises` | built-in (Node 22.x) | Async directory reading | Already used in main process; `readdir` + `withFileTypes` is the idiomatic API |
-| Zustand | 5.0.11 (already installed) | Project folder path store slice | Already in project; add `useProjectStore` beside `usePanelStore` |
-| React (useState + useEffect) | 19.2.1 (already installed) | File tree component state | No external library needed for a read-only collapsible list |
+
+| Library                      | Version                    | Purpose                         | Why Standard                                                                   |
+| ---------------------------- | -------------------------- | ------------------------------- | ------------------------------------------------------------------------------ |
+| Electron `dialog`            | built-in (Electron 39.x)   | Native folder picker OS dialog  | Only option that gives real native dialog; no npm package needed               |
+| Node.js `fs/promises`        | built-in (Node 22.x)       | Async directory reading         | Already used in main process; `readdir` + `withFileTypes` is the idiomatic API |
+| Zustand                      | 5.0.11 (already installed) | Project folder path store slice | Already in project; add `useProjectStore` beside `usePanelStore`               |
+| React (useState + useEffect) | 19.2.1 (already installed) | File tree component state       | No external library needed for a read-only collapsible list                    |
 
 ### Supporting
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
+
+| Library                       | Version         | Purpose                           | When to Use                                                        |
+| ----------------------------- | --------------- | --------------------------------- | ------------------------------------------------------------------ |
 | `path.join` / `path.basename` | built-in (Node) | Path manipulation in main process | Concatenating parent path + entry name for recursive readdir calls |
 
 ### Alternatives Considered
-| Instead of | Could Use | Tradeoff |
-|------------|-----------|----------|
-| Hand-written FileTree | `react-arborist`, `rc-tree`, MUI TreeView | External libs add 50-200KB, bring their own theming; a read-only display tree is ~80 lines of React — not worth the dependency |
-| `fs/promises.readdir` | `fs.readdirSync` | Sync blocks the main process event loop; always use async in ipcMain handlers |
-| Single `folder:readdir` IPC for full tree | Recursive IPC per expand | Recursive eager load is catastrophic on node_modules (100k+ files); lazy per-expand is correct |
+
+| Instead of                                | Could Use                                 | Tradeoff                                                                                                                       |
+| ----------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Hand-written FileTree                     | `react-arborist`, `rc-tree`, MUI TreeView | External libs add 50-200KB, bring their own theming; a read-only display tree is ~80 lines of React — not worth the dependency |
+| `fs/promises.readdir`                     | `fs.readdirSync`                          | Sync blocks the main process event loop; always use async in ipcMain handlers                                                  |
+| Single `folder:readdir` IPC for full tree | Recursive IPC per expand                  | Recursive eager load is catastrophic on node_modules (100k+ files); lazy per-expand is correct                                 |
 
 **Installation:**
 
@@ -53,6 +58,7 @@ No new packages required. All APIs are built-in to Electron and Node.js.
 ## Architecture Patterns
 
 ### Recommended Project Structure
+
 ```
 src/
 ├── main/
@@ -116,16 +122,14 @@ export function registerFolderHandlers(): void {
 // Source: preload/index.ts existing pattern
 contextBridge.exposeInMainWorld('electronAPI', {
   // ... existing pty* methods ...
-  folderOpen: (): Promise<string | null> =>
-    ipcRenderer.invoke('folder:open'),
-  folderReaddir: (
-    dirPath: string
-  ): Promise<Array<{ name: string; isDir: boolean }>> =>
+  folderOpen: (): Promise<string | null> => ipcRenderer.invoke('folder:open'),
+  folderReaddir: (dirPath: string): Promise<Array<{ name: string; isDir: boolean }>> =>
     ipcRenderer.invoke('folder:readdir', dirPath)
 })
 ```
 
 Type declaration update in `index.d.ts` and `env.d.ts`:
+
 ```typescript
 folderOpen: () => Promise<string | null>
 folderReaddir: (dirPath: string) => Promise<Array<{ name: string; isDir: boolean }>>
@@ -185,16 +189,19 @@ export function registerFolderHandlers(win: BrowserWindow): void {
 **What:** `MosaicLayout` reads `folderPath` from the store and passes it to `PanelWindow` as a `cwd` prop. `PanelWindow` passes it to `TerminalPanel`. This changes `TerminalPanel`'s `cwd` prop from the hardcoded `"."` to the actual project folder.
 
 Current code in `PanelWindow.tsx` line 24:
+
 ```typescript
 <TerminalPanel sessionId={sessionId} cwd="." />
 ```
 
 Changed to:
+
 ```typescript
 <TerminalPanel sessionId={sessionId} cwd={cwd} />
 ```
 
 `MosaicLayout` renders `PanelWindow` like this:
+
 ```typescript
 const folderPath = useProjectStore((s) => s.folderPath)
 // ...
@@ -258,6 +265,7 @@ function FileTreeNode({ path, name, isDir, depth }: FileTreeNodeProps) {
 ```
 
 **Top-level FileTree component:**
+
 ```typescript
 function FileTree({ rootPath }: { rootPath: string }) {
   const [rootEntries, setRootEntries] = useState<TreeEntry[] | null>(null)
@@ -330,12 +338,12 @@ function App() {
 
 ## Don't Hand-Roll
 
-| Problem | Don't Build | Use Instead | Why |
-|---------|-------------|-------------|-----|
-| Native folder selection dialog | Custom HTML `<input type="file">` or file browser UI | `dialog.showOpenDialog` | Only native dialog respects OS conventions, bookmarks, recent paths; HTML input cannot select directories in Electron without hacks |
-| Async directory listing | `fs.readdirSync` in IPC handler | `fs.promises.readdir` | Sync blocks the main process event loop; all Node.js I/O in IPC handlers must be async |
-| Path concatenation | `${parentPath}/${name}` string template | `require('path').join(parent, name)` | Windows uses `\`, macOS/Linux use `/`; `path.join` is platform-safe |
-| File tree state management | Global Redux/Zustand tree state | Local `useState` per node | Tree is UI state only, not shared across components; local state is simpler and avoids store bloat |
+| Problem                        | Don't Build                                          | Use Instead                          | Why                                                                                                                                 |
+| ------------------------------ | ---------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Native folder selection dialog | Custom HTML `<input type="file">` or file browser UI | `dialog.showOpenDialog`              | Only native dialog respects OS conventions, bookmarks, recent paths; HTML input cannot select directories in Electron without hacks |
+| Async directory listing        | `fs.readdirSync` in IPC handler                      | `fs.promises.readdir`                | Sync blocks the main process event loop; all Node.js I/O in IPC handlers must be async                                              |
+| Path concatenation             | `${parentPath}/${name}` string template              | `require('path').join(parent, name)` | Windows uses `\`, macOS/Linux use `/`; `path.join` is platform-safe                                                                 |
+| File tree state management     | Global Redux/Zustand tree state                      | Local `useState` per node            | Tree is UI state only, not shared across components; local state is simpler and avoids store bloat                                  |
 
 **Key insight:** The file tree is display-only (read-only reference per REQUIREMENTS.md "Out of Scope: Built-in text editor — file tree is read-only reference"). No drag-and-drop, no file editing, no file watching. A 100-line recursive React component is the correct scope.
 
@@ -406,6 +414,7 @@ function App() {
 Verified patterns from official sources:
 
 ### Electron dialog.showOpenDialog (folder picker)
+
 ```typescript
 // Source: https://www.electronjs.org/docs/latest/api/dialog
 import { dialog, BrowserWindow } from 'electron'
@@ -422,19 +431,21 @@ return null
 ```
 
 ### fs/promises readdir with withFileTypes
+
 ```typescript
 // Source: https://nodejs.org/api/fs.html#fspromisesreaddirpath-options
 import { readdir } from 'fs/promises'
 
 const entries = await readdir('/path/to/dir', { withFileTypes: true })
 for (const entry of entries) {
-  console.log(entry.name)        // "src"
+  console.log(entry.name) // "src"
   console.log(entry.isDirectory()) // true or false
-  console.log(entry.isFile())     // true or false
+  console.log(entry.isFile()) // true or false
 }
 ```
 
 ### Zustand store (minimal slice)
+
 ```typescript
 // Source: zustand.docs.pmnd.rs — same pattern as panelStore.ts
 import { create } from 'zustand'
@@ -449,6 +460,7 @@ export const useProjectStore = create<{
 ```
 
 ### contextBridge type declaration update
+
 ```typescript
 // Additions to index.d.ts and env.d.ts Window.electronAPI interface
 folderOpen: () => Promise<string | null>
@@ -457,13 +469,14 @@ folderReaddir: (dirPath: string) => Promise<Array<{ name: string; isDir: boolean
 
 ## State of the Art
 
-| Old Approach | Current Approach | When Changed | Impact |
-|--------------|------------------|--------------|--------|
-| `dialog.showOpenDialog` via `remote` module | IPC `ipcMain.handle` + contextBridge invoke | Electron 10 (remote deprecated), 14 (removed by default) | Must use IPC; remote is gone |
-| `fs.readdirSync` in renderer (nodeIntegration: true) | `fs.promises.readdir` in main process via IPC | Electron security hardening | nodeIntegration is false in this project; all fs ops must be in main |
-| Untyped IPC args | TypeScript-typed IPC via index.d.ts declarations | electron-toolkit pattern | Already established in this project |
+| Old Approach                                         | Current Approach                                 | When Changed                                             | Impact                                                               |
+| ---------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------- | -------------------------------------------------------------------- |
+| `dialog.showOpenDialog` via `remote` module          | IPC `ipcMain.handle` + contextBridge invoke      | Electron 10 (remote deprecated), 14 (removed by default) | Must use IPC; remote is gone                                         |
+| `fs.readdirSync` in renderer (nodeIntegration: true) | `fs.promises.readdir` in main process via IPC    | Electron security hardening                              | nodeIntegration is false in this project; all fs ops must be in main |
+| Untyped IPC args                                     | TypeScript-typed IPC via index.d.ts declarations | electron-toolkit pattern                                 | Already established in this project                                  |
 
 **Deprecated/outdated:**
+
 - `remote.dialog` / `require('electron').remote`: removed from Electron 14+. This project uses Electron 39 — do not reference `remote`.
 - `fs.readdirSync` in renderer code: impossible with `contextIsolation: true` and `nodeIntegration: false` (existing config in `index.ts`).
 
@@ -487,31 +500,35 @@ folderReaddir: (dirPath: string) => Promise<Array<{ name: string; isDir: boolean
 ## Validation Architecture
 
 ### Test Framework
-| Property | Value |
-|----------|-------|
-| Framework | Vitest 3.x + @testing-library/react 16.x |
-| Config file | `vitest.config.ts` (exists) |
-| Quick run command | `npm test -- tests/main/folderManager.test.ts tests/renderer/FileTree.test.tsx tests/store/projectStore.test.ts` |
-| Full suite command | `npm test` |
+
+| Property           | Value                                                                                                            |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Framework          | Vitest 3.x + @testing-library/react 16.x                                                                         |
+| Config file        | `vitest.config.ts` (exists)                                                                                      |
+| Quick run command  | `npm test -- tests/main/folderManager.test.ts tests/renderer/FileTree.test.tsx tests/store/projectStore.test.ts` |
+| Full suite command | `npm test`                                                                                                       |
 
 ### Phase Requirements → Test Map
-| Req ID | Behavior | Test Type | Automated Command | File Exists? |
-|--------|----------|-----------|-------------------|-------------|
-| PROJ-01 | `folder:open` handler calls dialog.showOpenDialog with openDirectory property | unit | `npm test -- tests/main/folderManager.test.ts -t "folder:open"` | ❌ Wave 0 |
-| PROJ-01 | `folder:open` returns null when dialog is canceled | unit | `npm test -- tests/main/folderManager.test.ts -t "canceled"` | ❌ Wave 0 |
-| PROJ-01 | `folder:open` returns selected path when confirmed | unit | `npm test -- tests/main/folderManager.test.ts -t "returns path"` | ❌ Wave 0 |
-| PROJ-02 | `folder:readdir` handler returns sorted name+isDir entries | unit | `npm test -- tests/main/folderManager.test.ts -t "folder:readdir"` | ❌ Wave 0 |
-| PROJ-02 | FileTree component renders root entries from folderReaddir | unit | `npm test -- tests/renderer/FileTree.test.tsx -t "renders entries"` | ❌ Wave 0 |
-| PROJ-03 | Clicking a directory entry toggles expanded state | unit | `npm test -- tests/renderer/FileTree.test.tsx -t "expand directory"` | ❌ Wave 0 |
-| PROJ-03 | Children are fetched lazily on first expand (folderReaddir called once) | unit | `npm test -- tests/renderer/FileTree.test.tsx -t "lazy load"` | ❌ Wave 0 |
-| PROJ-03 | Collapsing and re-expanding does not re-fetch (children cached) | unit | `npm test -- tests/renderer/FileTree.test.tsx -t "cache"` | ❌ Wave 0 |
+
+| Req ID  | Behavior                                                                      | Test Type | Automated Command                                                    | File Exists? |
+| ------- | ----------------------------------------------------------------------------- | --------- | -------------------------------------------------------------------- | ------------ |
+| PROJ-01 | `folder:open` handler calls dialog.showOpenDialog with openDirectory property | unit      | `npm test -- tests/main/folderManager.test.ts -t "folder:open"`      | ❌ Wave 0    |
+| PROJ-01 | `folder:open` returns null when dialog is canceled                            | unit      | `npm test -- tests/main/folderManager.test.ts -t "canceled"`         | ❌ Wave 0    |
+| PROJ-01 | `folder:open` returns selected path when confirmed                            | unit      | `npm test -- tests/main/folderManager.test.ts -t "returns path"`     | ❌ Wave 0    |
+| PROJ-02 | `folder:readdir` handler returns sorted name+isDir entries                    | unit      | `npm test -- tests/main/folderManager.test.ts -t "folder:readdir"`   | ❌ Wave 0    |
+| PROJ-02 | FileTree component renders root entries from folderReaddir                    | unit      | `npm test -- tests/renderer/FileTree.test.tsx -t "renders entries"`  | ❌ Wave 0    |
+| PROJ-03 | Clicking a directory entry toggles expanded state                             | unit      | `npm test -- tests/renderer/FileTree.test.tsx -t "expand directory"` | ❌ Wave 0    |
+| PROJ-03 | Children are fetched lazily on first expand (folderReaddir called once)       | unit      | `npm test -- tests/renderer/FileTree.test.tsx -t "lazy load"`        | ❌ Wave 0    |
+| PROJ-03 | Collapsing and re-expanding does not re-fetch (children cached)               | unit      | `npm test -- tests/renderer/FileTree.test.tsx -t "cache"`            | ❌ Wave 0    |
 
 ### Sampling Rate
+
 - **Per task commit:** `npm test -- tests/main/folderManager.test.ts tests/renderer/FileTree.test.tsx tests/store/projectStore.test.ts`
 - **Per wave merge:** `npm test`
 - **Phase gate:** Full suite green before `/gsd:verify-work`
 
 ### Wave 0 Gaps
+
 - [ ] `tests/main/folderManager.test.ts` — covers PROJ-01, PROJ-02 (IPC handler unit tests using capturedHandlers dict pattern from ptyManager.test.ts)
 - [ ] `tests/renderer/FileTree.test.tsx` — covers PROJ-02, PROJ-03 (React component with mocked `window.electronAPI.folderReaddir`)
 - [ ] `tests/store/projectStore.test.ts` — covers `useProjectStore.setFolderPath` action
@@ -520,20 +537,24 @@ folderReaddir: (dirPath: string) => Promise<Array<{ name: string; isDir: boolean
 ## Sources
 
 ### Primary (HIGH confidence)
+
 - [Electron dialog docs](https://www.electronjs.org/docs/latest/api/dialog) — `showOpenDialog` signature, `properties: ['openDirectory']`, Promise return shape, `canceled` + `filePaths` fields (fetched 2026-03-16)
 - [Node.js fs/promises readdir docs](https://nodejs.org/api/fs.html#fspromisesreaddirpath-options) — `withFileTypes: true`, `Dirent` object, `isDirectory()` / `isFile()` methods (fetched 2026-03-16)
 - Project source files read directly — `src/main/ptyManager.ts`, `src/preload/index.ts`, `src/preload/index.d.ts`, `src/renderer/src/store/panelStore.ts`, `src/renderer/src/components/PanelWindow.tsx`, `src/renderer/src/App.tsx`, `package.json`
 
 ### Secondary (MEDIUM confidence)
+
 - [Electron GitHub issue #48217](https://github.com/electron/electron/issues/48217) — `openDirectory` dialog shows file picker on Electron 37+ **Linux only** (Ubuntu 20.04 EoL); closed as not planned; **macOS unaffected** (cross-verified: issue is Linux/GTK-specific, this project targets macOS primarily)
 - Phase 2 RESEARCH.md and SUMMARY.md (project files) — confirmed react-mosaic v7.0.0-beta0 is installed (not v6.1.1 as the research assumed); confirmed dual-context API for `MosaicWindowContext` / `MosaicContext`; confirmed `vi.hoisted()` pattern for Vitest mock factories
 
 ### Tertiary (LOW confidence)
+
 - None
 
 ## Metadata
 
 **Confidence breakdown:**
+
 - Standard stack: HIGH — all APIs are Node.js/Electron built-ins with stable official docs; Zustand and React are already installed and patterns are proven in Phases 1-2
 - Architecture: HIGH — IPC handler pattern is a direct extension of the existing `ptyManager.ts` structure; file tree is straightforward recursive React; no new dependencies
 - Pitfalls: HIGH — `min-width: 0` flex bug and lazy-load imperative are well-known; double-registration and path separator issues are verified from Electron and Node.js docs

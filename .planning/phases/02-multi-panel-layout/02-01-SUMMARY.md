@@ -1,6 +1,6 @@
 ---
 phase: 02-multi-panel-layout
-plan: "01"
+plan: '01'
 subsystem: ui
 tags: [react-mosaic, zustand, tiling-layout, pty-lifecycle, electron, react]
 
@@ -20,14 +20,14 @@ affects:
 # Tech tracking
 tech-stack:
   added:
-    - "react-mosaic-component@7.0.0-beta0"
-    - "zustand@5.0.x"
+    - 'react-mosaic-component@7.0.0-beta0'
+    - 'zustand@5.0.x'
   patterns:
-    - "TDD RED→GREEN: failing test committed before implementation"
+    - 'TDD RED→GREEN: failing test committed before implementation'
     - "react-mosaic v7 n-ary API: MosaicSplitNode { type: 'split', direction, children[], splitPercentages[] }"
-    - "Controlled Mosaic mode: value + onChange, treeRef for diff comparison"
-    - "PTY kill in onChange diff only (not in Terminal cleanup) to prevent double-kill"
-    - "MosaicContext (not MosaicWindowContext) used for mosaicActions.remove in v7"
+    - 'Controlled Mosaic mode: value + onChange, treeRef for diff comparison'
+    - 'PTY kill in onChange diff only (not in Terminal cleanup) to prevent double-kill'
+    - 'MosaicContext (not MosaicWindowContext) used for mosaicActions.remove in v7'
 
 key-files:
   created:
@@ -45,9 +45,9 @@ key-files:
 
 key-decisions:
   - "react-mosaic v7 (n-ary API) was installed instead of expected v6 (binary API) — adapted implementation to use MosaicSplitNode with type:'split', children:[], MosaicPath as number[]"
-  - "MosaicWindowContext in v7 does not expose mosaicActions.remove — use MosaicContext instead for the close button"
-  - "ptyKill removed from Terminal.tsx useEffect cleanup; moved exclusively to MosaicLayout.handleChange diff to prevent double-kill (research pitfall 2)"
-  - "getLeavesImpl manual implementation in tests to support both v7 n-ary nodes and string leaves without jest-dom dependency"
+  - 'MosaicWindowContext in v7 does not expose mosaicActions.remove — use MosaicContext instead for the close button'
+  - 'ptyKill removed from Terminal.tsx useEffect cleanup; moved exclusively to MosaicLayout.handleChange diff to prevent double-kill (research pitfall 2)'
+  - 'getLeavesImpl manual implementation in tests to support both v7 n-ary nodes and string leaves without jest-dom dependency'
 
 # Metrics
 duration: ~4 min
@@ -91,6 +91,7 @@ _Note: TDD tasks have two commits — failing tests first (RED), then implementa
 ## Files Created/Modified
 
 **Created:**
+
 - `src/renderer/src/store/panelStore.ts` — zustand store for panel metadata (title, color per sessionId)
 - `src/renderer/src/components/MosaicLayout.tsx` — controlled Mosaic<string> wrapper with onChange diff, addPanel, zero-state
 - `src/renderer/src/components/PanelWindow.tsx` — MosaicWindow wrapper with renderToolbar and TerminalPanel child
@@ -98,6 +99,7 @@ _Note: TDD tasks have two commits — failing tests first (RED), then implementa
 - `tests/renderer/MosaicLayout.test.tsx` — 4 unit tests for mosaic layout behavior
 
 **Modified:**
+
 - `src/renderer/src/App.tsx` — replaced single TerminalPanel with MosaicLayout
 - `src/renderer/src/components/Terminal.tsx` — removed ptyKill from cleanup (moved to MosaicLayout)
 - `src/renderer/src/assets/global.css` — dark theme overrides for react-mosaic v7
@@ -115,6 +117,7 @@ _Note: TDD tasks have two commits — failing tests first (RED), then implementa
 ### Auto-fixed Issues
 
 **1. [Rule 1 - Bug] react-mosaic v7 instead of expected v6 — adapted to n-ary API**
+
 - **Found during:** Task 1 (post-install version check)
 - **Issue:** npm installed react-mosaic-component@7.0.0-beta0 (not v6.1.1 as expected). The v7 API has a fundamentally different n-ary tree shape and updated context exports.
 - **Fix:** Implemented MosaicLayout and PanelWindow using v7 n-ary API (`MosaicSplitNode`, `MosaicPath = number[]`, `MosaicContext` for remove action). The v7 API is still backward compatible for controlled mode (accepts `LegacyMosaicNode` in `value` prop).
@@ -122,6 +125,7 @@ _Note: TDD tasks have two commits — failing tests first (RED), then implementa
 - **Commits:** `90959c5`, `5dcb34a`
 
 **2. [Rule 2 - Missing] `toBeInTheDocument` not available without jest-dom setup**
+
 - **Found during:** Task 2 GREEN test run (1 of 4 tests failed)
 - **Issue:** `@testing-library/jest-dom` matchers not configured in vitest setup file; `toBeInTheDocument()` is not available.
 - **Fix:** Changed assertion to use `expect(...).toBeTruthy()` and `expect(getLeavesImpl(mosaicValue)).toHaveLength(1)` — equivalent semantics without jest-dom dependency.
@@ -132,15 +136,15 @@ _Note: TDD tasks have two commits — failing tests first (RED), then implementa
 
 All created files exist on disk. All 4 task commits confirmed in git log.
 
-| Item | Status |
-|------|--------|
-| src/renderer/src/store/panelStore.ts | FOUND |
-| src/renderer/src/components/MosaicLayout.tsx | FOUND |
-| src/renderer/src/components/PanelWindow.tsx | FOUND |
-| tests/store/panelStore.test.ts | FOUND |
-| tests/renderer/MosaicLayout.test.tsx | FOUND |
-| .planning/phases/02-multi-panel-layout/02-01-SUMMARY.md | FOUND |
-| Commit 26fa605 (test RED panelStore) | FOUND |
-| Commit 90959c5 (feat GREEN panelStore) | FOUND |
-| Commit 19069fd (test RED MosaicLayout) | FOUND |
-| Commit 5dcb34a (feat GREEN MosaicLayout) | FOUND |
+| Item                                                    | Status |
+| ------------------------------------------------------- | ------ |
+| src/renderer/src/store/panelStore.ts                    | FOUND  |
+| src/renderer/src/components/MosaicLayout.tsx            | FOUND  |
+| src/renderer/src/components/PanelWindow.tsx             | FOUND  |
+| tests/store/panelStore.test.ts                          | FOUND  |
+| tests/renderer/MosaicLayout.test.tsx                    | FOUND  |
+| .planning/phases/02-multi-panel-layout/02-01-SUMMARY.md | FOUND  |
+| Commit 26fa605 (test RED panelStore)                    | FOUND  |
+| Commit 90959c5 (feat GREEN panelStore)                  | FOUND  |
+| Commit 19069fd (test RED MosaicLayout)                  | FOUND  |
+| Commit 5dcb34a (feat GREEN MosaicLayout)                | FOUND  |

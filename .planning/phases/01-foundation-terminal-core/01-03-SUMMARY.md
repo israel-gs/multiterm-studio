@@ -1,6 +1,6 @@
 ---
 phase: 01-foundation-terminal-core
-plan: "03"
+plan: '03'
 subsystem: ui
 tags: [xterm, xterm-js, electron, pty, terminal, react, fit-addon, web-links-addon, resize-observer]
 
@@ -23,14 +23,14 @@ affects:
 # Tech tracking
 tech-stack:
   added:
-    - "@xterm/xterm ^5.x"
-    - "@xterm/addon-fit"
-    - "@xterm/addon-web-links"
+    - '@xterm/xterm ^5.x'
+    - '@xterm/addon-fit'
+    - '@xterm/addon-web-links'
   patterns:
-    - "TDD RED→GREEN: test file committed separately before implementation"
-    - "vi.hoisted() for vi.mock hoisting when constructor reference needed in mock factory"
-    - "ResizeObserver → fitAddon.fit() → ptyResize IPC roundtrip for live terminal resize"
-    - "useRef for stable sessionId across React re-renders (avoids PTY re-creation)"
+    - 'TDD RED→GREEN: test file committed separately before implementation'
+    - 'vi.hoisted() for vi.mock hoisting when constructor reference needed in mock factory'
+    - 'ResizeObserver → fitAddon.fit() → ptyResize IPC roundtrip for live terminal resize'
+    - 'useRef for stable sessionId across React re-renders (avoids PTY re-creation)'
 
 key-files:
   created:
@@ -40,14 +40,14 @@ key-files:
     - src/renderer/src/App.tsx
 
 key-decisions:
-  - "Import @xterm/xterm/css/xterm.css inside Terminal.tsx (required for visible rendering — terminal is invisible without it)"
-  - "Used vi.hoisted() to lift the mockFitAddon variable above the vi.mock() call — standard vi.mock hoisting breaks named constructor references"
-  - "sessionId generated via crypto.randomUUID() wrapped in useRef to remain stable across re-renders"
+  - 'Import @xterm/xterm/css/xterm.css inside Terminal.tsx (required for visible rendering — terminal is invisible without it)'
+  - 'Used vi.hoisted() to lift the mockFitAddon variable above the vi.mock() call — standard vi.mock hoisting breaks named constructor references'
+  - 'sessionId generated via crypto.randomUUID() wrapped in useRef to remain stable across re-renders'
   - "cwd passed as '.' from renderer; ptyManager.ts resolves it to process.cwd() via path.resolve — main process is authoritative over paths"
 
 patterns-established:
-  - "Terminal lifecycle: create → loadAddon → open → fit → ptyCreate → wire onData/onPtyData → ResizeObserver; cleanup in reverse"
-  - "IPC unsubscribe pattern: onPtyData returns a cleanup closure; stored in const and called in useEffect cleanup"
+  - 'Terminal lifecycle: create → loadAddon → open → fit → ptyCreate → wire onData/onPtyData → ResizeObserver; cleanup in reverse'
+  - 'IPC unsubscribe pattern: onPtyData returns a cleanup closure; stored in const and called in useEffect cleanup'
 
 requirements-completed:
   - TERM-03
@@ -126,5 +126,6 @@ None — no external service configuration required.
 - PTY data stream is accessible via onPtyData — Phase 4 attention detection can attach a listener here without modifying Terminal.tsx
 
 ---
-*Phase: 01-foundation-terminal-core*
-*Completed: 2026-03-14*
+
+_Phase: 01-foundation-terminal-core_
+_Completed: 2026-03-14_

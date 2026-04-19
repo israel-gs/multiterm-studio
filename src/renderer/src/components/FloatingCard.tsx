@@ -5,7 +5,6 @@ import { TerminalPanel } from './Terminal'
 import { EditorPanel } from './EditorPanel'
 import { NotePanel } from './NotePanel'
 import { ImagePanel } from './ImagePanel'
-import { TmuxPaneSidebar } from './TmuxPaneSidebar'
 import { usePanelStore } from '../store/panelStore'
 
 export interface CardRect {
@@ -185,7 +184,17 @@ export function FloatingCard({
       document.addEventListener('mousemove', onMouseMove)
       document.addEventListener('mouseup', onMouseUp)
     },
-    [sessionId, rect.x, rect.y, zoomRef, onMove, onFocusCard, onBringToFront, onGroupDragContext, onGroupMove]
+    [
+      sessionId,
+      rect.x,
+      rect.y,
+      zoomRef,
+      onMove,
+      onFocusCard,
+      onBringToFront,
+      onGroupDragContext,
+      onGroupMove
+    ]
   )
 
   // --- DRAG: accounts for canvas zoom, snaps to grid, supports group drag ---
@@ -339,8 +348,8 @@ export function FloatingCard({
           card.style.top = `${newY}px`
         }
         // Approximate terminal dimensions from card size
-        const headerH = 30  // panel header height
-        const statusH = 22  // status bar height
+        const headerH = 30 // panel header height
+        const statusH = 22 // status bar height
         const cols = Math.floor((newW - 16) / 8.4)
         const rows = Math.floor((newH - headerH - statusH) / 17)
         setResizeIndicator(`${cols}\u00d7${rows}`)
@@ -450,22 +459,30 @@ export function FloatingCard({
       ref={cardRef}
       data-card-id={sessionId}
       className={classNames}
-      style={maximized ? undefined : {
-        left: rect.x,
-        top: rect.y,
-        width: rect.w,
-        height: rect.h,
-        zIndex: rect.z
-      }}
+      style={
+        maximized
+          ? undefined
+          : {
+              left: rect.x,
+              top: rect.y,
+              width: rect.w,
+              height: rect.h,
+              zIndex: rect.z
+            }
+      }
       tabIndex={0}
       onMouseDown={handleMouseDown}
       onKeyDown={handleKeyDown}
     >
       {/* Drag handle wraps the header */}
-      <div data-drag-handle onMouseDown={handleDragStart} onDoubleClick={(e) => {
-        e.stopPropagation()
-        onCenterTile?.(sessionId)
-      }}>
+      <div
+        data-drag-handle
+        onMouseDown={handleDragStart}
+        onDoubleClick={(e) => {
+          e.stopPropagation()
+          onCenterTile?.(sessionId)
+        }}
+      >
         <CardHeader
           sessionId={sessionId}
           maximized={maximized}
@@ -479,10 +496,11 @@ export function FloatingCard({
         onClick={() => clearAttention(sessionId)}
         onFocus={() => clearAttention(sessionId)}
       >
-        {!focused && (
-          <div className="card-content-overlay" onMouseDown={handleOverlayMouseDown} />
-        )}
-        <div className="floating-card-inner" style={!focused ? { pointerEvents: 'none' } : undefined}>
+        {!focused && <div className="card-content-overlay" onMouseDown={handleOverlayMouseDown} />}
+        <div
+          className="floating-card-inner"
+          style={!focused ? { pointerEvents: 'none' } : undefined}
+        >
           {type === 'image' && filePath && previewMode ? (
             <EditorPanel sessionId={sessionId} filePath={filePath} />
           ) : type === 'image' && filePath ? (
@@ -495,9 +513,6 @@ export function FloatingCard({
             <TerminalPanel sessionId={sessionId} cwd={panelCwd || cwd} zoomRef={zoomRef} />
           )}
         </div>
-        {(!type || type === 'terminal') && (
-          <TmuxPaneSidebar sessionId={sessionId} />
-        )}
       </div>
 
       {/* Status bar with path */}
@@ -507,9 +522,7 @@ export function FloatingCard({
         </span>
       </div>
 
-      {resizeIndicator && (
-        <div className="floating-card-resize-indicator">{resizeIndicator}</div>
-      )}
+      {resizeIndicator && <div className="floating-card-resize-indicator">{resizeIndicator}</div>}
 
       {/* Resize handles — all 8 directions */}
       <div

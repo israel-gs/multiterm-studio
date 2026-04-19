@@ -10,33 +10,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ptyCreate: (id: string, cwd: string, initialCommand?: string): Promise<void> =>
     ipcRenderer.invoke('pty:create', id, cwd, initialCommand),
 
-  ptyWrite: (id: string, data: string): Promise<void> =>
-    ipcRenderer.invoke('pty:write', id, data),
+  ptyWrite: (id: string, data: string): Promise<void> => ipcRenderer.invoke('pty:write', id, data),
 
   ptyResize: (id: string, cols: number, rows: number): Promise<void> =>
     ipcRenderer.invoke('pty:resize', id, cols, rows),
 
   ptyKill: (id: string): Promise<void> => ipcRenderer.invoke('pty:kill', id),
 
-  ptySendKeys: (id: string, text: string, enter?: boolean): Promise<void> =>
-    ipcRenderer.invoke('pty:send-keys', id, text, enter ?? false),
-
-  ptyListPanes: (id: string): Promise<Array<{ index: number; command: string; title: string; active: boolean; pid: number }>> =>
-    ipcRenderer.invoke('pty:list-panes', id),
-
-  ptySelectPane: (id: string, paneIndex: number): Promise<void> =>
-    ipcRenderer.invoke('pty:select-pane', id, paneIndex),
-
   ptyGetCwd: (id: string): Promise<string | null> => ipcRenderer.invoke('pty:get-cwd', id),
+
+  ptyCwdChanged: (id: string, cwd: string): void => ipcRenderer.send('pty:cwd-changed', id, cwd),
 
   ptyHasProcess: (id: string): Promise<boolean> => ipcRenderer.invoke('pty:has-process', id),
 
   // Folder operations — project context panel (Phase 03)
   folderOpen: (): Promise<string | null> => ipcRenderer.invoke('folder:open'),
 
-  fileOpenDialog: (
-    filters?: { name: string; extensions: string[] }[]
-  ): Promise<string | null> => ipcRenderer.invoke('file:open-dialog', filters),
+  fileOpenDialog: (filters?: { name: string; extensions: string[] }[]): Promise<string | null> =>
+    ipcRenderer.invoke('file:open-dialog', filters),
 
   folderReaddir: (
     dirPath: string
@@ -86,8 +77,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('layout:load', folderPath),
 
   // File read/write — for editor tiles
-  fileRead: (filePath: string): Promise<string> =>
-    ipcRenderer.invoke('file:read', filePath),
+  fileRead: (filePath: string): Promise<string> => ipcRenderer.invoke('file:read', filePath),
 
   fileWrite: (filePath: string, content: string): Promise<void> =>
     ipcRenderer.invoke('file:write', filePath, content),
@@ -97,8 +87,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('file:rename', oldPath, newName),
   fileMove: (sourcePath: string, targetFolder: string): Promise<string> =>
     ipcRenderer.invoke('file:move', sourcePath, targetFolder),
-  fileTrash: (filePath: string): Promise<void> =>
-    ipcRenderer.invoke('file:trash', filePath),
+  fileTrash: (filePath: string): Promise<void> => ipcRenderer.invoke('file:trash', filePath),
   fileCreate: (filePath: string, content?: string): Promise<void> =>
     ipcRenderer.invoke('file:create', filePath, content ?? ''),
   folderCreate: (folderPath: string): Promise<void> =>
@@ -112,8 +101,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   projectsAdd: (
     folderPath: string,
     meta?: { type?: 'folder' | 'workspace'; folderNames?: string[] }
-  ): Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number; type?: string; folderNames?: string[] }>> =>
-    ipcRenderer.invoke('projects:add', folderPath, meta),
+  ): Promise<
+    Array<{
+      path: string
+      name: string
+      lastOpened: number
+      openCount: number
+      type?: string
+      folderNames?: string[]
+    }>
+  > => ipcRenderer.invoke('projects:add', folderPath, meta),
 
   projectsRemove: (
     folderPath: string
@@ -129,10 +126,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ): Promise<{ current: string; branches: string[]; detached: boolean }> =>
     ipcRenderer.invoke('git:branches', folderPath),
 
-  gitCheckout: (
-    folderPath: string,
-    branch: string
-  ): Promise<{ ok: boolean; error?: string }> =>
+  gitCheckout: (folderPath: string, branch: string): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('git:checkout', folderPath, branch),
 
   gitCreateBranch: (
@@ -159,7 +153,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ): (() => void) => {
     const listener = (
       _event: Electron.IpcRendererEvent,
-      data: { agentName: string; toolUseId: string; subagentsDir: string; ptySessionId: string; cwd: string }
+      data: {
+        agentName: string
+        toolUseId: string
+        subagentsDir: string
+        ptySessionId: string
+        cwd: string
+      }
     ): void => callback(data)
     ipcRenderer.on('agent:spawning', listener)
     return () => ipcRenderer.removeListener('agent:spawning', listener)
@@ -227,10 +227,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   onPaneFocus: (callback: (data: { sessionId: string }) => void): (() => void) => {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      data: { sessionId: string }
-    ): void => callback(data)
+    const listener = (_event: Electron.IpcRendererEvent, data: { sessionId: string }): void =>
+      callback(data)
     ipcRenderer.on('pane:focus', listener)
     return () => ipcRenderer.removeListener('pane:focus', listener)
   },
@@ -271,16 +269,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Menu bar actions
   onMenuAction: (callback: (action: string) => void): (() => void) => {
     const channels = [
-      'menu:new-terminal', 'menu:new-note', 'menu:duplicate', 'menu:close-tile',
-      'menu:zoom-fit-all', 'menu:zoom-fit-focused', 'menu:tidy',
-      'menu:toggle-sidebar', 'menu:settings',
-      'menu:nav-left', 'menu:nav-right', 'menu:nav-up', 'menu:nav-down',
-      'menu:add-folder', 'menu:save-workspace', 'menu:open-workspace'
+      'menu:new-terminal',
+      'menu:new-note',
+      'menu:duplicate',
+      'menu:close-tile',
+      'menu:zoom-fit-all',
+      'menu:zoom-fit-focused',
+      'menu:tidy',
+      'menu:toggle-sidebar',
+      'menu:settings',
+      'menu:nav-left',
+      'menu:nav-right',
+      'menu:nav-up',
+      'menu:nav-down',
+      'menu:add-folder',
+      'menu:save-workspace',
+      'menu:open-workspace'
     ]
-    const listener = (event: Electron.IpcRendererEvent): void => {
-      const ch = (event as unknown as { channel?: string }).channel
-      if (ch) callback(ch.replace('menu:', ''))
-    }
     // Use a single wrapper per channel
     const listeners = channels.map((ch) => {
       const fn = (): void => callback(ch.replace('menu:', ''))
@@ -299,17 +304,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fullscreenToggle: (): void => ipcRenderer.send('fullscreen:toggle'),
 
   // Workspace config per project
-  workspaceLoad: (folderPath: string): Promise<{ selected_file: string | null; expanded_dirs: string[] }> =>
+  workspaceLoad: (
+    folderPath: string
+  ): Promise<{ selected_file: string | null; expanded_dirs: string[] }> =>
     ipcRenderer.invoke('workspace:load', folderPath),
-  workspaceSave: (folderPath: string, config: { selected_file: string | null; expanded_dirs: string[] }): Promise<void> =>
-    ipcRenderer.invoke('workspace:save', folderPath, config),
+  workspaceSave: (
+    folderPath: string,
+    config: { selected_file: string | null; expanded_dirs: string[] }
+  ): Promise<void> => ipcRenderer.invoke('workspace:save', folderPath, config),
 
   // Settings persistence
   settingsGet: (key: string): Promise<unknown> => ipcRenderer.invoke('settings:get', key),
   settingsSet: (key: string, value: unknown): Promise<void> =>
     ipcRenderer.invoke('settings:set', key, value),
-  terminalSetMouseMode: (enabled: boolean): Promise<void> =>
-    ipcRenderer.invoke('terminal:set-mouse-mode', enabled),
 
   // Hook injection for Claude Code integration
   hooksInject: (folderPath: string): Promise<void> =>
@@ -339,8 +346,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('workspace-file:save', filePath, data),
 
   // Save layout into workspace file
-  layoutSaveWorkspace: (wsFilePath: string, layout: unknown, expandedDirs: Record<string, string[]>): Promise<void> =>
-    ipcRenderer.invoke('layout:save-workspace', wsFilePath, layout, expandedDirs),
+  layoutSaveWorkspace: (
+    wsFilePath: string,
+    layout: unknown,
+    expandedDirs: Record<string, string[]>
+  ): Promise<void> => ipcRenderer.invoke('layout:save-workspace', wsFilePath, layout, expandedDirs),
 
   // Auto-update API
   updateGetStatus: (): Promise<{

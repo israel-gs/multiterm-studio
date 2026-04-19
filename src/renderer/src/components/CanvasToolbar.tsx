@@ -10,8 +10,15 @@ interface Props {
 const isDevMode = !!(import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV
 
 export function CanvasToolbar({ onNewTerminal, onNewNote }: Props): React.JSX.Element {
-  const { status, progress, version, initUpdateListener, checkForUpdate, downloadUpdate, installUpdate } =
-    useUpdateStore()
+  const {
+    status,
+    progress,
+    version,
+    initUpdateListener,
+    checkForUpdate,
+    downloadUpdate,
+    installUpdate
+  } = useUpdateStore()
 
   useEffect(() => {
     const unsubscribe = initUpdateListener()

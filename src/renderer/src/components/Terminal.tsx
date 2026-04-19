@@ -96,9 +96,23 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
     term.open(containerRef.current)
     fitAddon.fit()
 
+    // Register OSC 7 handler for CWD tracking.
+    // Shells emit: \x1b]7;file://hostname/path\x07 on every directory change.
+    term.parser.registerOscHandler(7, (data: string) => {
+      try {
+        const url = new URL(data)
+        const cwd = decodeURIComponent(url.pathname)
+        window.electronAPI.ptyCwdChanged(sessionId, cwd)
+        // Also update the store directly for immediate UI responsiveness
+        usePanelStore.getState().setCwd(sessionId, cwd)
+      } catch {
+        // Malformed sequence — ignore
+      }
+      return true
+    })
+
     // Create PTY session in main process
-    // If initialCommand is set, pass it to ptyCreate so tmux launches
-    // the command directly (no send-keys, no input leak)
+    // If initialCommand is set, pass it to ptyCreate so the sidecar sends it after spawn
     const meta = usePanelStore.getState().panels[sessionId]
     window.electronAPI.ptyCreate(sessionId, cwd, meta?.initialCommand)
 
@@ -125,8 +139,8 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
 
     // Renderer → Main: keyboard input
     // Filter out DA1/DA2/XTVERSION responses that xterm.js generates in reply
-    // to tmux terminal queries. The IPC roundtrip delay causes these to arrive
-    // after tmux exits its query state, so tmux forwards them to the shell as text.
+    // to terminal queries. The IPC roundtrip delay causes these to arrive
+    // after the shell exits its query state, so they get forwarded to the shell as text.
     const DA_RESPONSE = /^\x1b\[\??[\d;]*c$|^\x1b\[>[\d;]*c$|^\x1bP>[|].*\x1b\\$/
     term.onData((data) => {
       if (DA_RESPONSE.test(data)) return
@@ -134,17 +148,16 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
     })
 
     // Scrollback recovery: write recovered scrollback before live data
-    let hasScrollback = false
     const unsubScrollback = window.electronAPI.onPtyScrollback(sessionId, (data) => {
-      hasScrollback = true
       term.write(data)
     })
 
-    // Handle OSC 52 clipboard sequences from tmux.
-    // When tmux copies text (mouse selection with set-clipboard on), it sends
+    // Handle OSC 52 clipboard sequences.
+    // When a terminal copies text (mouse selection with set-clipboard on), it sends
     // OSC 52: \x1b]52;c;<base64>\x07 (or \x1b\\ as terminator).
     // We intercept this, decode the base64, and write to system clipboard.
-    const OSC52_RE = /\x1b\]52;[a-z]*;([A-Za-z0-9+/=]*)\x07|\x1b\]52;[a-z]*;([A-Za-z0-9+/=]*)\x1b\\/g
+    const OSC52_RE =
+      /\x1b\]52;[a-z]*;([A-Za-z0-9+/=]*)\x07|\x1b\]52;[a-z]*;([A-Za-z0-9+/=]*)\x1b\\/g
     function handleOsc52(data: string): string {
       return data.replace(OSC52_RE, (_match, b64a, b64b) => {
         const b64 = b64a || b64b
@@ -153,7 +166,9 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
             const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
             const text = new TextDecoder().decode(bytes)
             window.electronAPI.clipboardWriteText(text)
-          } catch { /* ignore decode errors */ }
+          } catch {
+            /* ignore decode errors */
+          }
         }
         return '' // strip the OSC 52 sequence from terminal output
       })
@@ -200,7 +215,7 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
       xtermScreen.addEventListener('mouseup', adjustMouseForZoom, true)
     }
 
-    // Poll for CWD and running process indicator via tmux
+    // Poll for CWD and running process indicator
     const processInterval = setInterval(async () => {
       const [result, cwd] = await Promise.all([
         window.electronAPI.ptyHasProcess(sessionId),

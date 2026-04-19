@@ -38,12 +38,15 @@ function MermaidBlock({ chart }: { chart: string }): React.JSX.Element {
     ensureMermaid()
     const id = `mermaid-${++mermaidCounter}`
 
-    mermaid.render(id, chart).then(({ svg }) => {
-      el.innerHTML = svg
-    }).catch(() => {
-      el.textContent = 'Failed to render diagram'
-      el.classList.add('md-preview-mermaid-error')
-    })
+    mermaid
+      .render(id, chart)
+      .then(({ svg }) => {
+        el.innerHTML = svg
+      })
+      .catch(() => {
+        el.textContent = 'Failed to render diagram'
+        el.classList.add('md-preview-mermaid-error')
+      })
   }, [chart])
 
   return <div ref={containerRef} className="md-preview-mermaid" />
@@ -75,7 +78,11 @@ function buildComponents(basePath: string): Components {
       }
 
       if (!className) {
-        return <code className="md-preview-inline-code" {...props}>{children}</code>
+        return (
+          <code className="md-preview-inline-code" {...props}>
+            {children}
+          </code>
+        )
       }
 
       return (
@@ -99,7 +106,11 @@ export function MarkdownPreview({ content, basePath }: MarkdownPreviewProps): Re
   return (
     <div className="md-preview">
       <div className="md-preview-content">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={components}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw]}
+          components={components}
+        >
           {content}
         </ReactMarkdown>
       </div>

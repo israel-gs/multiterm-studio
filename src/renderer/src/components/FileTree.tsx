@@ -48,20 +48,38 @@ function ChevronIcon({ expanded }: { expanded: boolean }): React.JSX.Element {
 
 function FolderIconComponent({ open }: { open: boolean }): React.JSX.Element {
   const Icon = open ? FolderOpen : Folder
-  return <Icon className="file-tree-icon" size={ICON_SIZE} strokeWidth={ICON_STROKE} color="var(--color-folder)" />
+  return (
+    <Icon
+      className="file-tree-icon"
+      size={ICON_SIZE}
+      strokeWidth={ICON_STROKE}
+      color="var(--color-folder)"
+    />
+  )
 }
 
 function SpinnerIcon(): React.JSX.Element {
-  return <Loader2 className="file-tree-icon file-tree-spinner" size={14} strokeWidth={ICON_STROKE} color="var(--fg-secondary)" />
+  return (
+    <Loader2
+      className="file-tree-icon file-tree-spinner"
+      size={14}
+      strokeWidth={ICON_STROKE}
+      color="var(--fg-secondary)"
+    />
+  )
 }
 
 function getFileIcon(name: string): React.JSX.Element {
-  const ext = name.includes('.') ? name.split('.').pop()?.toLowerCase() ?? '' : ''
+  const ext = name.includes('.') ? (name.split('.').pop()?.toLowerCase() ?? '') : ''
   const lowerName = name.toLowerCase()
   const props = { className: 'file-tree-icon', size: ICON_SIZE, strokeWidth: ICON_STROKE }
 
   // Special filenames
-  if (lowerName === 'package.json' || lowerName === 'package-lock.json' || lowerName === 'cargo.toml')
+  if (
+    lowerName === 'package.json' ||
+    lowerName === 'package-lock.json' ||
+    lowerName === 'cargo.toml'
+  )
     return <Package {...props} color="var(--color-green)" />
   if (lowerName === 'pnpm-lock.yaml' || lowerName === 'yarn.lock' || lowerName === 'bun.lockb')
     return <FileLock2 {...props} color="var(--color-yellow)" />
@@ -69,17 +87,23 @@ function getFileIcon(name: string): React.JSX.Element {
     return <GitBranch {...props} color="var(--color-red)" />
   if (lowerName === 'license' || lowerName === 'license.md' || lowerName === 'licence')
     return <Shield {...props} color="var(--color-yellow)" />
-  if (lowerName === 'dockerfile' || lowerName === 'docker-compose.yml' || lowerName === 'docker-compose.yaml')
+  if (
+    lowerName === 'dockerfile' ||
+    lowerName === 'docker-compose.yml' ||
+    lowerName === 'docker-compose.yaml'
+  )
     return <Package {...props} color="var(--color-blue)" />
 
   // By extension
   // Code
   if (['ts', 'tsx'].includes(ext)) return <FileCode2 {...props} color="var(--color-blue)" />
-  if (['js', 'jsx', 'mjs', 'cjs'].includes(ext)) return <FileCode2 {...props} color="var(--color-yellow)" />
+  if (['js', 'jsx', 'mjs', 'cjs'].includes(ext))
+    return <FileCode2 {...props} color="var(--color-yellow)" />
   if (['py'].includes(ext)) return <FileCode2 {...props} color="var(--color-green)" />
   if (['rb', 'go', 'rs', 'c', 'cpp', 'h', 'java', 'swift', 'kt', 'lua', 'zig'].includes(ext))
     return <FileCode2 {...props} color="var(--color-blue)" />
-  if (['sh', 'bash', 'zsh', 'fish'].includes(ext)) return <Terminal {...props} color="var(--color-green)" />
+  if (['sh', 'bash', 'zsh', 'fish'].includes(ext))
+    return <Terminal {...props} color="var(--color-green)" />
 
   // Config/data
   if (['json', 'jsonc'].includes(ext)) return <FileJson {...props} color="var(--color-yellow)" />
@@ -104,7 +128,8 @@ function getFileIcon(name: string): React.JSX.Element {
     return <FileType {...props} color="var(--color-purple)" />
 
   // Database
-  if (['sql', 'sqlite', 'db'].includes(ext)) return <Database {...props} color="var(--color-yellow)" />
+  if (['sql', 'sqlite', 'db'].includes(ext))
+    return <Database {...props} color="var(--color-yellow)" />
 
   // Lock files
   if (ext === 'lock') return <FileLock2 {...props} color="var(--color-yellow)" />
@@ -229,97 +254,107 @@ const FileTreeNode = React.memo(function FileTreeNode({
   }, [isDir, expanded, children, path, openFileInEditor])
 
   // Context menu handler
-  const handleContextMenu = useCallback(async (e: React.MouseEvent): Promise<void> => {
-    e.preventDefault()
-    e.stopPropagation()
+  const handleContextMenu = useCallback(
+    async (e: React.MouseEvent): Promise<void> => {
+      e.preventDefault()
+      e.stopPropagation()
 
-    const menuItems = isDir
-      ? [
-          { id: 'new-file', label: 'New File' },
-          { id: 'new-folder', label: 'New Folder' },
-          { id: 'separator', label: '' },
-          ...(isWorkspaceRoot ? [] : [
+      const menuItems = isDir
+        ? [
+            { id: 'new-file', label: 'New File' },
+            { id: 'new-folder', label: 'New Folder' },
+            { id: 'separator', label: '' },
+            ...(isWorkspaceRoot
+              ? []
+              : [
+                  { id: 'rename', label: 'Rename' },
+                  { id: 'delete', label: 'Delete' },
+                  { id: 'separator', label: '' }
+                ]),
+            { id: 'reveal-finder', label: 'Reveal in Finder' },
+            { id: 'copy-path', label: 'Copy Path' },
+            ...(isWorkspaceRoot && onRemoveFromWorkspace
+              ? [
+                  { id: 'separator', label: '' },
+                  { id: 'remove-from-workspace', label: 'Remove folder from workspace' }
+                ]
+              : [])
+          ]
+        : [
             { id: 'rename', label: 'Rename' },
             { id: 'delete', label: 'Delete' },
             { id: 'separator', label: '' },
-          ]),
-          { id: 'reveal-finder', label: 'Reveal in Finder' },
-          { id: 'copy-path', label: 'Copy Path' },
-          ...(isWorkspaceRoot && onRemoveFromWorkspace ? [
-            { id: 'separator', label: '' },
-            { id: 'remove-from-workspace', label: 'Remove folder from workspace' }
-          ] : [])
-        ]
-      : [
-          { id: 'rename', label: 'Rename' },
-          { id: 'delete', label: 'Delete' },
-          { id: 'separator', label: '' },
-          { id: 'reveal-finder', label: 'Reveal in Finder' },
-          { id: 'copy-path', label: 'Copy Path' }
-        ]
+            { id: 'reveal-finder', label: 'Reveal in Finder' },
+            { id: 'copy-path', label: 'Copy Path' }
+          ]
 
-    const action = await window.electronAPI.contextMenuShow(menuItems)
-    if (!action) return
+      const action = await window.electronAPI.contextMenuShow(menuItems)
+      if (!action) return
 
-    switch (action) {
-      case 'rename':
-        setRenameValue(name)
-        setRenaming(true)
-        break
-      case 'delete':
-        try {
-          await window.electronAPI.fileTrash(path)
-          bumpFsRefresh()
-        } catch (err) {
-          console.error('Trash failed:', err)
-        }
-        break
-      case 'copy-path':
-        await navigator.clipboard.writeText(path)
-        break
-      case 'new-file':
-        try {
-          await window.electronAPI.fileCreate(`${path}/Untitled.md`)
-          setLoading(true)
-          const fileEntries = await window.electronAPI.folderReaddir(path)
-          setChildren(fileEntries)
-          setLoading(false)
-          setExpanded(true)
-          setNewChildRename('Untitled.md')
-          bumpFsRefresh()
-        } catch (err) {
-          console.error('Create file failed:', err)
-        }
-        break
-      case 'new-folder':
-        try {
-          await window.electronAPI.folderCreate(`${path}/New Folder`)
-          setLoading(true)
-          const folderEntries = await window.electronAPI.folderReaddir(path)
-          setChildren(folderEntries)
-          setLoading(false)
-          setExpanded(true)
-          setNewChildRename('New Folder')
-          bumpFsRefresh()
-        } catch (err) {
-          console.error('Create folder failed:', err)
-        }
-        break
-      case 'reveal-finder':
-        window.electronAPI.shellShowItemInFolder?.(path) ??
-          window.electronAPI.contextMenuShow([{ id: '_noop', label: 'Not available' }])
-        break
-      case 'remove-from-workspace':
-        onRemoveFromWorkspace?.(path)
-        break
-    }
-  }, [isDir, path, name, expanded, bumpFsRefresh, onRemoveFromWorkspace])
+      switch (action) {
+        case 'rename':
+          setRenameValue(name)
+          setRenaming(true)
+          break
+        case 'delete':
+          try {
+            await window.electronAPI.fileTrash(path)
+            bumpFsRefresh()
+          } catch (err) {
+            console.error('Trash failed:', err)
+          }
+          break
+        case 'copy-path':
+          await navigator.clipboard.writeText(path)
+          break
+        case 'new-file':
+          try {
+            await window.electronAPI.fileCreate(`${path}/Untitled.md`)
+            setLoading(true)
+            const fileEntries = await window.electronAPI.folderReaddir(path)
+            setChildren(fileEntries)
+            setLoading(false)
+            setExpanded(true)
+            setNewChildRename('Untitled.md')
+            bumpFsRefresh()
+          } catch (err) {
+            console.error('Create file failed:', err)
+          }
+          break
+        case 'new-folder':
+          try {
+            await window.electronAPI.folderCreate(`${path}/New Folder`)
+            setLoading(true)
+            const folderEntries = await window.electronAPI.folderReaddir(path)
+            setChildren(folderEntries)
+            setLoading(false)
+            setExpanded(true)
+            setNewChildRename('New Folder')
+            bumpFsRefresh()
+          } catch (err) {
+            console.error('Create folder failed:', err)
+          }
+          break
+        case 'reveal-finder':
+          window.electronAPI.shellShowItemInFolder?.(path) ??
+            window.electronAPI.contextMenuShow([{ id: '_noop', label: 'Not available' }])
+          break
+        case 'remove-from-workspace':
+          onRemoveFromWorkspace?.(path)
+          break
+      }
+    },
+    [isDir, path, name, expanded, bumpFsRefresh, onRemoveFromWorkspace]
+  )
 
   // Drag start handler (files and folders)
-  const handleDragStart = useCallback((e: React.DragEvent): void => {
-    e.dataTransfer.setData('application/x-multiterm-file', JSON.stringify({ path, name, isDir }))
-    e.dataTransfer.effectAllowed = 'copyMove'
-  }, [path, name, isDir])
+  const handleDragStart = useCallback(
+    (e: React.DragEvent): void => {
+      e.dataTransfer.setData('application/x-multiterm-file', JSON.stringify({ path, name, isDir }))
+      e.dataTransfer.effectAllowed = 'copyMove'
+    },
+    [path, name, isDir]
+  )
 
   // Drag over handler (folders only — they accept drops)
   const handleDragOver = useCallback((e: React.DragEvent): void => {
@@ -333,21 +368,24 @@ const FileTreeNode = React.memo(function FileTreeNode({
     e.currentTarget.classList.remove('file-tree-node--drop-target')
   }, [])
 
-  const handleDrop = useCallback(async (e: React.DragEvent): Promise<void> => {
-    e.preventDefault()
-    e.stopPropagation()
-    e.currentTarget.classList.remove('file-tree-node--drop-target')
-    const raw = e.dataTransfer.getData('application/x-multiterm-file')
-    if (!raw) return
-    const data = JSON.parse(raw) as { path: string; name: string; isDir: boolean }
-    if (data.path === path) return // don't drop on self
-    try {
-      await window.electronAPI.fileMove(data.path, path)
-      bumpFsRefresh()
-    } catch (err) {
-      console.error('Move failed:', err)
-    }
-  }, [path, bumpFsRefresh])
+  const handleDrop = useCallback(
+    async (e: React.DragEvent): Promise<void> => {
+      e.preventDefault()
+      e.stopPropagation()
+      e.currentTarget.classList.remove('file-tree-node--drop-target')
+      const raw = e.dataTransfer.getData('application/x-multiterm-file')
+      if (!raw) return
+      const data = JSON.parse(raw) as { path: string; name: string; isDir: boolean }
+      if (data.path === path) return // don't drop on self
+      try {
+        await window.electronAPI.fileMove(data.path, path)
+        bumpFsRefresh()
+      } catch (err) {
+        console.error('Move failed:', err)
+      }
+    },
+    [path, bumpFsRefresh]
+  )
 
   const displayChildren = useMemo(() => {
     if (!children) return null
@@ -372,7 +410,13 @@ const FileTreeNode = React.memo(function FileTreeNode({
         aria-expanded={isDir ? expanded : undefined}
         draggable
         onDragStart={handleDragStart}
-        {...(isDir ? { onDragOver: handleDragOver, onDragLeave: handleDragLeave, onDrop: (e: React.DragEvent) => void handleDrop(e) } : {})}
+        {...(isDir
+          ? {
+              onDragOver: handleDragOver,
+              onDragLeave: handleDragLeave,
+              onDrop: (e: React.DragEvent) => void handleDrop(e)
+            }
+          : {})}
         onClick={() => void handleToggle()}
         onContextMenu={(e) => void handleContextMenu(e)}
         onKeyDown={(e) => {
@@ -390,13 +434,10 @@ const FileTreeNode = React.memo(function FileTreeNode({
         style={{ paddingLeft: depth * 12 + 4 }}
       >
         {/* Indent guide lines */}
-        {depth > 0 && Array.from({ length: depth }, (_, i) => (
-          <span
-            key={i}
-            className="file-tree-indent-guide"
-            style={{ left: i * 12 + 10 }}
-          />
-        ))}
+        {depth > 0 &&
+          Array.from({ length: depth }, (_, i) => (
+            <span key={i} className="file-tree-indent-guide" style={{ left: i * 12 + 10 }} />
+          ))}
         {/* Chevron (folders only) */}
         {isDir ? (
           <ChevronIcon expanded={expanded} />
@@ -439,7 +480,10 @@ const FileTreeNode = React.memo(function FileTreeNode({
                 setRenameValue(name)
               }
             }}
-            onBlur={() => { setRenaming(false); setRenameValue(name) }}
+            onBlur={() => {
+              setRenaming(false)
+              setRenameValue(name)
+            }}
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
           />
@@ -476,7 +520,9 @@ const FileTreeNode = React.memo(function FileTreeNode({
                     setExpanded(true)
                     setNewChildRename('Untitled.md')
                     bumpFsRefresh()
-                  } catch (err) { console.error('Create file failed:', err) }
+                  } catch (err) {
+                    console.error('Create file failed:', err)
+                  }
                 } else if (action === 'new-folder') {
                   try {
                     await window.electronAPI.folderCreate(`${path}/New Folder`)
@@ -485,7 +531,9 @@ const FileTreeNode = React.memo(function FileTreeNode({
                     setExpanded(true)
                     setNewChildRename('New Folder')
                     bumpFsRefresh()
-                  } catch (err) { console.error('Create folder failed:', err) }
+                  } catch (err) {
+                    console.error('Create folder failed:', err)
+                  }
                 }
               }}
             >

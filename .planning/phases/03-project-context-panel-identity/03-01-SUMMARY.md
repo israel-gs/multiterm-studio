@@ -1,6 +1,6 @@
 ---
 phase: 03-project-context-panel-identity
-plan: "01"
+plan: '01'
 subsystem: ipc
 tags: [electron, ipc, zustand, fs, dialog, contextBridge, typescript]
 
@@ -23,8 +23,8 @@ affects:
 tech-stack:
   added: []
   patterns:
-    - "registerFolderHandlers(win: BrowserWindow) — same capturedHandlers dict pattern as ptyManager"
-    - "fs/promises mock in Vitest requires { default: { readdir }, readdir } dual-export to satisfy ESM named import"
+    - 'registerFolderHandlers(win: BrowserWindow) — same capturedHandlers dict pattern as ptyManager'
+    - 'fs/promises mock in Vitest requires { default: { readdir }, readdir } dual-export to satisfy ESM named import'
 
 key-files:
   created:
@@ -39,12 +39,12 @@ key-files:
     - src/renderer/src/env.d.ts
 
 key-decisions:
-  - "folderManager takes full BrowserWindow (not WebContents) because dialog.showOpenDialog needs window reference for modal behavior"
-  - "fs/promises mock in Vitest ESM requires both default and named export keys: { default: { readdir }, readdir } — importOriginal spread silently falls through to real fs in this setup"
+  - 'folderManager takes full BrowserWindow (not WebContents) because dialog.showOpenDialog needs window reference for modal behavior'
+  - 'fs/promises mock in Vitest ESM requires both default and named export keys: { default: { readdir }, readdir } — importOriginal spread silently falls through to real fs in this setup'
   - "folder:readdir filters entries where name starts with '.' OR equals 'node_modules' before mapping and sorting"
 
 patterns-established:
-  - "IPC handler module follows registerXHandlers(win) naming, registered in index.ts after PTY handlers"
+  - 'IPC handler module follows registerXHandlers(win) naming, registered in index.ts after PTY handlers'
   - "Vitest fs/promises mock: vi.mock('fs/promises', () => ({ default: { fn }, fn })) for ESM named import compatibility"
 
 requirements-completed: [PROJ-01, PROJ-02]
@@ -67,6 +67,7 @@ completed: 2026-03-16
 - **Files modified:** 8
 
 ## Accomplishments
+
 - Created folderManager.ts registering folder:open (native dialog picker, returns path or null) and folder:readdir (readdir with dotfile/node_modules filter, dir-first sort)
 - Extended contextBridge in preload/index.ts with folderOpen and folderReaddir; updated both type declaration files
 - Wired registerFolderHandlers(win) into main/index.ts createWindow after PTY handlers
@@ -85,6 +86,7 @@ Each task was committed atomically:
 _Note: TDD tasks have separate RED (test) and GREEN (feat) commits_
 
 ## Files Created/Modified
+
 - `src/main/folderManager.ts` - folder:open and folder:readdir IPC handlers, exports registerFolderHandlers
 - `src/main/index.ts` - import and call registerFolderHandlers(win) in createWindow
 - `src/preload/index.ts` - folderOpen and folderReaddir added to contextBridge exposeInMainWorld
@@ -95,6 +97,7 @@ _Note: TDD tasks have separate RED (test) and GREEN (feat) commits_
 - `tests/store/projectStore.test.ts` - 3 unit tests covering initial state and setFolderPath
 
 ## Decisions Made
+
 - folderManager takes full `BrowserWindow` (not `WebContents`) because `dialog.showOpenDialog` requires a window reference for native modal behavior
 - Vitest ESM mocking for `fs/promises` named imports requires `{ default: { readdir }, readdir }` dual-export — the `importOriginal` spread approach silently falls through to real `fs` in this Vitest/Vite version
 - folder:readdir filters entries with `name.startsWith('.')` OR `name === 'node_modules'` before mapping, then sorts dirs-first then alphabetical via localeCompare
@@ -104,6 +107,7 @@ _Note: TDD tasks have separate RED (test) and GREEN (feat) commits_
 ### Auto-fixed Issues
 
 **1. [Rule 1 - Bug] Fixed fs/promises mock failing to intercept readdir in Vitest ESM**
+
 - **Found during:** Task 1 GREEN verification
 - **Issue:** `vi.mock('fs/promises', async (importOriginal) => { ...actual, readdir: mockReaddir })` spread caused real `readdir` to be called, throwing ENOENT for `/some/dir`
 - **Fix:** Changed mock to `vi.mock('fs/promises', () => ({ default: { readdir: mockReaddir }, readdir: mockReaddir }))` — provides both default and named export keys required by Vitest ESM
@@ -117,16 +121,20 @@ _Note: TDD tasks have separate RED (test) and GREEN (feat) commits_
 **Impact on plan:** Fix required for test correctness. No scope creep.
 
 ## Issues Encountered
+
 - Vitest ESM handling of Node built-in `fs/promises` with named imports requires explicit default+named dual-export mock factory — `importOriginal` spread does not substitute properly in this Vite 7 / Vitest 3 configuration.
 
 ## User Setup Required
+
 None - no external service configuration required.
 
 ## Next Phase Readiness
+
 - folder:open and folder:readdir IPC handlers are wired and tested — Plan 02 (file tree sidebar) can consume folderReaddir immediately
 - useProjectStore folderPath slice is ready — Plan 03 (folder-picker-on-launch) can call setFolderPath after dialog
 - No blockers
 
 ---
-*Phase: 03-project-context-panel-identity*
-*Completed: 2026-03-16*
+
+_Phase: 03-project-context-panel-identity_
+_Completed: 2026-03-16_

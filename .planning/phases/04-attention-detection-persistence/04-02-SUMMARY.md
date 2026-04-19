@@ -1,6 +1,6 @@
 ---
 phase: 04-attention-detection-persistence
-plan: "02"
+plan: '02'
 subsystem: ui
 tags: [electron, ipc, zustand, debounce, json, fs, layout-persistence]
 
@@ -26,10 +26,10 @@ affects: []
 tech-stack:
   added: []
   patterns:
-    - "vi.hoisted() required for mock refs used inside vi.mock() factory — applied to both layoutManager.test.ts and MosaicLayout.test.tsx"
-    - "before-quit sync save pattern: lastSaveData module-level cache in index.ts updated on every layout:save, flushed synchronously on before-quit"
-    - "layoutLoaded gate in App.tsx prevents flash of default single panel before saved layout is loaded from disk"
-    - "usePanelStore.subscribe() in MosaicLayout wires title/color changes to scheduleSave without prop-drilling"
+    - 'vi.hoisted() required for mock refs used inside vi.mock() factory — applied to both layoutManager.test.ts and MosaicLayout.test.tsx'
+    - 'before-quit sync save pattern: lastSaveData module-level cache in index.ts updated on every layout:save, flushed synchronously on before-quit'
+    - 'layoutLoaded gate in App.tsx prevents flash of default single panel before saved layout is loaded from disk'
+    - 'usePanelStore.subscribe() in MosaicLayout wires title/color changes to scheduleSave without prop-drilling'
 
 key-files:
   created:
@@ -49,15 +49,15 @@ key-files:
     - tests/store/panelStore.test.ts
 
 key-decisions:
-  - "lastSaveData module-level cache in index.ts (not per-window state) — single window app, simpler than passing layout through event args to before-quit handler"
-  - "scheduleSave uses module-level singleton timer (not hook-based) — ensures single debounce across all MosaicLayout re-renders, no stale closure issues"
-  - "layoutLoaded boolean gate in App.tsx — prevents flash of default single panel before async layoutLoad resolves"
-  - "addPanel signature extended with optional title/color (not a separate restorePanel action) — backward-compatible, all existing callers unaffected"
-  - "usePanelStore.subscribe() wired in MosaicLayout (not in individual PanelHeader) — centralizes all save-triggering in one place, avoids per-panel subscription overhead"
+  - 'lastSaveData module-level cache in index.ts (not per-window state) — single window app, simpler than passing layout through event args to before-quit handler'
+  - 'scheduleSave uses module-level singleton timer (not hook-based) — ensures single debounce across all MosaicLayout re-renders, no stale closure issues'
+  - 'layoutLoaded boolean gate in App.tsx — prevents flash of default single panel before async layoutLoad resolves'
+  - 'addPanel signature extended with optional title/color (not a separate restorePanel action) — backward-compatible, all existing callers unaffected'
+  - 'usePanelStore.subscribe() wired in MosaicLayout (not in individual PanelHeader) — centralizes all save-triggering in one place, avoids per-panel subscription overhead'
 
 patterns-established:
-  - "Pattern: vi.hoisted() for any mock reference used inside vi.mock() factory — required due to Vitest hoisting vi.mock() before variable declarations"
-  - "Pattern: layout persistence utility (scheduleSave) is module-level singleton, not a React hook — survives re-renders without stale closure problems"
+  - 'Pattern: vi.hoisted() for any mock reference used inside vi.mock() factory — required due to Vitest hoisting vi.mock() before variable declarations'
+  - 'Pattern: layout persistence utility (scheduleSave) is module-level singleton, not a React hook — survives re-renders without stale closure problems'
 
 requirements-completed: [PERS-01, PERS-02, PERS-03]
 
@@ -124,6 +124,7 @@ Each task was committed atomically:
 ### Auto-fixed Issues
 
 **1. [Rule 1 - Bug] vi.hoisted() required for mockMkdir/mockWriteFile/etc. in layoutManager.test.ts**
+
 - **Found during:** Task 1 RED/GREEN phase (first test run)
 - **Issue:** `vi.mock('fs/promises', () => ({ mkdir: mockMkdir, ... }))` — mock factory is hoisted to top of file by Vitest before `const mockMkdir = vi.fn()` declaration, causing `ReferenceError: Cannot access 'mockMkdir' before initialization`
 - **Fix:** Wrapped all mock vi.fn() declarations in `vi.hoisted(() => ({ ... }))` — same fix pattern already established in Phase 02 and 04-01
@@ -132,6 +133,7 @@ Each task was committed atomically:
 - **Committed in:** a1eebe8 (Task 1 commit, test was re-written before committing)
 
 **2. [Rule 1 - Bug] vi.hoisted() required for mockScheduleSave in MosaicLayout.test.tsx**
+
 - **Found during:** Task 2 GREEN phase (first test run after adding layoutPersistence mock)
 - **Issue:** Same hoisting issue — `vi.mock('@renderer/utils/layoutPersistence', () => ({ scheduleSave: mockScheduleSave }))` caused `ReferenceError` because `const mockScheduleSave = vi.fn()` is not yet initialized when the factory runs
 - **Fix:** Wrapped in `vi.hoisted(() => ({ mockScheduleSave: vi.fn() }))`
@@ -160,8 +162,9 @@ None - no external service configuration required.
 - Project milestone v1.0 is complete: project-aware terminals with per-project layout persistence and attention detection
 
 ---
-*Phase: 04-attention-detection-persistence*
-*Completed: 2026-03-16*
+
+_Phase: 04-attention-detection-persistence_
+_Completed: 2026-03-16_
 
 ## Self-Check: PASSED
 
