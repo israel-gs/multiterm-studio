@@ -20,8 +20,16 @@ files:
   - '!**/*.test.ts'
   - '!**/*.test.tsx'
   - '!tests/**/*'
+# better-sqlite3 ships a native .node addon; unpacking it from the asar archive
+# is required so Node can dlopen the binary at runtime.
 asarUnpack:
   - resources/**
+  - '**/*.node'
+# Ship the compiled CLI entry so the launcher at ~/.local/bin/multiterm can exec it
+# from the packaged app's resources path (process.resourcesPath + /cli-entry.js).
+extraResources:
+  - from: out/main/cli-entry.js
+    to: cli-entry.js
 win:
   executableName: multiterm-studio
 nsis:

@@ -63,3 +63,22 @@ export function setScrollbackBytes(bytes: number): void {
   const clamped = Math.min(SCROLLBACK_MAX, Math.max(SCROLLBACK_MIN, bytes))
   setSetting('terminal.scrollbackBytes', clamped)
 }
+
+// --- Bridge setting ---
+
+/**
+ * Returns whether the multiterm bridge daemon is enabled.
+ * Defaults to true when the setting has never been written.
+ */
+export function getBridgeEnabled(): boolean {
+  const raw = getSetting('bridge.enabled')
+  // Explicit false disables; anything else (null, undefined, true) keeps the default on.
+  return raw !== false
+}
+
+/**
+ * Persists the bridge enabled flag.
+ */
+export function setBridgeEnabled(value: boolean): void {
+  setSetting('bridge.enabled', value)
+}

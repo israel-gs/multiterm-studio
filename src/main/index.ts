@@ -1,12 +1,14 @@
 import { app, shell, BrowserWindow, ipcMain, Menu, dialog, protocol, net } from 'electron'
 import { join } from 'path'
+import { mkdirSync } from 'fs'
+import { homedir } from 'os'
 import { fork } from 'child_process'
 import type { ChildProcess } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerPtyHandlers } from './ptyManager'
 import { SidecarClient } from './sidecar/client'
 import { SIDECAR_CONTROL_ENDPOINT } from './sidecar/protocol'
-import { initSettings, getSetting, setSetting } from './settingsManager'
+import { initSettings, getSetting, setSetting, getBridgeEnabled } from './settingsManager'
 import { registerFolderHandlers } from './folderManager'
 import { registerFileHandlers } from './fileManager'
 import { registerGitHandlers } from './gitManager'
@@ -30,6 +32,16 @@ import { loadWorkspaceConfig, saveWorkspaceConfig } from './workspaceConfig'
 import { loadWorkspaceFile, saveWorkspaceFile } from './workspaceFileManager'
 import type { MultiTermWorkspace } from './workspaceFileManager'
 import { setupUpdateIPC, updateManager } from './updater'
+import { BridgeServer } from './bridge/server'
+import { openDb, runMigrations } from './bridge/db'
+import { BRIDGE_CONTROL_ENDPOINT } from './bridge/protocol'
+import {
+  acceptMessage,
+  declineMessage,
+  listMessages,
+  makeElectronPublisher
+} from './bridge/messaging'
+import type { Database } from 'better-sqlite3'
 
 // Set app name early — used by macOS menu bar
 app.setName('Multiterm Studio')
@@ -43,6 +55,10 @@ protocol.registerSchemesAsPrivileged([
 // Sidecar process and connected client
 let sidecarProcess: ChildProcess | null = null
 let sidecarClient: SidecarClient | null = null
+
+// Bridge server and backing DB (null when bridge is disabled or not yet started)
+let bridgeServer: BridgeServer | null = null
+let bridgeDb: Database | null = null
 
 // Cache the most-recent save data so before-quit can do a synchronous flush
 let lastSaveData:
@@ -86,7 +102,7 @@ function createWindow(): void {
   })
 
   // Register PTY IPC handlers (client is guaranteed to be connected before createWindow is called)
-  registerPtyHandlers(win, sidecarClient!)
+  registerPtyHandlers(win, sidecarClient!, () => bridgeDb)
   // Register folder IPC handlers for project context panel (Phase 03)
   registerFolderHandlers(win)
   // Register file read/write IPC handlers for editor tiles
@@ -288,6 +304,23 @@ ipcMain.handle('settings:get', (_event, key: string) => getSetting(key))
 ipcMain.handle('settings:set', (_event, key: string, value: unknown) => {
   setSetting(key, value)
 })
+
+// Bridge messaging IPC handlers — delegate to messaging module.
+// These are no-ops when the bridge is not running (bridgeDb is null).
+ipcMain.handle('bridge:accept', (_event, messageId: string, response?: string) => {
+  if (!bridgeDb) return
+  acceptMessage(bridgeDb, makeElectronPublisher(), messageId, response)
+})
+ipcMain.handle('bridge:decline', (_event, messageId: string) => {
+  if (!bridgeDb) return
+  declineMessage(bridgeDb, makeElectronPublisher(), messageId)
+})
+// Returns currently pending messages so the renderer can rehydrate the chip
+// state after a reload. Filters to status === 'pending' only.
+ipcMain.handle('bridge:list-pending', () => {
+  if (!bridgeDb) return []
+  return listMessages(bridgeDb, { status: 'pending' })
+})
 // Workspace config IPC handlers
 ipcMain.handle('workspace:load', async (_event, folderPath: string) => {
   return loadWorkspaceConfig(folderPath)
@@ -330,6 +363,17 @@ app.on('before-quit', () => {
   if (rpcCleanup) {
     rpcCleanup()
     rpcCleanup = null
+  }
+
+  // Shut down the bridge server — this rejects in-flight send-to promises with BridgeShutdown
+  // before the socket is torn down, so connected CLI processes get a clean error response.
+  if (bridgeServer) {
+    bridgeServer.close().catch(() => {})
+    bridgeServer = null
+  }
+  if (bridgeDb) {
+    bridgeDb.close()
+    bridgeDb = null
   }
 
   // Disconnect client and shut down sidecar
@@ -400,6 +444,29 @@ app.whenReady().then(async () => {
   }
 
   sidecarClient = client
+
+  // Boot the bridge daemon if enabled. The bridge is independent of the sidecar:
+  // it provides pane-to-pane messaging, task queue, and shared KV over a Unix socket.
+  if (getBridgeEnabled()) {
+    const dbDir = join(homedir(), '.multiterm-studio')
+    mkdirSync(dbDir, { recursive: true })
+    const db = openDb(join(dbDir, 'bridge.db'))
+    runMigrations(db)
+    bridgeDb = db
+
+    const publisher = makeElectronPublisher()
+    bridgeServer = new BridgeServer({ db, publisher, enabled: true })
+    bridgeServer
+      .listen(BRIDGE_CONTROL_ENDPOINT)
+      .then(() => {
+        console.log(`[bridge] Listening on ${BRIDGE_CONTROL_ENDPOINT}`)
+      })
+      .catch((err: Error) => {
+        console.error('[bridge] Failed to start bridge server:', err.message)
+      })
+  } else {
+    console.log('[bridge] Bridge is disabled via settings — skipping startup.')
+  }
 
   // Build application menu bar
   const isMac = process.platform === 'darwin'

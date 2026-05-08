@@ -411,5 +411,67 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Clipboard
   clipboardWriteText: (text: string): void => clipboard.writeText(text),
-  clipboardReadText: (): string => clipboard.readText()
+  clipboardReadText: (): string => clipboard.readText(),
+
+  // Bridge messaging — renderer subscribes to pending-message events from the main process.
+  // The callback receives the raw payload published by messaging.ts over 'bridge:pending'.
+  // Returns an unsubscribe function following the same pattern used by onPtyData.
+  bridgeOnPending: (
+    cb: (event: {
+      msgId: string
+      fromPane: string
+      toPane: string
+      body: string
+      kind: 'send' | 'notify'
+    }) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      payload: {
+        msgId: string
+        fromPane: string
+        toPane: string
+        body: string
+        kind: 'send' | 'notify'
+      }
+    ): void => cb(payload)
+    ipcRenderer.on('bridge:pending', listener)
+    return () => ipcRenderer.removeListener('bridge:pending', listener)
+  },
+
+  // Bridge messaging — accept a pending send-to message.
+  // Optional response text is forwarded to the CLI caller's promise.
+  bridgeAccept: (messageId: string, response?: string): Promise<void> =>
+    ipcRenderer.invoke('bridge:accept', messageId, response),
+
+  // Bridge messaging — decline a pending send-to message.
+  bridgeDecline: (messageId: string): Promise<void> =>
+    ipcRenderer.invoke('bridge:decline', messageId),
+
+  // Bridge messaging — subscribe to auto-dismiss events (timeout / auto-accept on notify).
+  // Published by messaging.ts as 'bridge:dismiss' with payload { msgId, toPane }.
+  // Returns an unsubscribe function following the same pattern as bridgeOnPending.
+  bridgeOnDismiss: (cb: (event: { msgId: string; toPane: string }) => void): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      payload: { msgId: string; toPane: string }
+    ): void => cb(payload)
+    ipcRenderer.on('bridge:dismiss', listener)
+    return () => ipcRenderer.removeListener('bridge:dismiss', listener)
+  },
+
+  // Bridge messaging — fetch the currently pending messages from the daemon.
+  // Used by the renderer at mount time to rehydrate the chip state after a
+  // reload (otherwise the in-memory store is empty until a new event arrives).
+  bridgeListPending: (): Promise<
+    Array<{
+      id: string
+      fromPane: string
+      toPane: string
+      body: string
+      kind: 'send' | 'notify'
+      status: string
+      createdAt: number
+    }>
+  > => ipcRenderer.invoke('bridge:list-pending')
 })

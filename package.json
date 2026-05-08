@@ -12,7 +12,9 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "start": "electron-vite preview",
+    "predev": "node ./scripts/rebuild-sqlite-for-electron.mjs",
     "dev": "electron-vite dev",
+    "prebuild": "node ./scripts/rebuild-sqlite-for-electron.mjs",
     "build": "electron-vite build",
     "postinstall": "electron-builder install-app-deps && sed -i '' 's|<string>Electron</string>|<string>Multiterm Studio</string>|g' node_modules/electron/dist/Electron.app/Contents/Info.plist",
     "build:unpack": "npm run build && electron-builder --dir",
@@ -20,9 +22,11 @@
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:mac:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux",
+    "pretest": "node ./scripts/rebuild-sqlite-for-node.mjs",
     "test": "vitest run --reporter=verbose"
   },
   "dependencies": {
+    "better-sqlite3": "^12.9.0",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@parcel/watcher": "^2.5.6",

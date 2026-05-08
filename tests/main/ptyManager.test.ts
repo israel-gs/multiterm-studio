@@ -39,6 +39,14 @@ vi.mock('../../src/main/attentionService', () => ({
   handleAttentionEvent: vi.fn()
 }))
 
+// ── bridge/registry mock ──────────────────────────────────────────────────────
+
+const mockDeregisterAgent = vi.fn()
+
+vi.mock('../../src/main/bridge/registry', () => ({
+  deregisterAgent: mockDeregisterAgent
+}))
+
 // ── settingsManager mock ──────────────────────────────────────────────────────
 
 const mockGetScrollbackBytes = vi.fn().mockReturnValue(8 * 1024 * 1024)
@@ -65,6 +73,7 @@ const mockClient = {
       rows: number
       scrollbackBytes?: number
       initialCommand?: string
+      env?: Record<string, string>
     }) => ({
       sessionId,
       dataEndpoint: `/tmp/mts-test-${sessionId}.sock`
@@ -91,11 +100,13 @@ const fakeEvent = {}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function setupHandlers(): Promise<void> {
+const mockBridgeDb = {} as never
+
+async function setupHandlers(getBridgeDb?: () => unknown): Promise<void> {
   const { _resetPtyHandlersForTests, registerPtyHandlers } =
     await import('../../src/main/ptyManager')
   _resetPtyHandlersForTests()
-  registerPtyHandlers(mockWin as never, mockClient as never)
+  registerPtyHandlers(mockWin as never, mockClient as never, getBridgeDb as never)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -163,6 +174,29 @@ describe('pty:create — delegates to SidecarClient', () => {
     cb!(Buffer.from('hello sidecar'))
 
     expect(mockWebContents.send).toHaveBeenCalledWith('pty:data:sess-3', 'hello sidecar')
+  })
+
+  test('passes env.MULTITERM_PANE_ID equal to the session id on first create', async () => {
+    await capturedHandlers['pty:create'](fakeEvent, 'pane-env-test', '/tmp')
+
+    const params = mockClient.create.mock.calls[0][0]
+    expect(params.env).toBeDefined()
+    expect(params.env.MULTITERM_PANE_ID).toBe('pane-env-test')
+  })
+
+  test('env.MULTITERM_PANE_ID is passed on reconnect (sidecar ignores it, but ptyManager still sends)', async () => {
+    // First create
+    await capturedHandlers['pty:create'](fakeEvent, 'pane-reconnect-env', '/tmp')
+    vi.clearAllMocks()
+
+    // Reconnect — sessions map already has the id
+    await capturedHandlers['pty:create'](fakeEvent, 'pane-reconnect-env', '/tmp')
+
+    // client.create is called again (sidecar idempotent create handles it)
+    const params = mockClient.create.mock.calls[0][0]
+    // env is passed; sidecar's early-return path means it won't be re-applied
+    expect(params.env).toBeDefined()
+    expect(params.env.MULTITERM_PANE_ID).toBe('pane-reconnect-env')
   })
 
   test('passes initialCommand to client.create (sidecar handles timing)', async () => {
@@ -307,6 +341,36 @@ describe('pty:kill — cleans up session state', () => {
     await capturedHandlers['pty:kill'](fakeEvent, 'no-such-session')
 
     expect(mockClient.kill).not.toHaveBeenCalled()
+  })
+
+  test('calls deregisterAgent with bridgeDb and paneId on kill when getBridgeDb is provided', async () => {
+    vi.clearAllMocks()
+    Object.keys(capturedHandlers).forEach((k) => delete capturedHandlers[k])
+    Object.keys(capturedListeners).forEach((k) => delete capturedListeners[k])
+    mockOnDataCbs.clear()
+    await setupHandlers(() => mockBridgeDb)
+
+    await capturedHandlers['pty:create'](fakeEvent, 'kill-deregister-sess', '/tmp')
+    vi.clearAllMocks()
+
+    await capturedHandlers['pty:kill'](fakeEvent, 'kill-deregister-sess')
+
+    expect(mockDeregisterAgent).toHaveBeenCalledWith(mockBridgeDb, 'kill-deregister-sess')
+  })
+
+  test('does NOT call deregisterAgent when getBridgeDb returns null', async () => {
+    vi.clearAllMocks()
+    Object.keys(capturedHandlers).forEach((k) => delete capturedHandlers[k])
+    Object.keys(capturedListeners).forEach((k) => delete capturedListeners[k])
+    mockOnDataCbs.clear()
+    await setupHandlers(() => null)
+
+    await capturedHandlers['pty:create'](fakeEvent, 'kill-nobridge-sess', '/tmp')
+    vi.clearAllMocks()
+
+    await capturedHandlers['pty:kill'](fakeEvent, 'kill-nobridge-sess')
+
+    expect(mockDeregisterAgent).not.toHaveBeenCalled()
   })
 })
 

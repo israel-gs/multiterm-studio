@@ -15,7 +15,8 @@ export default defineConfig({
         input: {
           index: resolve('src/main/index.ts'),
           'watcher-worker': resolve('src/main/watcher-worker.ts'),
-          'sidecar-entry': resolve('src/main/sidecar/entry.ts')
+          'sidecar-entry': resolve('src/main/sidecar/entry.ts'),
+          'cli-entry': resolve('src/main/bridge/cli/entry.ts')
         }
       }
     }

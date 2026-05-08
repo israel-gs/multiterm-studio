@@ -158,5 +158,28 @@ interface Window {
     shellShowItemInFolder: (fullPath: string) => void
     clipboardWriteText: (text: string) => void
     clipboardReadText: () => string
+    bridgeOnPending: (
+      cb: (event: {
+        msgId: string
+        fromPane: string
+        toPane: string
+        body: string
+        kind: 'send' | 'notify'
+      }) => void
+    ) => () => void
+    bridgeAccept: (messageId: string, response?: string) => Promise<void>
+    bridgeDecline: (messageId: string) => Promise<void>
+    bridgeOnDismiss: (cb: (event: { msgId: string; toPane: string }) => void) => () => void
+    bridgeListPending: () => Promise<
+      Array<{
+        id: string
+        fromPane: string
+        toPane: string
+        body: string
+        kind: 'send' | 'notify'
+        status: string
+        createdAt: number
+      }>
+    >
   }
 }

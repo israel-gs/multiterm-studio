@@ -18,6 +18,13 @@ export interface SessionCreateParams {
   rows: number
   scrollbackBytes?: number
   initialCommand?: string
+  /**
+   * Optional environment variables to merge into the PTY's environment.
+   * Supplied entries override any same-named variable from the sidecar's
+   * own `process.env`. Only applied on the first create; idempotent
+   * reconnects return the existing session unchanged.
+   */
+  env?: Record<string, string>
 }
 
 export interface SessionCreateResult {

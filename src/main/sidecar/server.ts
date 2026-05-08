@@ -151,7 +151,7 @@ export class SidecarServer {
   // ── RPC handlers ────────────────────────────────────────────────────────────
 
   private handleCreate(socket: Socket, id: string | number, params: SessionCreateParams): void {
-    const { sessionId, shell, cwd, cols, rows, scrollbackBytes, initialCommand } = params
+    const { sessionId, shell, cwd, cols, rows, scrollbackBytes, initialCommand, env } = params
 
     if (this.sessions.has(sessionId)) {
       // Idempotent: return the existing session's endpoint instead of erroring.
@@ -164,13 +164,15 @@ export class SidecarServer {
 
     const buffer = new RingBuffer(scrollbackBytes ?? DEFAULT_SCROLLBACK_BYTES)
 
-    // Spawn the PTY
+    // Spawn the PTY, merging any caller-supplied env on top of the sidecar's
+    // own process.env. Caller entries take precedence so that MULTITERM_PANE_ID
+    // and any other injected vars are visible inside the PTY session.
     const ptyProcess = pty.spawn(shell, [], {
       name: 'xterm-256color',
       cols,
       rows,
       cwd,
-      env: process.env as Record<string, string>
+      env: { ...(process.env as Record<string, string>), ...(env ?? {}) }
     })
 
     // Determine data endpoint path

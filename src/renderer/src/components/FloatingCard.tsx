@@ -1,11 +1,14 @@
 import { useRef, useCallback, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Inbox } from 'lucide-react'
 import { CardHeader } from './CardHeader'
 import { TerminalPanel } from './Terminal'
 import { EditorPanel } from './EditorPanel'
 import { NotePanel } from './NotePanel'
 import { ImagePanel } from './ImagePanel'
+import { MessageAcceptModal } from './MessageAcceptModal'
 import { usePanelStore } from '../store/panelStore'
+import { useBridgeStore } from '../store/bridgeStore'
 
 export interface CardRect {
   x: number
@@ -75,6 +78,10 @@ export function FloatingCard({
   const previewMode = usePanelStore((s) => s.panels[sessionId]?.previewMode ?? false)
   const panelCwd = usePanelStore((s) => s.panels[sessionId]?.cwd)
   const [resizeIndicator, setResizeIndicator] = useState<string | null>(null)
+  const [bridgeModalOpen, setBridgeModalOpen] = useState(false)
+
+  // Subscribe to the bridge pending count for this pane so the chip re-renders reactively.
+  const bridgePendingCount = useBridgeStore((s) => s.pendingByPane[sessionId]?.length ?? 0)
 
   // Bring to front + select on any mousedown within the card
   const handleMouseDown = useCallback(
@@ -489,7 +496,28 @@ export function FloatingCard({
           onToggleMaximize={onToggleMaximize ? () => onToggleMaximize(sessionId) : undefined}
           onClose={() => onClose(sessionId)}
         />
+
+        {/* Bridge pending-message chip — visible when there are messages waiting */}
+        {bridgePendingCount > 0 && (
+          <button
+            className="bridge-pending-chip"
+            aria-label={`${bridgePendingCount} pending bridge message${bridgePendingCount === 1 ? '' : 's'}`}
+            title="Open pending bridge messages"
+            onClick={(e) => {
+              e.stopPropagation()
+              setBridgeModalOpen(true)
+            }}
+          >
+            <Inbox size={12} strokeWidth={1.5} />
+            <span className="bridge-pending-chip-count">{bridgePendingCount}</span>
+          </button>
+        )}
       </div>
+
+      {/* Bridge message modal — rendered via portal when chip is clicked */}
+      {bridgeModalOpen && (
+        <MessageAcceptModal paneId={sessionId} onClose={() => setBridgeModalOpen(false)} />
+      )}
 
       <div
         className="floating-card-body"

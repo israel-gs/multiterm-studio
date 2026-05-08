@@ -5,6 +5,8 @@ import { resolve, join } from 'path'
 import { handleAttentionEvent } from './attentionService'
 import { getScrollbackBytes } from './settingsManager'
 import type { SidecarClient } from './sidecar/client'
+import { deregisterAgent } from './bridge/registry'
+import type { Database } from 'better-sqlite3'
 
 // Per-session cooldown: maps session id -> timestamp of last attention event (ms since epoch)
 export const attentionCooldown = new Map<string, number>()
@@ -133,7 +135,11 @@ export function _resetPtyHandlersForTests(): void {
   attentionCooldown.clear()
 }
 
-export function registerPtyHandlers(win: BrowserWindow, client: SidecarClient): void {
+export function registerPtyHandlers(
+  win: BrowserWindow,
+  client: SidecarClient,
+  getBridgeDb?: () => Database | null
+): void {
   currentWin = win
   activeClient = client
 
@@ -160,6 +166,11 @@ export function registerPtyHandlers(win: BrowserWindow, client: SidecarClient): 
       cols: 80,
       rows: 24,
       scrollbackBytes: getScrollbackBytes(),
+      // Inject MULTITERM_PANE_ID so that any process running inside this pane
+      // can discover its own identity for CLI invocations. The sidecar merges
+      // this on top of process.env; its idempotent-reconnect early return
+      // means the env is not re-applied on reconnects even though we send it.
+      env: { MULTITERM_PANE_ID: id },
       // Pass the initialCommand to the sidecar so it can serialize the OSC 7
       // hook write and the command write inside the same 300 ms setTimeout,
       // preventing the TUI from capturing the hook as user input.
@@ -234,6 +245,8 @@ export function registerPtyHandlers(win: BrowserWindow, client: SidecarClient): 
     attentionCooldown.delete(id)
     cwdCache.delete(id)
     deleteSessionMeta(id)
+    const db = getBridgeDb?.()
+    if (db) deregisterAgent(db, id)
   })
 
   // OSC 7 CWD push: renderer fires this after parsing an OSC 7 sequence

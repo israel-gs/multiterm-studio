@@ -8,6 +8,7 @@ import { useProjectStore } from './store/projectStore'
 import { usePanelStore } from './store/panelStore'
 import { useAppearanceStore } from './store/appearanceStore'
 import type { AppearanceMode } from './tokens'
+import { useBridgeStore } from './store/bridgeStore'
 
 function App(): React.JSX.Element {
   const folderPath = useProjectStore((s) => s.folderPath)
@@ -164,6 +165,52 @@ function App(): React.JSX.Element {
     const unsubPaneFocus = window.electronAPI.onPaneFocus((data) => {
       usePanelStore.getState().requestFocus(data.sessionId)
     })
+
+    // Bridge subscription wiring — connects IPC events from messaging.ts to bridgeStore.
+    // messaging.ts publishes { msgId, fromPane, toPane, body, kind } on 'bridge:pending'.
+    // bridgeStore expects messageId (not msgId) and paneId (not toPane).
+    const unsubBridgePending = window.electronAPI.bridgeOnPending((payload) => {
+      useBridgeStore.getState().bridgePendingReceived({
+        paneId: payload.toPane,
+        messageId: payload.msgId,
+        fromPane: payload.fromPane,
+        fromAlias: null,
+        body: payload.body,
+        kind: payload.kind,
+        createdAt: Date.now()
+      })
+    })
+
+    // messaging.ts publishes { msgId, toPane } on 'bridge:dismiss' for timeout/auto-accept.
+    const unsubBridgeDismiss = window.electronAPI.bridgeOnDismiss((payload) => {
+      useBridgeStore.getState().bridgeMessageResolved({
+        paneId: payload.toPane,
+        messageId: payload.msgId
+      })
+    })
+
+    // Rehydrate the bridge store with currently pending messages from the daemon.
+    // Without this, the chip never reappears after a renderer reload because the
+    // store is rebuilt empty and no event re-fires for prior pending messages.
+    window.electronAPI
+      .bridgeListPending()
+      .then((pending) => {
+        for (const m of pending) {
+          useBridgeStore.getState().bridgePendingReceived({
+            paneId: m.toPane,
+            messageId: m.id,
+            fromPane: m.fromPane,
+            fromAlias: null,
+            body: m.body,
+            kind: m.kind,
+            createdAt: m.createdAt
+          })
+        }
+      })
+      .catch(() => {
+        // Bridge may be disabled or unreachable — leave the store empty.
+      })
+
     return () => {
       unsubAttention()
       unsubPanelFocus()
@@ -174,6 +221,8 @@ function App(): React.JSX.Element {
       unsubFsChanged()
       unsubPaneCreate()
       unsubPaneFocus()
+      unsubBridgePending()
+      unsubBridgeDismiss()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

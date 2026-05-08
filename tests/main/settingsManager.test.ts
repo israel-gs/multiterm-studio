@@ -45,7 +45,9 @@ import {
   setScrollbackBytes,
   SCROLLBACK_DEFAULT,
   SCROLLBACK_MIN,
-  SCROLLBACK_MAX
+  SCROLLBACK_MAX,
+  getBridgeEnabled,
+  setBridgeEnabled
 } from '../../src/main/settingsManager'
 
 describe('settingsManager — scrollback constants', () => {
@@ -120,5 +122,33 @@ describe('settingsManager — setScrollbackBytes persists to disk', () => {
   it('calls writeFileSync when setting scrollback bytes', () => {
     setScrollbackBytes(4 * 1024 * 1024)
     expect(mockWriteFileSync).toHaveBeenCalled()
+  })
+})
+
+describe('settingsManager — getBridgeEnabled', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockReadFileSync.mockImplementation(() => {
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    })
+    mockWriteFileSync.mockReturnValue(undefined)
+    mockMkdirSync.mockReturnValue(undefined)
+    mockRenameSync.mockReturnValue(undefined)
+    initSettings()
+  })
+
+  it('returns true by default when the setting has never been written', () => {
+    expect(getBridgeEnabled()).toBe(true)
+  })
+
+  it('returns false after setBridgeEnabled(false)', () => {
+    setBridgeEnabled(false)
+    expect(getBridgeEnabled()).toBe(false)
+  })
+
+  it('returns true after setBridgeEnabled(true)', () => {
+    setBridgeEnabled(false)
+    setBridgeEnabled(true)
+    expect(getBridgeEnabled()).toBe(true)
   })
 })

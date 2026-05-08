@@ -93,6 +93,7 @@ function AppearanceSettings(): React.JSX.Element {
 
 function TerminalSettings(): React.JSX.Element {
   const [scrollbackBytes, setScrollbackBytesState] = useState<number>(SCROLLBACK_DEFAULT)
+  const [bridgeEnabled, setBridgeEnabledState] = useState<boolean>(true)
 
   useEffect(() => {
     window.electronAPI
@@ -102,6 +103,16 @@ function TerminalSettings(): React.JSX.Element {
           const clamped = Math.min(SCROLLBACK_MAX, Math.max(SCROLLBACK_MIN, raw))
           setScrollbackBytesState(clamped)
         }
+      })
+      .catch(() => {
+        // silently keep default
+      })
+
+    window.electronAPI
+      .settingsGet('bridge.enabled')
+      .then((raw) => {
+        // Default is true; only override when the stored value is explicitly false.
+        if (raw === false) setBridgeEnabledState(false)
       })
       .catch(() => {
         // silently keep default
@@ -121,11 +132,39 @@ function TerminalSettings(): React.JSX.Element {
     })
   }
 
+  function handleBridgeToggle(e: React.ChangeEvent<HTMLInputElement>): void {
+    const enabled = e.target.checked
+    setBridgeEnabledState(enabled)
+    window.electronAPI.settingsSet('bridge.enabled', enabled).catch(() => {
+      // silent
+    })
+  }
+
   return (
     <div className="stg-content">
       <div className="stg-content-header">
         <h2 className="stg-content-title">Terminal</h2>
         <p className="stg-content-desc">Configure terminal behavior and defaults</p>
+      </div>
+
+      <div className="stg-group">
+        <div className="stg-group-label">Multiterm Bridge</div>
+        <div className="stg-setting-row">
+          <label className="stg-toggle">
+            <input
+              type="checkbox"
+              role="switch"
+              checked={bridgeEnabled}
+              onChange={handleBridgeToggle}
+              aria-label="Enable Multiterm Bridge"
+            />
+            <span className="stg-toggle-label">{bridgeEnabled ? 'Enabled' : 'Disabled'}</span>
+          </label>
+        </div>
+        <p className="stg-setting-hint">
+          Enable pane-to-pane messaging, task queue, and shared memory via the multiterm CLI.
+          Changes apply on next app launch.
+        </p>
       </div>
 
       <div className="stg-group">

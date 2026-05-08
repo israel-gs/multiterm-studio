@@ -532,6 +532,161 @@ describe('SidecarServer — JSON-RPC over Unix socket', () => {
     ctrl.close()
   }, 15_000)
 
+  // ── 4.1.1 env: merged into PTY environment on create ────────────────────
+
+  it('session.create with env merges supplied vars into the PTY environment', async () => {
+    const ctrl = await connectControl(controlSock)
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 80,
+      method: 'session.create',
+      params: {
+        sessionId: 'env-merge-sess',
+        shell: '/bin/sh',
+        cwd: tmpdir(),
+        cols: 80,
+        rows: 24,
+        env: { MULTITERM_PANE_ID: 'pane-x', FOO: 'bar' }
+      }
+    })
+
+    const createRaw = await ctrl.nextLine()
+    const createResp = JSON.parse(createRaw)
+    expect(createResp.error).toBeUndefined()
+    const dataEndpoint: string = createResp.result.dataEndpoint
+
+    const data = await connectData(dataEndpoint)
+
+    // Write two separate printenv calls so each exits independently.
+    // A single `printenv VAR1 VAR2` on macOS sh exits after the first missing
+    // var, which could suppress output for the second.
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 81,
+      method: 'session.write',
+      params: { sessionId: 'env-merge-sess', data: 'printenv MULTITERM_PANE_ID; printenv FOO\n' }
+    })
+    await ctrl.nextLine() // consume write response
+
+    await sleep(1500)
+
+    const combined = Buffer.concat(data.received).toString('utf8')
+    expect(combined).toContain('pane-x')
+    expect(combined).toContain('bar')
+
+    data.close()
+    ctrl.close()
+  }, 15_000)
+
+  // ── 4.1.2 env absent: PTY inherits only process.env (no regression) ──────
+
+  it('session.create without env field still spawns a usable PTY', async () => {
+    const ctrl = await connectControl(controlSock)
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 82,
+      method: 'session.create',
+      params: {
+        sessionId: 'no-env-sess',
+        shell: '/bin/sh',
+        cwd: tmpdir(),
+        cols: 80,
+        rows: 24
+        // no env field
+      }
+    })
+
+    const createRaw = await ctrl.nextLine()
+    const createResp = JSON.parse(createRaw)
+    expect(createResp.error).toBeUndefined()
+    expect(createResp.result.sessionId).toBe('no-env-sess')
+
+    const dataEndpoint: string = createResp.result.dataEndpoint
+    const data = await connectData(dataEndpoint)
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 83,
+      method: 'session.write',
+      params: { sessionId: 'no-env-sess', data: 'echo __NO_ENV_MARKER__\n' }
+    })
+    await ctrl.nextLine()
+
+    await sleep(1500)
+    const combined = Buffer.concat(data.received).toString('utf8')
+    expect(combined).toContain('__NO_ENV_MARKER__')
+
+    data.close()
+    ctrl.close()
+  }, 15_000)
+
+  // ── 4.1.3 idempotent reconnect: env NOT re-applied on second create ───────
+
+  it('idempotent session.create with a different env does NOT change the live PTY environment', async () => {
+    const ctrl = await connectControl(controlSock)
+
+    // First create: set MULTITERM_PANE_ID to "original"
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 84,
+      method: 'session.create',
+      params: {
+        sessionId: 'env-idem-sess',
+        shell: '/bin/sh',
+        cwd: tmpdir(),
+        cols: 80,
+        rows: 24,
+        env: { MULTITERM_PANE_ID: 'original' }
+      }
+    })
+    const firstRaw = await ctrl.nextLine()
+    const firstResp = JSON.parse(firstRaw)
+    expect(firstResp.error).toBeUndefined()
+    const dataEndpoint: string = firstResp.result.dataEndpoint
+
+    const data = await connectData(dataEndpoint)
+    await sleep(300) // let the shell settle
+
+    // Second create: same sessionId, DIFFERENT env
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 85,
+      method: 'session.create',
+      params: {
+        sessionId: 'env-idem-sess',
+        shell: '/bin/sh',
+        cwd: tmpdir(),
+        cols: 80,
+        rows: 24,
+        env: { MULTITERM_PANE_ID: 'changed' }
+      }
+    })
+    const secondRaw = await ctrl.nextLine()
+    const secondResp = JSON.parse(secondRaw)
+    expect(secondResp.error).toBeUndefined()
+    expect(secondResp.result.dataEndpoint).toBe(dataEndpoint)
+
+    // Now ask the PTY for the value — must still be "original"
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 86,
+      method: 'session.write',
+      params: { sessionId: 'env-idem-sess', data: 'printenv MULTITERM_PANE_ID\n' }
+    })
+    await ctrl.nextLine()
+
+    await sleep(1500)
+    const combined = Buffer.concat(data.received).toString('utf8')
+    expect(combined).toContain('original')
+    // Ensure "changed" never appeared in the PTY output
+    expect(combined).not.toContain('changed')
+
+    data.close()
+    ctrl.close()
+  }, 15_000)
+
   // ── 2.1.8 Multiple concurrent sessions are independent ───────────────────
 
   it('two concurrent sessions are independent and each has a distinct dataEndpoint', async () => {
