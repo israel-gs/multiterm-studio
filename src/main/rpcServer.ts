@@ -1,13 +1,35 @@
 import { createServer, connect, type Server, type Socket } from 'net'
-import { BrowserWindow, ipcMain } from 'electron'
-import { existsSync, mkdirSync, writeFileSync, unlinkSync, readFileSync } from 'fs'
+import { BrowserWindow, ipcMain, Notification } from 'electron'
+import { existsSync, writeFileSync, unlinkSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
-import { randomUUID } from 'crypto'
+import { randomUUID, timingSafeEqual } from 'crypto'
 import { writeToPty, listPtySessions } from './ptyManager'
+import { ensureSecureDir, secureSocketFile } from './socketSecurity'
 
-const DISCOVERY_DIR = join(homedir(), '.multiterm-studio')
+// MULTITERM_STATE_DIR exists so tests can point the socket, discovery file and
+// token at a scratch directory instead of clobbering a running app's state.
+const DISCOVERY_DIR = process.env.MULTITERM_STATE_DIR ?? join(homedir(), '.multiterm-studio')
 const DISCOVERY_FILE = join(DISCOVERY_DIR, 'socket-path')
+const TOKEN_FILE = join(DISCOVERY_DIR, 'socket-token')
+
+/** Cap on a single request line — an unterminated stream must not grow forever. */
+const MAX_LINE_BYTES = 1024 * 1024
+
+/**
+ * Shared secret every caller must present.
+ *
+ * This socket can run arbitrary commands in the user's terminals
+ * (pane.runCommand / pane.sendText), so it is protected twice over: the socket
+ * and its directory are owner-only, and each request must carry the token from
+ * ~/.multiterm-studio/socket-token, which is itself owner-only.
+ */
+let authToken = ''
+
+function isAuthorized(provided: unknown): boolean {
+  if (typeof provided !== 'string' || provided.length !== authToken.length) return false
+  return timingSafeEqual(Buffer.from(provided), Buffer.from(authToken))
+}
 
 // --- Agent session tracking ---
 
@@ -76,6 +98,7 @@ async function handleMessage(raw: string, _win: BrowserWindow, conn: Socket): Pr
     jsonrpc?: string
     id?: number | string
     method?: string
+    token?: unknown
     params?: Record<string, unknown>
   }
   try {
@@ -93,6 +116,19 @@ async function handleMessage(raw: string, _win: BrowserWindow, conn: Socket): Pr
         JSON.stringify(makeErrorResponse(msg.id ?? null, -32600, 'Invalid request')) + '\n'
       )
     }
+    return
+  }
+
+  // Authenticate before dispatching anything — several methods run commands.
+  if (!isAuthorized(msg.token ?? msg.params?.token)) {
+    if (msg.id != null && conn && !conn.destroyed) {
+      conn.write(
+        JSON.stringify(
+          makeErrorResponse(msg.id, -32001, 'Unauthorized: missing or invalid token')
+        ) + '\n'
+      )
+    }
+    conn.destroy()
     return
   }
 
@@ -124,14 +160,28 @@ async function handleMessage(raw: string, _win: BrowserWindow, conn: Socket): Pr
 export async function startRpcServer(
   win: BrowserWindow
 ): Promise<{ socketPath: string; cleanup: () => void }> {
-  const socketPath = `/tmp/multiterm-studio-${process.pid}.sock`
+  // Kept next to the other private sockets rather than in world-readable /tmp.
+  const socketPath = join(DISCOVERY_DIR, `rpc-${process.pid}.sock`)
 
   await tryRemoveStaleSocket(socketPath)
 
+  const connections = new Set<Socket>()
+
   const server: Server = createServer((conn: Socket) => {
+    connections.add(conn)
+    conn.on('close', () => connections.delete(conn))
+    conn.on('error', () => connections.delete(conn))
+
     let buffer = ''
     conn.on('data', (chunk) => {
       buffer += chunk.toString()
+
+      if (buffer.length > MAX_LINE_BYTES) {
+        buffer = ''
+        conn.destroy()
+        return
+      }
+
       let newlineIdx: number
       while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
         const line = buffer.slice(0, newlineIdx)
@@ -143,12 +193,13 @@ export async function startRpcServer(
     })
   })
 
-  server.listen(socketPath)
+  ensureSecureDir(socketPath)
+  await new Promise<void>((resolve) => server.listen(socketPath, resolve))
+  secureSocketFile(socketPath)
 
-  if (!existsSync(DISCOVERY_DIR)) {
-    mkdirSync(DISCOVERY_DIR, { recursive: true })
-  }
-  writeFileSync(DISCOVERY_FILE, socketPath, 'utf-8')
+  authToken = randomUUID()
+  writeFileSync(TOKEN_FILE, authToken, { encoding: 'utf-8', mode: 0o600 })
+  writeFileSync(DISCOVERY_FILE, socketPath, { encoding: 'utf-8', mode: 0o600 })
 
   // --- Register all methods ---
 
@@ -175,13 +226,18 @@ export async function startRpcServer(
       const subagentsDir = String(params.subagents_dir ?? '')
       const ptySessionId = String(params.pty_session_id ?? '')
       const cwd = String(params.cwd ?? '')
+      // Path of the transcript viewer script the hook installed alongside
+      // itself. The renderer runs it as a program with arguments — it must
+      // never build a shell snippet out of the values above.
+      const viewerPath = String(params.viewer_path ?? '')
 
       win.webContents.send('agent:spawning', {
         agentName,
         toolUseId,
         subagentsDir,
         ptySessionId,
-        cwd
+        cwd,
+        viewerPath
       })
       return { ok: true }
     },
@@ -346,7 +402,6 @@ export async function startRpcServer(
   registerMethod(
     'app.notify',
     (params) => {
-      const { Notification } = require('electron')
       const note = new Notification({
         title: String(params.title ?? 'Multiterm Studio'),
         body: String(params.body ?? '')
@@ -365,6 +420,15 @@ export async function startRpcServer(
 
   function cleanup(): void {
     server.close()
+    // server.close() only stops new connections — drop the live ones too.
+    for (const conn of connections) {
+      try {
+        conn.destroy()
+      } catch {
+        // ignore
+      }
+    }
+    connections.clear()
     try {
       unlinkSync(socketPath)
     } catch {
@@ -374,6 +438,11 @@ export async function startRpcServer(
       const current = readFileSync(DISCOVERY_FILE, 'utf-8').trim()
       if (current === socketPath) {
         unlinkSync(DISCOVERY_FILE)
+        try {
+          unlinkSync(TOKEN_FILE)
+        } catch {
+          // ignore
+        }
       }
     } catch {
       // ignore

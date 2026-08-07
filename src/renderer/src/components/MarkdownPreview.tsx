@@ -2,28 +2,37 @@ import { useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
-import mermaid from 'mermaid'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 import type { Components } from 'react-markdown'
 
-// Initialize mermaid once
-let mermaidInitialized = false
-function ensureMermaid(): void {
-  if (mermaidInitialized) return
-  mermaidInitialized = true
-  mermaid.initialize({
-    startOnLoad: false,
-    theme: 'dark',
-    themeVariables: {
-      darkMode: true,
-      background: '#1c1c1c',
-      primaryColor: '#264f78',
-      primaryTextColor: '#d4d4d4',
-      primaryBorderColor: '#3e3e3e',
-      lineColor: '#808080',
-      secondaryColor: '#2a2a2a',
-      tertiaryColor: '#333'
-    }
-  })
+/**
+ * Mermaid is ~2 MB and most markdown has no diagrams, so it is fetched the
+ * first time a ```mermaid block actually renders.
+ */
+type Mermaid = typeof import('mermaid').default
+let mermaidPromise: Promise<Mermaid> | null = null
+
+function loadMermaid(): Promise<Mermaid> {
+  if (!mermaidPromise) {
+    mermaidPromise = import('mermaid').then(({ default: mermaid }) => {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        themeVariables: {
+          darkMode: true,
+          background: '#1c1c1c',
+          primaryColor: '#264f78',
+          primaryTextColor: '#d4d4d4',
+          primaryBorderColor: '#3e3e3e',
+          lineColor: '#808080',
+          secondaryColor: '#2a2a2a',
+          tertiaryColor: '#333'
+        }
+      })
+      return mermaid
+    })
+  }
+  return mermaidPromise
 }
 
 let mermaidCounter = 0
@@ -35,21 +44,48 @@ function MermaidBlock({ chart }: { chart: string }): React.JSX.Element {
     const el = containerRef.current
     if (!el) return
 
-    ensureMermaid()
     const id = `mermaid-${++mermaidCounter}`
+    let cancelled = false
 
-    mermaid
-      .render(id, chart)
+    loadMermaid()
+      .then((mermaid) => mermaid.render(id, chart))
       .then(({ svg }) => {
-        el.innerHTML = svg
+        if (!cancelled) el.innerHTML = svg
       })
       .catch(() => {
+        if (cancelled) return
         el.textContent = 'Failed to render diagram'
         el.classList.add('md-preview-mermaid-error')
       })
+
+    return () => {
+      cancelled = true
+    }
   }, [chart])
 
   return <div ref={containerRef} className="md-preview-mermaid" />
+}
+
+/**
+ * Markdown is rendered from whatever files a project contains — including
+ * repositories cloned from strangers — and rehypeRaw turns embedded HTML into
+ * real nodes. Sanitizing after it strips scripts, iframes, event handlers and
+ * anything else the default schema does not vouch for.
+ *
+ * The schema is extended for the two things this preview legitimately needs:
+ * mermaid/language class names on code blocks, and the `local-resource:`
+ * protocol used for images that live next to the document.
+ */
+const schema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    code: [...(defaultSchema.attributes?.code ?? []), ['className', /^language-./]]
+  },
+  protocols: {
+    ...defaultSchema.protocols,
+    src: [...(defaultSchema.protocols?.src ?? []), 'local-resource']
+  }
 }
 
 interface MarkdownPreviewProps {
@@ -108,7 +144,8 @@ export function MarkdownPreview({ content, basePath }: MarkdownPreviewProps): Re
       <div className="md-preview-content">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeRaw]}
+          // Order matters: raw HTML has to become nodes before it can be sanitized.
+          rehypePlugins={[rehypeRaw, [rehypeSanitize, schema]]}
           components={components}
         >
           {content}
