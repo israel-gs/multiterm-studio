@@ -5,6 +5,8 @@ export interface AgentSpawnRequest {
   toolUseId: string
   subagentsDir: string
   cwd: string
+  /** Absolute path of the transcript viewer script installed by the hook. */
+  viewerPath: string
 }
 
 export interface PaneCreateRequest {

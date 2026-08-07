@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync, chmodSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync, readFileSync, chmodSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 
@@ -23,7 +23,16 @@ fi
 export function installCli(): void {
   try {
     if (process.platform !== 'darwin') return
-    if (existsSync(CLI_PATH)) return
+
+    // Rewrite when the shipped script changes; a stale launcher from an older
+    // version would otherwise stay in place forever.
+    if (existsSync(CLI_PATH)) {
+      try {
+        if (readFileSync(CLI_PATH, 'utf-8') === SCRIPT) return
+      } catch {
+        // unreadable — fall through and overwrite
+      }
+    }
 
     mkdirSync(CLI_DIR, { recursive: true })
     writeFileSync(CLI_PATH, SCRIPT, 'utf-8')

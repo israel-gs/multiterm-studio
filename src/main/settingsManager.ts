@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs'
 import { join, dirname } from 'path'
 import { app } from 'electron'
 import { randomUUID } from 'crypto'
+import { SCROLLBACK_DEFAULT_BYTES, clampScrollbackBytes } from '../shared/scrollback'
 
 let settings: Record<string, unknown> = {}
 let settingsPath = ''
@@ -33,33 +34,29 @@ export function setSetting(key: string, value: unknown): void {
 
 // --- Scrollback setting ---
 
-/** Default scrollback buffer size: 8 MB. */
-export const SCROLLBACK_DEFAULT = 8 * 1024 * 1024
-
-/** Minimum scrollback buffer size: 16 KB. */
-export const SCROLLBACK_MIN = 16 * 1024
-
-/** Maximum scrollback buffer size: 64 MB. */
-export const SCROLLBACK_MAX = 64 * 1024 * 1024
+export {
+  SCROLLBACK_DEFAULT_BYTES as SCROLLBACK_DEFAULT,
+  SCROLLBACK_MIN_BYTES as SCROLLBACK_MIN,
+  SCROLLBACK_MAX_BYTES as SCROLLBACK_MAX
+} from '../shared/scrollback'
 
 /**
  * Returns the configured scrollback buffer size in bytes, clamped to
- * [SCROLLBACK_MIN, SCROLLBACK_MAX]. Falls back to SCROLLBACK_DEFAULT when
+ * the supported range. Falls back to the default when
  * the setting is unset or not a number.
  */
 export function getScrollbackBytes(): number {
   const raw = getSetting('terminal.scrollbackBytes')
   if (typeof raw !== 'number' || !Number.isFinite(raw)) {
-    return SCROLLBACK_DEFAULT
+    return SCROLLBACK_DEFAULT_BYTES
   }
-  return Math.min(SCROLLBACK_MAX, Math.max(SCROLLBACK_MIN, raw))
+  return clampScrollbackBytes(raw)
 }
 
 /**
  * Persists the scrollback buffer size. Value is clamped to
- * [SCROLLBACK_MIN, SCROLLBACK_MAX] before storage.
+ * the supported range before storage.
  */
 export function setScrollbackBytes(bytes: number): void {
-  const clamped = Math.min(SCROLLBACK_MAX, Math.max(SCROLLBACK_MIN, bytes))
-  setSetting('terminal.scrollbackBytes', clamped)
+  setSetting('terminal.scrollbackBytes', clampScrollbackBytes(bytes))
 }

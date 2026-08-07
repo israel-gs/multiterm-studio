@@ -1,5 +1,6 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { readdir, stat } from 'fs/promises'
+import type { Dirent } from 'fs'
 import { join } from 'path'
 
 let currentWin: BrowserWindow | null = null
@@ -36,7 +37,15 @@ export function registerFolderHandlers(win: BrowserWindow): void {
   )
 
   ipcMain.handle('folder:readdir', async (_event, dirPath: string) => {
-    const entries = await readdir(dirPath, { withFileTypes: true })
+    // A workspace can legitimately reference a folder that is not currently
+    // reachable (unmounted volume, renamed directory). Report it as empty
+    // rather than rejecting and breaking the whole tree.
+    let entries: Dirent[]
+    try {
+      entries = await readdir(dirPath, { withFileTypes: true })
+    } catch {
+      return []
+    }
     const filtered = entries.filter((e) => e.name !== 'node_modules')
 
     const enriched = await Promise.all(

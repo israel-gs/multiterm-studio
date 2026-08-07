@@ -24,15 +24,70 @@ import {
   injectGeminiHooks,
   removeGeminiHooks
 } from './hookInjector'
-import { startFileWatcher, startMultiFileWatcher, stopFileWatcher } from './fileWatcher'
+import {
+  startFileWatcher,
+  startMultiFileWatcher,
+  stopFileWatcher,
+  stopWatchingFolder
+} from './fileWatcher'
 import { installCli } from './cliInstaller'
 import { loadWorkspaceConfig, saveWorkspaceConfig } from './workspaceConfig'
-import { loadWorkspaceFile, saveWorkspaceFile } from './workspaceFileManager'
+import { loadWorkspaceFile, saveWorkspaceFile, saveWorkspaceFileSync } from './workspaceFileManager'
 import type { MultiTermWorkspace } from './workspaceFileManager'
 import { setupUpdateIPC, updateManager } from './updater'
+import { launchTargetFromArgv } from './launchTarget'
+import { isPathInsideRoots } from './pathGuard'
 
 // Set app name early — used by macOS menu bar
 app.setName('Multiterm Studio')
+
+// Only one instance may run: two would race over the same sidecar control
+// socket and the same ~/.multiterm-studio/socket-path discovery file, leaving
+// agent hooks talking to whichever window happened to start last.
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+}
+
+/**
+ * Folders the local-resource:// protocol may serve from — the workspace roots
+ * currently open. Kept in the main process so the renderer cannot widen it by
+ * asking for a path outside them.
+ */
+let resourceRoots: string[] = []
+
+/** Folder/workspace requested on the command line, pending renderer pickup. */
+let pendingOpenPath: string | null = launchTargetFromArgv(process.argv)
+
+/** Hands a path to the renderer, or parks it until the renderer asks. */
+function requestOpenPath(target: string | null): void {
+  if (!target) return
+  pendingOpenPath = target
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('app:open-path', target)
+  }
+}
+
+function focusMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
+// A second `multiterm <dir>` invocation reuses this instance instead of
+// starting a rival one.
+app.on('second-instance', (_event, argv, workingDirectory) => {
+  focusMainWindow()
+  requestOpenPath(launchTargetFromArgv(argv, workingDirectory))
+})
+
+// macOS: double-clicking a .multiterm-workspace file, or `open <file>`.
+app.on('open-file', (event, filePath) => {
+  event.preventDefault()
+  focusMainWindow()
+  requestOpenPath(filePath)
+})
 
 // Register custom protocol for serving local files (images in markdown preview, etc.)
 // Must be called before app.whenReady()
@@ -90,7 +145,7 @@ function createWindow(): void {
   // Register folder IPC handlers for project context panel (Phase 03)
   registerFolderHandlers(win)
   // Register file read/write IPC handlers for editor tiles
-  registerFileHandlers(win)
+  registerFileHandlers()
   // Register git IPC handlers for branch switching
   registerGitHandlers()
   // Register recent projects IPC handlers
@@ -162,7 +217,8 @@ function createWindow(): void {
         removeCodexHooks(folderPath),
         removeGeminiHooks(folderPath)
       ])
-      stopFileWatcher()
+      // Only this folder — the rest of the workspace stays watched.
+      stopWatchingFolder(folderPath)
     })
 
     // Multi-folder hooks inject/remove
@@ -251,6 +307,19 @@ function createWindow(): void {
       }
     )
 
+    // Workspace roots — bounds what local-resource:// is allowed to serve.
+    ipcMain.on('workspace:set-roots', (_event, roots: string[]) => {
+      resourceRoots = Array.isArray(roots) ? roots.filter((r) => typeof r === 'string') : []
+    })
+
+    // Launch target: the renderer asks once on mount, since it may not have
+    // been listening when the path arrived.
+    ipcMain.handle('app:take-open-path', () => {
+      const target = pendingOpenPath
+      pendingOpenPath = null
+      return target
+    })
+
     // Shell integration
     ipcMain.on('shell:show-item-in-folder', (_event, fullPath: string) => {
       shell.showItemInFolder(fullPath)
@@ -314,8 +383,6 @@ ipcMain.handle('layout:load', async (_event, folderPath: string) => {
 app.on('before-quit', () => {
   if (lastSaveData !== null) {
     if (lastSaveData.mode === 'workspace') {
-      const { saveWorkspaceFileSync } =
-        require('./workspaceFileManager') as typeof import('./workspaceFileManager')
       saveWorkspaceFileSync(lastSaveData.wsFilePath, {
         version: 1,
         folders: lastSaveData.folders,
@@ -354,6 +421,11 @@ app.whenReady().then(async () => {
   // Handle local-resource:// protocol — serves local files for markdown preview images
   protocol.handle('local-resource', (req) => {
     const filePath = decodeURIComponent(new URL(req.url).pathname)
+    if (!isPathInsideRoots(filePath, resourceRoots)) {
+      // Markdown in an untrusted repo could otherwise point an <img> at any
+      // file on the disk and exfiltrate what it renders.
+      return new Response('Forbidden', { status: 403 })
+    }
     return net.fetch(`file://${filePath}`)
   })
 

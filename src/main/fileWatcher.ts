@@ -81,3 +81,19 @@ export function stopFileWatcher(): void {
     worker = null
   }
 }
+
+/**
+ * Stops watching one folder while leaving the rest of the workspace watched.
+ *
+ * Removing a single folder used to call stopFileWatcher(), which tore down
+ * watching for every other folder still open.
+ */
+export function stopWatchingFolder(folderPath: string): void {
+  const remaining = currentFolders.filter((f) => f !== folderPath)
+  if (remaining.length === 0) {
+    stopFileWatcher()
+    return
+  }
+  if (remaining.length === currentFolders.length) return // not watched anyway
+  if (currentWin) startMultiFileWatcher(remaining, currentWin)
+}

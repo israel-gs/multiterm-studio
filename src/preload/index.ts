@@ -1,11 +1,30 @@
 import { contextBridge, ipcRenderer, clipboard } from 'electron'
 
+/** A project or workspace shown on the welcome screen. */
+export interface RecentProject {
+  path: string
+  name: string
+  lastOpened: number
+  openCount: number
+  type?: 'folder' | 'workspace'
+  folderNames?: string[]
+}
+
+/** Auto-updater state broadcast by the main process. */
+export interface UpdateState {
+  status: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'installing' | 'error'
+  progress?: number
+  version?: string
+  releaseNotes?: string
+  error?: string
+}
+
 // Expose the electronAPI to the renderer via contextBridge
 // IMPORTANT: onPtyData uses the unsubscribe closure pattern (electron#33328)
 // ipcRenderer.removeListener fails through contextBridge because the bridge
 // wraps function references — the wrapper is a different object than the original.
 // The fix: capture the wrapper in a closure and return it as the unsubscribe function.
-contextBridge.exposeInMainWorld('electronAPI', {
+const api = {
   // Renderer → Main (two-way via invoke)
   ptyCreate: (id: string, cwd: string, initialCommand?: string): Promise<void> =>
     ipcRenderer.invoke('pty:create', id, cwd, initialCommand),
@@ -21,7 +40,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   ptyCwdChanged: (id: string, cwd: string): void => ipcRenderer.send('pty:cwd-changed', id, cwd),
 
-  ptyHasProcess: (id: string): Promise<boolean> => ipcRenderer.invoke('pty:has-process', id),
+  ptyHasProcess: (id: string): Promise<{ hasProcess: boolean; processName: string | null }> =>
+    ipcRenderer.invoke('pty:has-process', id),
 
   // Folder operations — project context panel (Phase 03)
   folderOpen: (): Promise<string | null> => ipcRenderer.invoke('folder:open'),
@@ -50,6 +70,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (_event: Electron.IpcRendererEvent, data: string): void => callback(data)
     ipcRenderer.on(channel, listener)
     return () => ipcRenderer.removeListener(channel, listener)
+  },
+
+  // PTY exit channel: fires when the shell behind a session dies (or the
+  // sidecar goes away). Filtered per session id by the caller.
+  onPtyExit: (
+    id: string,
+    callback: (info: { exitCode: number; signal?: number; disconnected?: boolean }) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: { id: string; exitCode: number; signal?: number; disconnected?: boolean }
+    ): void => {
+      if (data.id === id) callback(data)
+    }
+    ipcRenderer.on('pty:exit', listener)
+    return () => ipcRenderer.removeListener('pty:exit', listener)
   },
 
   // Attention push channel: fires when PTY output matches an interactive prompt pattern
@@ -94,27 +130,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('folder:create', folderPath),
 
   // Recent projects
-  projectsRecent: (): Promise<
-    Array<{ path: string; name: string; lastOpened: number; openCount: number }>
-  > => ipcRenderer.invoke('projects:recent'),
+  projectsRecent: (): Promise<RecentProject[]> => ipcRenderer.invoke('projects:recent'),
 
   projectsAdd: (
     folderPath: string,
     meta?: { type?: 'folder' | 'workspace'; folderNames?: string[] }
-  ): Promise<
-    Array<{
-      path: string
-      name: string
-      lastOpened: number
-      openCount: number
-      type?: string
-      folderNames?: string[]
-    }>
-  > => ipcRenderer.invoke('projects:add', folderPath, meta),
+  ): Promise<RecentProject[]> => ipcRenderer.invoke('projects:add', folderPath, meta),
 
-  projectsRemove: (
-    folderPath: string
-  ): Promise<Array<{ path: string; name: string; lastOpened: number; openCount: number }>> =>
+  projectsRemove: (folderPath: string): Promise<RecentProject[]> =>
     ipcRenderer.invoke('projects:remove', folderPath),
 
   // Git operations — branch switching
@@ -149,6 +172,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       subagentsDir: string
       ptySessionId: string
       cwd: string
+      viewerPath: string
     }) => void
   ): (() => void) => {
     const listener = (
@@ -159,6 +183,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         subagentsDir: string
         ptySessionId: string
         cwd: string
+        viewerPath: string
       }
     ): void => callback(data)
     ipcRenderer.on('agent:spawning', listener)
@@ -353,55 +378,33 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ): Promise<void> => ipcRenderer.invoke('layout:save-workspace', wsFilePath, layout, expandedDirs),
 
   // Auto-update API
-  updateGetStatus: (): Promise<{
-    status: string
-    progress?: number
-    version?: string
-    releaseNotes?: string
-    error?: string
-  }> => ipcRenderer.invoke('update:getStatus'),
+  updateGetStatus: (): Promise<UpdateState> => ipcRenderer.invoke('update:getStatus'),
 
-  updateCheck: (): Promise<{
-    status: string
-    progress?: number
-    version?: string
-    releaseNotes?: string
-    error?: string
-  }> => ipcRenderer.invoke('update:check'),
+  updateCheck: (): Promise<UpdateState> => ipcRenderer.invoke('update:check'),
 
-  updateDownload: (): Promise<{
-    status: string
-    progress?: number
-    version?: string
-    releaseNotes?: string
-    error?: string
-  }> => ipcRenderer.invoke('update:download'),
+  updateDownload: (): Promise<UpdateState> => ipcRenderer.invoke('update:download'),
 
   updateInstall: (): void => {
     ipcRenderer.send('update:install')
   },
 
-  onUpdateStatus: (
-    callback: (state: {
-      status: string
-      progress?: number
-      version?: string
-      releaseNotes?: string
-      error?: string
-    }) => void
-  ): (() => void) => {
-    const listener = (
-      _event: Electron.IpcRendererEvent,
-      state: {
-        status: string
-        progress?: number
-        version?: string
-        releaseNotes?: string
-        error?: string
-      }
-    ): void => callback(state)
+  onUpdateStatus: (callback: (state: UpdateState) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: UpdateState): void =>
+      callback(state)
     ipcRenderer.on('update:status', listener)
     return () => ipcRenderer.removeListener('update:status', listener)
+  },
+
+  // Declares which folders local-resource:// may serve files from.
+  workspaceSetRoots: (roots: string[]): void => ipcRenderer.send('workspace:set-roots', roots),
+
+  // Launch target — folder/workspace passed on the command line or via Finder
+  appTakeOpenPath: (): Promise<string | null> => ipcRenderer.invoke('app:take-open-path'),
+
+  onOpenPath: (callback: (path: string) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, path: string): void => callback(path)
+    ipcRenderer.on('app:open-path', listener)
+    return () => ipcRenderer.removeListener('app:open-path', listener)
   },
 
   // Shell integration
@@ -412,4 +415,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Clipboard
   clipboardWriteText: (text: string): void => clipboard.writeText(text),
   clipboardReadText: (): string => clipboard.readText()
-})
+}
+
+/**
+ * The renderer's view of the bridge is derived from this object rather than
+ * hand-written, so the two can never drift apart.
+ */
+export type ElectronAPI = typeof api
+
+contextBridge.exposeInMainWorld('electronAPI', api)

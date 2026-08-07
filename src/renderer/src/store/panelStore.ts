@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { colors } from '../tokens'
+import { basename } from '../utils/path'
 
 export interface PanelMeta {
   title: string
@@ -29,6 +30,8 @@ export interface PanelStore {
     cwd?: string
   ) => void
   removePanel: (id: string) => void
+  /** Drops every panel. Used when closing a project. */
+  reset: () => void
   setTitle: (id: string, title: string) => void
   setColor: (id: string, color: string) => void
   setAttention: (id: string) => void
@@ -55,13 +58,11 @@ export const usePanelStore = create<PanelStore>((set) => ({
         [id]: {
           title:
             title ??
-            (type === 'image' && filePath
-              ? filePath.split('/').pop()!
-              : type === 'editor' && filePath
-                ? filePath.split('/').pop()!
-                : type === 'note'
-                  ? 'Note'
-                  : 'Terminal'),
+            ((type === 'image' || type === 'editor') && filePath
+              ? basename(filePath)
+              : type === 'note'
+                ? 'Note'
+                : 'Terminal'),
           color: color ?? colors.bgCard,
           attention: false,
           type: type ?? 'terminal',
@@ -82,6 +83,8 @@ export const usePanelStore = create<PanelStore>((set) => ({
       const { [id]: _, ...rest } = s.panels
       return { panels: rest }
     }),
+
+  reset: () => set({ panels: {}, pendingFocus: null }),
 
   setTitle: (id, title) =>
     set((s) => ({

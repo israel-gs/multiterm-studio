@@ -58,7 +58,7 @@ export function registerGitHandlers(): void {
       branch: string
     ): Promise<{ ok: boolean; error?: string }> => {
       try {
-        await runGit(['checkout', branch], folderPath)
+        await runGit(['checkout', '--end-of-options', branch], folderPath)
         return { ok: true }
       } catch (err: unknown) {
         const stderr = (err as { stderr?: string }).stderr ?? 'Checkout failed'
@@ -75,7 +75,8 @@ export function registerGitHandlers(): void {
       branchName: string
     ): Promise<{ ok: boolean; error?: string }> => {
       try {
-        await runGit(['checkout', '-b', branchName], folderPath)
+        await runGit(['branch', '--end-of-options', branchName], folderPath)
+        await runGit(['checkout', '--end-of-options', branchName], folderPath)
         return { ok: true }
       } catch (err: unknown) {
         const stderr = (err as { stderr?: string }).stderr ?? 'Failed to create branch'
@@ -92,7 +93,7 @@ export function registerGitHandlers(): void {
       branchName: string
     ): Promise<{ ok: boolean; error?: string }> => {
       try {
-        await runGit(['branch', '-d', branchName], folderPath)
+        await runGit(['branch', '-d', '--end-of-options', branchName], folderPath)
         return { ok: true }
       } catch (err: unknown) {
         const stderr = (err as { stderr?: string }).stderr ?? 'Failed to delete branch'

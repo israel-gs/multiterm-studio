@@ -39,7 +39,7 @@ vi.mock('fs/promises', () => ({
 }))
 
 // Helper: create a Dirent-like object
-function makeDirent(name: string, isDir: boolean) {
+function makeDirent(name: string, isDir: boolean): { name: string; isDirectory: () => boolean } {
   return {
     name,
     isDirectory: () => isDir

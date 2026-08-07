@@ -9,7 +9,7 @@ Object.defineProperty(window, 'electronAPI', {
   configurable: true
 })
 
-import { scheduleSave } from '../../src/renderer/src/utils/layoutPersistence'
+import { scheduleSave, flushSave } from '../../src/renderer/src/utils/layoutPersistence'
 
 const folderPath = '/some/project'
 const snapshot1 = {
@@ -64,5 +64,37 @@ describe('layoutPersistence - scheduleSave debounce', () => {
     vi.advanceTimersByTime(1000)
     expect(mockLayoutSave).toHaveBeenCalledTimes(2)
     expect(mockLayoutSave).toHaveBeenNthCalledWith(2, folderPath, snapshot2)
+  })
+})
+
+describe('layoutPersistence - flushSave', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('writes the pending snapshot immediately instead of dropping it', async () => {
+    scheduleSave(folderPath, snapshot1)
+    await flushSave()
+
+    expect(mockLayoutSave).toHaveBeenCalledTimes(1)
+    expect(mockLayoutSave).toHaveBeenCalledWith(folderPath, snapshot1)
+  })
+
+  it('cancels the debounce so the flushed snapshot is not written twice', async () => {
+    scheduleSave(folderPath, snapshot1)
+    await flushSave()
+    vi.advanceTimersByTime(5000)
+
+    expect(mockLayoutSave).toHaveBeenCalledTimes(1)
+  })
+
+  it('is a no-op when nothing is pending', async () => {
+    await flushSave()
+    expect(mockLayoutSave).not.toHaveBeenCalled()
   })
 })

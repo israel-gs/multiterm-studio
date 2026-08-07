@@ -6,8 +6,10 @@ import { EnhancedSidebar } from './components/EnhancedSidebar'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { useProjectStore } from './store/projectStore'
 import { usePanelStore } from './store/panelStore'
+import { flushSave } from './utils/layoutPersistence'
 import { useAppearanceStore } from './store/appearanceStore'
 import type { AppearanceMode } from './tokens'
+import { basename } from './utils/path'
 
 function App(): React.JSX.Element {
   const folderPath = useProjectStore((s) => s.folderPath)
@@ -32,13 +34,44 @@ function App(): React.JSX.Element {
   const prevWidthRef = useRef(300)
   const toggleSidebarRef = useRef(() => {})
 
+  /**
+   * Tears down the project that is currently open before another one replaces it.
+   *
+   * TerminalCanvas is remounted via `key`, and TerminalPanel deliberately does
+   * not kill its PTY on unmount (tile close owns that), so without this every
+   * project switch would strand its shells in the sidecar for the rest of the
+   * run and leave the previous project's panels in the store.
+   *
+   * Note this means terminals do not survive a project switch — reopening the
+   * project starts fresh shells.
+   */
+  const closeCurrentProject = useCallback(async () => {
+    if (prevFolderPathsRef.current.length > 0) {
+      void window.electronAPI.hooksRemoveAll(prevFolderPathsRef.current)
+    }
+
+    // Persist whatever the debounce timer was still holding on to.
+    await flushSave().catch(() => {
+      /* a failed save must not block the switch */
+    })
+
+    const panels = usePanelStore.getState().panels
+    await Promise.all(
+      Object.entries(panels)
+        .filter(([, meta]) => meta.type === 'terminal')
+        .map(([id]) =>
+          window.electronAPI.ptyKill(id).catch(() => {
+            /* already gone */
+          })
+        )
+    )
+    usePanelStore.getState().reset()
+  }, [])
+
   // Open a single project by path: load layout, track in recent, set as current
   const openProject = useCallback(
     async (path: string) => {
-      // Remove hooks from all previous folders
-      if (prevFolderPathsRef.current.length > 0) {
-        void window.electronAPI.hooksRemoveAll(prevFolderPathsRef.current)
-      }
+      await closeCurrentProject()
       const layout = await window.electronAPI.layoutLoad(path)
       savedLayoutRef.current = (layout as SavedLayoutShape) ?? null
       setFolderPath(path)
@@ -51,43 +84,44 @@ function App(): React.JSX.Element {
       })
       void window.electronAPI.hooksInject(path)
     },
-    [setFolderPath]
+    [setFolderPath, closeCurrentProject]
   )
 
   // Open a workspace file: restore all folders + layout + expanded dirs
-  const openWorkspace = useCallback(async (filePath: string) => {
-    if (prevFolderPathsRef.current.length > 0) {
-      void window.electronAPI.hooksRemoveAll(prevFolderPathsRef.current)
-    }
-    const ws = (await window.electronAPI.workspaceFileLoad(filePath)) as {
-      version: number
-      folders: Array<{ path: string }>
-      layout: SavedLayoutShape | null
-      expandedDirs: Record<string, string[]>
-    } | null
-    if (!ws || ws.folders.length === 0) return
+  const openWorkspace = useCallback(
+    async (filePath: string) => {
+      await closeCurrentProject()
+      const ws = (await window.electronAPI.workspaceFileLoad(filePath)) as {
+        version: number
+        folders: Array<{ path: string }>
+        layout: SavedLayoutShape | null
+        expandedDirs: Record<string, string[]>
+      } | null
+      if (!ws || ws.folders.length === 0) return
 
-    const paths = ws.folders.map((f) => f.path)
-    savedLayoutRef.current = ws.layout ?? null
+      const paths = ws.folders.map((f) => f.path)
+      savedLayoutRef.current = ws.layout ?? null
 
-    // Merge all expanded dirs
-    const allExpanded = new Set<string>()
-    for (const dirs of Object.values(ws.expandedDirs ?? {})) {
-      for (const d of dirs) allExpanded.add(d)
-    }
+      // Merge all expanded dirs
+      const allExpanded = new Set<string>()
+      for (const dirs of Object.values(ws.expandedDirs ?? {})) {
+        for (const d of dirs) allExpanded.add(d)
+      }
 
-    const store = useProjectStore.getState()
-    store.setFolderPaths(paths)
-    store.setWorkspaceFilePath(filePath)
-    store.setExpandedDirs(allExpanded)
-    prevFolderPathsRef.current = paths
+      const store = useProjectStore.getState()
+      store.setFolderPaths(paths)
+      store.setWorkspaceFilePath(filePath)
+      store.setExpandedDirs(allExpanded)
+      prevFolderPathsRef.current = paths
 
-    void window.electronAPI.projectsAdd(filePath, {
-      type: 'workspace',
-      folderNames: paths.map((p) => p.split('/').pop() ?? p)
-    })
-    void window.electronAPI.hooksInjectAll(paths)
-  }, [])
+      void window.electronAPI.projectsAdd(filePath, {
+        type: 'workspace',
+        folderNames: paths.map((p) => basename(p) || p)
+      })
+      void window.electronAPI.hooksInjectAll(paths)
+    },
+    [closeCurrentProject]
+  )
 
   // Add a folder to the current workspace
   const addFolderToWorkspace = useCallback(async () => {
@@ -130,7 +164,7 @@ function App(): React.JSX.Element {
     store.setWorkspaceFilePath(filePath)
     void window.electronAPI.projectsAdd(filePath, {
       type: 'workspace',
-      folderNames: store.folderPaths.map((p) => p.split('/').pop() ?? p)
+      folderNames: store.folderPaths.map((p) => basename(p) || p)
     })
   }, [])
 
@@ -139,9 +173,6 @@ function App(): React.JSX.Element {
   useEffect(() => {
     const unsubAttention = window.electronAPI.onAttention((data) => setAttention(data.id))
     const unsubPanelFocus = window.electronAPI.onPanelFocus((id) => clearAttention(id))
-    const unsubAgentSpawning = window.electronAPI.onAgentSpawning(() => {
-      // Agent name tracking removed (TmuxPaneSidebar deleted in Phase 3)
-    })
     const unsubSessionStarted = window.electronAPI.onAgentSessionStarted((data) => {
       if (data.ptySessionId) {
         usePanelStore.getState().setAgentActive(data.ptySessionId, true)
@@ -151,9 +182,6 @@ function App(): React.JSX.Element {
       if (data.ptySessionId) {
         usePanelStore.getState().setAgentActive(data.ptySessionId, false)
       }
-    })
-    const unsubFileTouched = window.electronAPI.onAgentFileTouched(() => {
-      // Future: show file activity indicators
     })
     const unsubFsChanged = window.electronAPI.onFsChanged(() => {
       useProjectStore.getState().bumpFsRefresh()
@@ -167,10 +195,8 @@ function App(): React.JSX.Element {
     return () => {
       unsubAttention()
       unsubPanelFocus()
-      unsubAgentSpawning()
       unsubSessionStarted()
       unsubSessionEnded()
-      unsubFileTouched()
       unsubFsChanged()
       unsubPaneCreate()
       unsubPaneFocus()
@@ -203,6 +229,31 @@ function App(): React.JSX.Element {
       if (timer) clearTimeout(timer)
     }
   }, [])
+
+  // Tell the main process which folders local-resource:// may serve from.
+  // Without this the protocol would happily read any file on the machine.
+  useEffect(() => {
+    window.electronAPI.workspaceSetRoots(folderPaths)
+  }, [folderPaths])
+
+  // Open whatever the app was launched with: `multiterm <dir>` from the CLI, a
+  // double-clicked workspace file, or a second `multiterm` invocation.
+  useEffect(() => {
+    const open = (path: string): void => {
+      if (path.endsWith('.multiterm-workspace') || path.endsWith('.code-workspace')) {
+        void openWorkspace(path)
+      } else {
+        void openProject(path)
+      }
+    }
+
+    // The path may have arrived before this listener existed — claim it first.
+    void window.electronAPI.appTakeOpenPath().then((path) => {
+      if (path) open(path)
+    })
+
+    return window.electronAPI.onOpenPath(open)
+  }, [openProject, openWorkspace])
 
   // Sync sidebar width to CSS custom property (drives .enhanced-sidebar width)
   useEffect(() => {

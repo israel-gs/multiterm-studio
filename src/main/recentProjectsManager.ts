@@ -1,7 +1,8 @@
 import { ipcMain, app } from 'electron'
-import { readFile, writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
+import { readFile, writeFile, rename, mkdir, unlink } from 'fs/promises'
+import { basename, join } from 'path'
 import { existsSync } from 'fs'
+import { randomUUID } from 'crypto'
 
 export interface RecentProject {
   path: string
@@ -26,14 +27,24 @@ async function loadRecent(): Promise<RecentProject[]> {
 }
 
 async function saveRecent(projects: RecentProject[]): Promise<void> {
+  const target = dataPath()
+  // Write-then-rename like every other store in the app, so a crash mid-write
+  // cannot leave a truncated recent-projects file behind.
+  const tmp = `${target}.${randomUUID()}.tmp`
   try {
     const dir = app.getPath('userData')
     if (!existsSync(dir)) {
       await mkdir(dir, { recursive: true })
     }
-    await writeFile(dataPath(), JSON.stringify(projects, null, 2))
+    await writeFile(tmp, JSON.stringify(projects, null, 2))
+    await rename(tmp, target)
   } catch {
     // Silent failure
+    try {
+      await unlink(tmp)
+    } catch {
+      /* ignore cleanup errors */
+    }
   }
 }
 
@@ -54,7 +65,7 @@ export function registerRecentProjectsHandlers(): void {
       meta?: { type?: 'folder' | 'workspace'; folderNames?: string[] }
     ) => {
       const projects = await loadRecent()
-      const name = folderPath.split('/').pop() ?? folderPath
+      const name = basename(folderPath) || folderPath
       const existing = projects.find((p) => p.path === folderPath)
       if (existing) {
         existing.lastOpened = Date.now()

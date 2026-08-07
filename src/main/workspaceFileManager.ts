@@ -1,5 +1,5 @@
 import { mkdir, writeFile, rename, readFile, unlink } from 'fs/promises'
-import { mkdirSync, writeFileSync, renameSync, unlinkSync, existsSync } from 'fs'
+import { mkdirSync, writeFileSync, renameSync, unlinkSync } from 'fs'
 import { dirname, resolve, isAbsolute } from 'path'
 import { randomUUID } from 'crypto'
 import type { LayoutSnapshot } from './layoutManager'
@@ -25,11 +25,9 @@ function isVSCodeWorkspace(data: unknown): data is VSCodeWorkspace {
 
 function convertVSCodeWorkspace(data: VSCodeWorkspace, wsFilePath: string): MultiTermWorkspace {
   const wsDir = dirname(wsFilePath)
-  const folders = data.folders
-    .map((f) => ({
-      path: isAbsolute(f.path) ? f.path : resolve(wsDir, f.path)
-    }))
-    .filter((f) => existsSync(f.path))
+  const folders = data.folders.map((f) => ({
+    path: isAbsolute(f.path) ? f.path : resolve(wsDir, f.path)
+  }))
   return {
     version: 1,
     folders,
@@ -51,7 +49,9 @@ export async function loadWorkspaceFile(filePath: string): Promise<MultiTermWork
     // Native .multiterm-workspace format
     const ws = parsed as MultiTermWorkspace
     if (ws.version !== 1) return null
-    ws.folders = ws.folders.filter((f) => existsSync(f.path))
+    // Folders are deliberately NOT filtered by existence here. A folder on an
+    // unmounted volume would otherwise be dropped from the in-memory workspace
+    // and then erased from the file on the next layout save.
     return ws
   } catch {
     return null
