@@ -3,23 +3,36 @@ productName: Multiterm Studio
 directories:
   buildResources: build
 files:
-  - '!**/.vscode/*'
-  - '!src/*'
+  # Everything the app does not need at runtime. The previous `!src/*` only
+  # matched top-level children, so the sources shipped inside the asar.
+  - '!**/.vscode/**'
+  - '!src/**'
+  - '!scripts/**'
+  - '!tests/**'
+  - '!build/**'
+  - '!.github/**'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
-  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!vitest.config.{js,ts,mjs,cjs}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,.editorconfig}'
+  - '!{dev-app-update.yml,CHANGELOG.md,README.md,PLAN.md,skills-lock.json}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml,package-lock.json}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
-  - '!openspec/**/*'
-  - '!.atl/**/*'
-  - '!.planning/**/*'
-  - '!tmux-*.log'
-  - '!tmux-server-*.log'
-  - '!tmux-client-*.log'
-  - '!tmux-out-*.log'
+  - '!*.tsbuildinfo'
+  # Agent and planning tooling that lives in the repo but is not part of the app.
+  - '!openspec/**'
+  - '!.atl/**'
+  - '!.planning/**'
+  - '!.claude/**'
+  - '!.agents/**'
+  - '!.agent/**'
+  - '!.opencode/**'
+  # Written into the project by the app itself, never part of the build.
+  - '!.codex/**'
+  - '!.gemini/**'
+  - '!.multiterm/**'
   - '!*.log'
-  - '!**/*.test.ts'
-  - '!**/*.test.tsx'
-  - '!tests/**/*'
+  - '!**/*.test.{ts,tsx}'
+
 asarUnpack:
   - resources/**
 win:
@@ -31,12 +44,21 @@ nsis:
   createDesktopShortcut: always
 mac:
   artifactName: ${name}-${version}-${arch}-mac.${ext}
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
+  hardenedRuntime: true
+  gatekeeperAssess: false
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+  # Notarization is what makes auto-update actually install on macOS: without
+  # it quitAndInstall silently fails and update-manager can only fall back to
+  # opening the release page (see its install() method).
+  #
+  # To enable: set this to true and export APPLE_ID,
+  # APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID when running build:mac.
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}
@@ -45,8 +67,8 @@ linux:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org
-  category: Utility
+  maintainer: israel-gs
+  category: Development
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
