@@ -110,7 +110,7 @@ describe('SettingsPanel — Terminal tab', () => {
     renderPanel()
     clickTerminalTab()
     await waitFor(() => {
-      const hint = screen.getByText(/newly created sessions/i)
+      const hint = screen.getAllByText(/newly created sessions/i)[0]
       expect(hint).toBeTruthy()
     })
   })

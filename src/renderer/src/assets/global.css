@@ -3462,3 +3462,10 @@ main > .sidebar-toggle-btn {
   outline: 1px dashed var(--accent, #6366f1);
   outline-offset: -1px;
 }
+
+/* Placeholder while a tile's lazily-loaded editor chunk downloads. */
+.panel-loading {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-card);
+}

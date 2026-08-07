@@ -1,10 +1,19 @@
-import { useRef, useCallback, useState } from 'react'
+import { useRef, useCallback, useState, lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
 import { CardHeader } from './CardHeader'
 import { TerminalPanel } from './Terminal'
-import { EditorPanel } from './EditorPanel'
-import { NotePanel } from './NotePanel'
 import { ImagePanel } from './ImagePanel'
+
+// Monaco (~13 MB with its language workers) and TipTap are only needed once a
+// tile of that kind exists. Loading them eagerly delayed startup for everyone,
+// including canvases made entirely of terminals.
+const EditorPanel = lazy(() => import('./EditorPanel').then((m) => ({ default: m.EditorPanel })))
+const NotePanel = lazy(() => import('./NotePanel').then((m) => ({ default: m.NotePanel })))
+
+/** Placeholder shown while a tile's editor chunk is still downloading. */
+function PanelLoading(): React.JSX.Element {
+  return <div className="panel-loading" aria-busy="true" />
+}
 import { usePanelStore } from '../store/panelStore'
 
 export interface CardRect {
@@ -501,17 +510,19 @@ export function FloatingCard({
           className="floating-card-inner"
           style={!focused ? { pointerEvents: 'none' } : undefined}
         >
-          {type === 'image' && filePath && previewMode ? (
-            <EditorPanel sessionId={sessionId} filePath={filePath} />
-          ) : type === 'image' && filePath ? (
-            <ImagePanel sessionId={sessionId} filePath={filePath} />
-          ) : type === 'editor' && filePath ? (
-            <EditorPanel sessionId={sessionId} filePath={filePath} />
-          ) : type === 'note' ? (
-            <NotePanel sessionId={sessionId} />
-          ) : (
-            <TerminalPanel sessionId={sessionId} cwd={panelCwd || cwd} zoomRef={zoomRef} />
-          )}
+          <Suspense fallback={<PanelLoading />}>
+            {type === 'image' && filePath && previewMode ? (
+              <EditorPanel sessionId={sessionId} filePath={filePath} />
+            ) : type === 'image' && filePath ? (
+              <ImagePanel sessionId={sessionId} filePath={filePath} />
+            ) : type === 'editor' && filePath ? (
+              <EditorPanel sessionId={sessionId} filePath={filePath} />
+            ) : type === 'note' ? (
+              <NotePanel sessionId={sessionId} />
+            ) : (
+              <TerminalPanel sessionId={sessionId} cwd={panelCwd || cwd} zoomRef={zoomRef} />
+            )}
+          </Suspense>
         </div>
       </div>
 

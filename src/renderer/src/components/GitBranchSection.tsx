@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { GitBranch, ChevronDown, Search, Plus, X, Check, Trash2 } from 'lucide-react'
 import { useGitStore } from '../store/gitStore'
+import { basename } from '../utils/path'
 
 interface GitBranchSectionProps {
   folderPath: string
@@ -15,7 +16,7 @@ export function GitBranchSection({
   const isMulti = effectivePaths.length > 1
   const [activeFolderIdx, setActiveFolderIdx] = useState(0)
   const activeFolder = effectivePaths[activeFolderIdx] ?? effectivePaths[0]
-  const activeFolderName = activeFolder.split('/').pop() ?? activeFolder
+  const activeFolderName = basename(activeFolder) || activeFolder
 
   // Reset index if folderPaths change
   useEffect(() => {
@@ -204,7 +205,7 @@ export function GitBranchSection({
                 aria-label="Select project"
               >
                 {effectivePaths.map((fp, idx) => {
-                  const name = fp.split('/').pop() ?? fp
+                  const name = basename(fp) || fp
                   const isCurrent = idx === activeFolderIdx
                   return (
                     <button

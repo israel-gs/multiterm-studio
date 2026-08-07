@@ -23,6 +23,7 @@ import {
   TerminalSquare
 } from 'lucide-react'
 import { useProjectStore } from '../store/projectStore'
+import { basename } from '../utils/path'
 
 interface TreeEntry {
   name: string
@@ -217,14 +218,15 @@ const FileTreeNode = React.memo(function FileTreeNode({
   const bumpFsRefresh = useProjectStore((s) => s.bumpFsRefresh)
   const fsRefreshKey = useProjectStore((s) => s.fsRefreshKey)
 
+  // Children not fetched yet — the spinner is derived rather than stored, so
+  // the effect below does not have to set state synchronously.
+  const initialLoading = isDir && expanded && children === null
+  const busy = loading || initialLoading
+
   // Auto-load children when defaultExpanded and on fsRefresh
   useEffect(() => {
     if (isDir && expanded && children === null) {
-      setLoading(true)
-      window.electronAPI.folderReaddir(path).then((entries) => {
-        setChildren(entries)
-        setLoading(false)
-      })
+      window.electronAPI.folderReaddir(path).then(setChildren)
     }
   }, [isDir, expanded, path]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -394,10 +396,9 @@ const FileTreeNode = React.memo(function FileTreeNode({
 
   // Clear newChildRename after it's been consumed
   useEffect(() => {
-    if (newChildRename) {
-      const timer = setTimeout(() => setNewChildRename(null), 100)
-      return () => clearTimeout(timer)
-    }
+    if (!newChildRename) return undefined
+    const timer = setTimeout(() => setNewChildRename(null), 100)
+    return () => clearTimeout(timer)
   }, [newChildRename])
 
   const isHidden = name.startsWith('.')
@@ -490,17 +491,17 @@ const FileTreeNode = React.memo(function FileTreeNode({
         ) : (
           <span className="file-tree-name" data-entry-name>
             {name}
-            {isDir && !loading && itemCount !== undefined && (
+            {isDir && !busy && itemCount !== undefined && (
               <span className="file-tree-count">{itemCount}</span>
             )}
           </span>
         )}
 
         {/* Loading spinner */}
-        {loading && <SpinnerIcon />}
+        {busy && <SpinnerIcon />}
 
         {/* Folder action buttons: new file/folder + open terminal */}
-        {isDir && !loading && (
+        {isDir && !busy && (
           <span className="file-tree-actions">
             <button
               className="file-tree-action-btn"
@@ -592,7 +593,7 @@ export function FileTree({
   searchQuery = '',
   sortOrder = 'alpha-asc'
 }: FileTreeProps): React.JSX.Element {
-  const rootName = rootPath.split('/').pop() || rootPath
+  const rootName = basename(rootPath) || rootPath
 
   return (
     <div role="tree" aria-label="File tree" style={{ padding: '4px 0' }}>
@@ -625,8 +626,8 @@ export function MultiRootFileTree({
 }: MultiRootFileTreeProps): React.JSX.Element {
   return (
     <div role="tree" aria-label="File tree" style={{ padding: '4px 0' }}>
-      {rootPaths.map((rootPath, i) => {
-        const rootName = rootPath.split('/').pop() || rootPath
+      {rootPaths.map((rootPath) => {
+        const rootName = basename(rootPath) || rootPath
         return (
           <div key={rootPath} className="file-tree-root-section">
             {/* no separator — roots are visually distinct by their top-level folder style */}

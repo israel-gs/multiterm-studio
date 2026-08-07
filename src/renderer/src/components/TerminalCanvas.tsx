@@ -8,7 +8,10 @@ import { usePanelStore } from '../store/panelStore'
 import { useProjectStore } from '../store/projectStore'
 import type { AgentSpawnRequest, PaneCreateRequest } from '../store/projectStore'
 import { scheduleSave } from '../utils/layoutPersistence'
+import { shellQuote } from '../utils/shellQuote'
+import { extractLeafIds } from '../utils/layoutMigration'
 import { colors } from '../tokens'
+import { basename } from '../utils/path'
 
 export interface SavedLayoutShape {
   version: number
@@ -48,21 +51,6 @@ const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', '
 function inferTileType(filePath: string): 'editor' | 'image' {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
   return IMAGE_EXTS.has(ext) ? 'image' : 'editor'
-}
-
-function extractLeafIds(node: unknown): string[] {
-  if (node === null || node === undefined) return []
-  if (typeof node === 'string') return [node]
-  if (typeof node === 'object' && node !== null) {
-    const obj = node as Record<string, unknown>
-    if (Array.isArray(obj.children)) {
-      return obj.children.flatMap((child: unknown) => extractLeafIds(child))
-    }
-    if (obj.first !== undefined || obj.second !== undefined) {
-      return [...extractLeafIds(obj.first), ...extractLeafIds(obj.second)]
-    }
-  }
-  return []
 }
 
 function normalizeZIndices(positions: Record<string, CardRect>): Record<string, CardRect> {
@@ -307,11 +295,15 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
   // === Main viewport effect: grid, pan, zoom, edge indicators, keyboard, selection, marquee ===
   useEffect(() => {
-    const viewport = viewportRef.current
-    const gridCanvas = gridCanvasRef.current
-    const tileLayer = tileLayerRef.current
-    const edgeContainer = edgeIndicatorsRef.current
-    const zoomIndicator = zoomIndicatorRef.current
+    // The `!` assertions are backed by the guard immediately below. They are
+    // needed because the helpers in this effect are hoisted `function`
+    // declarations, and TypeScript discards narrowing for variables captured by
+    // a hoisted function (it could, in principle, run before the guard).
+    const viewport = viewportRef.current!
+    const gridCanvas = gridCanvasRef.current!
+    const tileLayer = tileLayerRef.current!
+    const edgeContainer = edgeIndicatorsRef.current!
+    const zoomIndicator = zoomIndicatorRef.current!
     if (!viewport || !gridCanvas || !tileLayer || !edgeContainer || !zoomIndicator) return
 
     const ctx = gridCanvas.getContext('2d')!
@@ -1247,30 +1239,22 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
   // --- Spawn agent terminal (viewer that tails agent transcript) ---
   function handleSpawnAgentTerminal(req: AgentSpawnRequest): void {
-    const dedupTag = `#${req.toolUseId}`
+    // The tag only ever contains characters that are inert in a shell, so it is
+    // safe to embed in the trailing comment used for dedup.
+    const dedupTag = `#${req.toolUseId.replace(/[^A-Za-z0-9_-]/g, '')}`
     const allPanels = usePanelStore.getState().panels
     for (const id of panelIdsRef.current) {
       if (allPanels[id]?.initialCommand?.includes(dedupTag)) return
     }
 
+    // Everything below comes off the JSON-RPC socket. It is passed to the
+    // viewer as argv (quoted), never interpolated into a shell snippet — see
+    // shellQuote.
+    if (!req.viewerPath) return
+
     const newId = crypto.randomUUID()
     const title = `@${req.agentName}`
-    const viewerCmd =
-      `node -e "` +
-      `const fs=require('fs'),path=require('path'),dir='${req.subagentsDir.replace(/'/g, "\\'")}';` +
-      `const ex=new Set();try{fs.readdirSync(dir).forEach(f=>{if(f.startsWith('agent-')&&f.endsWith('.jsonl'))ex.add(f)})}catch{}` +
-      `process.stdout.write('\\\\x1b[35m\\\\x1b[1m● @${req.agentName.replace(/'/g, "\\'")}\\\\x1b[0m — waiting...\\\\n');` +
-      `let claimed=false,pos=0;` +
-      `setInterval(()=>{if(claimed)return;try{fs.readdirSync(dir).forEach(f=>{if(!claimed&&f.startsWith('agent-')&&f.endsWith('.jsonl')&&!ex.has(f)){claimed=true;ex.add(f);` +
-      `process.stdout.write('\\\\x1b[2K\\\\x1b[1A\\\\x1b[2K\\\\x1b[35m\\\\x1b[1m● @${req.agentName.replace(/'/g, "\\'")}\\\\x1b[0m — running\\\\n\\\\n');` +
-      `const fp=path.join(dir,f);setInterval(()=>{try{const s=fs.statSync(fp).size;if(s<=pos)return;const b=Buffer.alloc(s-pos),fd=fs.openSync(fp,'r');fs.readSync(fd,b,0,b.length,pos);fs.closeSync(fd);pos=s;` +
-      `b.toString().split('\\\\n').forEach(l=>{if(!l.trim())return;try{const d=JSON.parse(l);` +
-      `if(d.type==='assistant'&&d.message&&d.message.content){d.message.content.forEach(c=>{` +
-      `if(c.type==='text')process.stdout.write(c.text+'\\\\n');` +
-      `if(c.type==='tool_use')process.stdout.write('\\\\x1b[36m  ▸ '+c.name+(c.input&&c.input.file_path?' '+c.input.file_path:c.input&&c.input.command?' $ '+c.input.command.split('\\\\n')[0]:'')+'\\\\x1b[0m\\\\n')})}` +
-      `if(d.type==='result'){process.stdout.write('\\\\n\\\\x1b[32m✓ Done\\\\x1b[0m\\\\n')}}catch{}})}catch{}},200)}})` +
-      `}catch{}},200)` +
-      `" ${dedupTag}`
+    const viewerCmd = `node ${shellQuote(req.viewerPath)} ${shellQuote(req.subagentsDir)} ${dedupTag}`
     addPanel(newId, title, colors.purple, 'terminal', undefined, viewerCmd)
 
     // Position to the right of rightmost panel
@@ -1417,7 +1401,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
     // Create new editor panel
     const newId = crypto.randomUUID()
-    const fileName = filePath.split('/').pop() ?? 'Untitled'
+    const fileName = basename(filePath) || 'Untitled'
     addPanel(newId, fileName, undefined, 'editor', filePath)
 
     // Position at viewport center, avoiding overlap
@@ -1527,7 +1511,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       if (state.pendingTerminalCwd && state.pendingTerminalCwd !== prev.pendingTerminalCwd) {
         const cwd = state.pendingTerminalCwd
         useProjectStore.getState().clearPendingTerminalCwd()
-        const dirName = cwd.split('/').pop() || 'Terminal'
+        const dirName = basename(cwd) || 'Terminal'
         handleCreateTerminal(dirName, '', cwd)
       }
     })
@@ -1750,7 +1734,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     }
 
     const newId = crypto.randomUUID()
-    const fileName = filePath.split('/').pop() ?? 'Image'
+    const fileName = basename(filePath) || 'Image'
     addPanel(newId, fileName, colors.bgCard, 'image', filePath)
 
     const viewport = viewportRef.current
@@ -1805,7 +1789,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     }
 
     const newId = crypto.randomUUID()
-    const fileName = filePath.split('/').pop() ?? 'File'
+    const fileName = basename(filePath) || 'File'
     addPanel(newId, fileName, colors.bgCard, 'editor', filePath)
 
     const { x, y } = findNonOverlappingPosition(cx, cy, DEFAULT_W, DEFAULT_H, positionsRef.current)
@@ -1863,7 +1847,8 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       return next
     })
     setPositions((prev) => {
-      const { [id]: _, ...rest } = prev
+      const { [id]: removed, ...rest } = prev
+      void removed
       positionsRef.current = rest
       triggerSave(panelIdsRef.current, rest)
       return rest

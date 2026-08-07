@@ -4,9 +4,18 @@ import { Sun, TerminalSquare, Pencil, Keyboard, Moon, Monitor, X } from 'lucide-
 import { useAppearanceStore } from '../store/appearanceStore'
 import type { AppearanceMode } from '../tokens'
 
-const SCROLLBACK_DEFAULT = 8 * 1024 * 1024
-const SCROLLBACK_MIN = 16 * 1024
-const SCROLLBACK_MAX = 64 * 1024 * 1024
+import {
+  SCROLLBACK_DEFAULT_BYTES as SCROLLBACK_DEFAULT,
+  SCROLLBACK_MIN_BYTES as SCROLLBACK_MIN,
+  SCROLLBACK_MAX_BYTES as SCROLLBACK_MAX,
+  clampScrollbackBytes
+} from '../../../shared/scrollback'
+
+/**
+ * OSC 52 clipboard writes stay on by default to match other terminals, but the
+ * toggle exists because the sequence is honoured for remote processes too.
+ */
+const OSC52_DEFAULT = true
 
 interface SettingsPanelProps {
   onClose: () => void
@@ -93,13 +102,25 @@ function AppearanceSettings(): React.JSX.Element {
 
 function TerminalSettings(): React.JSX.Element {
   const [scrollbackBytes, setScrollbackBytesState] = useState<number>(SCROLLBACK_DEFAULT)
+  const [osc52Enabled, setOsc52Enabled] = useState<boolean>(OSC52_DEFAULT)
+
+  useEffect(() => {
+    window.electronAPI
+      .settingsGet('terminal.osc52Clipboard')
+      .then((raw) => {
+        if (typeof raw === 'boolean') setOsc52Enabled(raw)
+      })
+      .catch(() => {
+        // silently keep default
+      })
+  }, [])
 
   useEffect(() => {
     window.electronAPI
       .settingsGet('terminal.scrollbackBytes')
       .then((raw) => {
         if (typeof raw === 'number' && Number.isFinite(raw)) {
-          const clamped = Math.min(SCROLLBACK_MAX, Math.max(SCROLLBACK_MIN, raw))
+          const clamped = clampScrollbackBytes(raw)
           setScrollbackBytesState(clamped)
         }
       })
@@ -110,11 +131,19 @@ function TerminalSettings(): React.JSX.Element {
 
   const scrollbackMb = scrollbackBytes / (1024 * 1024)
 
+  function handleOsc52Change(e: React.ChangeEvent<HTMLInputElement>): void {
+    const enabled = e.target.checked
+    setOsc52Enabled(enabled)
+    window.electronAPI.settingsSet('terminal.osc52Clipboard', enabled).catch(() => {
+      // silent
+    })
+  }
+
   function handleScrollbackChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const mb = parseFloat(e.target.value)
     if (!Number.isFinite(mb)) return
     const bytes = Math.round(mb * 1024 * 1024)
-    const clamped = Math.min(SCROLLBACK_MAX, Math.max(SCROLLBACK_MIN, bytes))
+    const clamped = clampScrollbackBytes(bytes)
     setScrollbackBytesState(clamped)
     window.electronAPI.settingsSet('terminal.scrollbackBytes', clamped).catch(() => {
       // silent
@@ -147,6 +176,27 @@ function TerminalSettings(): React.JSX.Element {
         <p className="stg-setting-hint">
           Maximum in-memory scrollback retained by the sidecar per terminal session. Changes apply
           to newly created sessions only.
+        </p>
+      </div>
+
+      <div className="stg-group">
+        <div className="stg-group-label">Clipboard access (OSC 52)</div>
+        <div className="stg-setting-row">
+          <label className="stg-checkbox-label">
+            <input
+              type="checkbox"
+              className="stg-checkbox"
+              checked={osc52Enabled}
+              onChange={handleOsc52Change}
+              aria-label="Allow programs to write to the system clipboard"
+            />
+            <span>Allow programs to write to the system clipboard</span>
+          </label>
+        </div>
+        <p className="stg-setting-hint">
+          Lets terminal programs copy text via the OSC 52 escape sequence. This also applies to
+          processes on remote machines you are connected to, which can then replace your clipboard
+          contents without any visible sign. Changes apply to newly created sessions only.
         </p>
       </div>
     </div>

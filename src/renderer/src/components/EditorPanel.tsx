@@ -4,6 +4,7 @@ import { colors, lightColors, fonts } from '../tokens'
 import { usePanelStore } from '../store/panelStore'
 import { useAppearanceStore } from '../store/appearanceStore'
 import { MarkdownPreview } from './MarkdownPreview'
+import { basename } from '../utils/path'
 
 interface EditorPanelProps {
   sessionId: string
@@ -45,7 +46,7 @@ const EXT_TO_LANG: Record<string, string> = {
 }
 
 function detectLanguage(filePath: string): string {
-  const name = filePath.split('/').pop() ?? ''
+  const name = basename(filePath)
   const lower = name.toLowerCase()
   if (lower === 'dockerfile') return 'dockerfile'
   if (lower === 'makefile') return 'makefile'

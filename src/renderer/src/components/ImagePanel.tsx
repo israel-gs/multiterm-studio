@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { basename } from '../utils/path'
 
 interface ImagePanelProps {
   sessionId: string
@@ -15,7 +16,7 @@ export function ImagePanel({ filePath }: ImagePanelProps): React.JSX.Element {
       ) : (
         <img
           src={`local-resource://${filePath}`}
-          alt={filePath.split('/').pop() ?? 'Image'}
+          alt={basename(filePath) || 'Image'}
           draggable={false}
           onError={() => setError(true)}
         />

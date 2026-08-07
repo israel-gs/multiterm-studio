@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { basename } from '../utils/path'
 
 interface RecentProject {
   path: string
@@ -57,7 +58,7 @@ export function WelcomeScreen({
             return {
               ...p,
               type: 'workspace' as const,
-              folderNames: ws?.folders?.map((f) => f.path.split('/').pop() ?? f.path) ?? []
+              folderNames: ws?.folders?.map((f) => basename(f.path) || f.path) ?? []
             }
           }
           if (isWsPath && !p.type) return { ...p, type: 'workspace' as const }
