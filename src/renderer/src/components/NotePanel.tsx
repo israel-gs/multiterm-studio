@@ -38,7 +38,7 @@ export function NotePanel({ sessionId }: Props): React.JSX.Element {
       return
     }
     if (editor.getHTML() !== noteContent) {
-      editor.commands.setContent(noteContent, false)
+      editor.commands.setContent(noteContent, { emitUpdate: false })
     }
   }, [noteContent, editor])
 

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { UpdateState } from '../../../preload'
 
 interface UpdateStoreState {
   status: UpdateState['status']

@@ -1,10 +1,10 @@
-import { ipcMain, BrowserWindow, shell } from 'electron'
+import { ipcMain, shell } from 'electron'
 import { readFile, writeFile, rename, mkdir } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 
 let fileHandlersRegistered = false
 
-export function registerFileHandlers(_win: BrowserWindow): void {
+export function registerFileHandlers(): void {
   if (fileHandlersRegistered) return
   fileHandlersRegistered = true
   ipcMain.handle('file:read', async (_event, filePath: string) => {

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import {
   PanelLeft,
   ChevronDown,
-  Plus,
   Search,
   Settings,
   FolderPlus,
@@ -13,6 +12,7 @@ import { FileTree, MultiRootFileTree, SortMode } from './FileTree'
 import { GitBranchSection } from './GitBranchSection'
 import { SettingsPanel } from './SettingsPanel'
 import { useProjectStore } from '../store/projectStore'
+import { basename } from '../utils/path'
 
 interface RecentProject {
   path: string
@@ -56,7 +56,7 @@ export function EnhancedSidebar({
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([])
-  const folderName = folderPath.split('/').pop() ?? folderPath
+  const folderName = basename(folderPath) || folderPath
   const shortPath = shortenPath(folderPath)
 
   // Load recent projects when dropdown opens
@@ -135,7 +135,7 @@ export function EnhancedSidebar({
         {dropdownOpen && (
           <div className="sidebar-project-dropdown">
             {otherProjects.map((project) => {
-              const pName = project.path.split('/').pop() ?? project.path
+              const pName = basename(project.path) || project.path
               const pShort = shortenPath(project.path).replace(/\/[^/]+$/, '/')
               return (
                 <button

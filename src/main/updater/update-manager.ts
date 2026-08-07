@@ -37,7 +37,9 @@ class UpdateManager {
 
     // Dynamic require — electron-updater may not be available in all builds
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      // Loaded lazily on purpose: electron-updater is absent from some builds
+      // and a static import would break startup there.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const electronUpdater = require('electron-updater')
       autoUpdater = electronUpdater.autoUpdater ?? electronUpdater.default?.autoUpdater
     } catch (err) {
