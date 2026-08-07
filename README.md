@@ -19,11 +19,8 @@ Built with Electron, React, TypeScript, and xterm.js.
 - Persistent sidecar-backed PTY with in-memory scrollback; OSC 7 for working-directory tracking
 - Quick Start presets: Claude Code, Codex, OpenCode, Shell (custom commands supported)
 - Running process indicator with close confirmation
-- Mouse mode toggle in Settings
-
-### Breaking Changes (v1.2.0)
-
-- The `pane.sendKeys` JSON-RPC method has been removed. It was tmux-only and has no replacement in the sidecar PTY architecture.
+- GPU (WebGL) rendering, with automatic fallback to the DOM renderer
+- Mouse mode toggle in Settings; OSC 52 clipboard access can be disabled
 
 ### Canvas Interaction
 
@@ -73,6 +70,17 @@ Built with Electron, React, TypeScript, and xterm.js.
 - Claude Code hooks for session tracking and agent spawning
 - Agent activity indicator in card header
 - JSON-RPC server for external tool communication
+
+Opening a project registers hooks in its `.claude/settings.local.json` (the
+per-developer file, not the committed `settings.json`); the hook scripts
+themselves live in `~/.multiterm-studio/hooks/` and are shared by every project.
+Closing the project removes the registration.
+
+The JSON-RPC server listens on the socket path in
+`~/.multiterm-studio/socket-path`. It can create panes and run commands in your
+terminals, so it is owner-only and every request must include a `token` field
+holding the contents of `~/.multiterm-studio/socket-token`. Both files are
+recreated on each launch. Call `rpc.discover` for the method list.
 
 ### Appearance
 
@@ -128,10 +136,22 @@ pnpm build:linux
 
 ### CLI
 
-After first launch, a `multiterm` command is installed at `~/.local/bin/`:
+After first launch, a `multiterm` command is installed at `~/.local/bin/`
+(add that directory to your `PATH` if it is not already there):
 
 ```bash
-multiterm /path/to/project
+multiterm                     # open the current directory
+multiterm /path/to/project    # open a specific folder
+multiterm team.multiterm-workspace
+```
+
+Only one instance runs at a time — running `multiterm` again opens the folder in
+the window you already have.
+
+### Checks
+
+```bash
+pnpm check        # lint + typecheck + tests, the same set CI runs
 ```
 
 ## Tech Stack
