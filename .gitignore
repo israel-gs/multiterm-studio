@@ -1,12 +1,23 @@
 node_modules
 dist
 out
+release
+*.tsbuildinfo
+
+# This project uses pnpm — a second lockfile only drifts.
+package-lock.json
 .DS_Store
 .eslintcache
 *.log*
 
 # Multiterm Studio local config
 .multiterm/
+
+# Agent integration files this app writes into whatever project it opens —
+# including its own repository.
+.codex/
+.gemini/
+.opencode/
 
 # docs
 docs/
