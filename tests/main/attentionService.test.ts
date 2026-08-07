@@ -10,7 +10,8 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 const { MockNotification, mockNotificationInstance } = vi.hoisted(() => {
   const mockNotificationInstance = {
     on: vi.fn(),
-    show: vi.fn()
+    show: vi.fn(),
+    close: vi.fn()
   }
   const MockNotification = vi.fn(() => mockNotificationInstance)
   return { MockNotification, mockNotificationInstance }

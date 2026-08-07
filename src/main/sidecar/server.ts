@@ -1,16 +1,26 @@
 import { createServer, type Server as NetServer, type Socket } from 'net'
-import { existsSync, unlinkSync, mkdirSync } from 'fs'
-import { dirname, join } from 'path'
+import { execFile } from 'child_process'
+import { existsSync, unlinkSync } from 'fs'
+import { join } from 'path'
 import * as pty from 'node-pty'
 import { RingBuffer } from './ring-buffer'
 import { osc7ShellHook } from './shell-init'
+import { ensureSecureDir, secureSocketFile } from '../socketSecurity'
+import { SCROLLBACK_DEFAULT_BYTES } from '../../shared/scrollback'
 import {
-  DEFAULT_SCROLLBACK_BYTES,
+  SESSION_EXIT_METHOD,
   sessionDataEndpointPath,
   type SessionCreateParams,
   type SessionCreateResult,
+  type SessionExitParams,
   type JsonRpcRequest
 } from './protocol'
+
+/**
+ * Hard cap on a single control-socket line. A peer that never sends a newline
+ * would otherwise grow the read buffer without bound.
+ */
+const MAX_CONTROL_LINE_BYTES = 1024 * 1024
 
 // ── Internal session record ───────────────────────────────────────────────────
 
@@ -21,6 +31,9 @@ interface Session {
   dataEndpoint: string
   dataServer: NetServer
   dataClients: Set<Socket>
+  /** Set once the PTY process has exited. The record is kept so scrollback
+   *  replay keeps working until the client explicitly calls session.kill. */
+  exited: boolean
 }
 
 // ── SidecarServer options ─────────────────────────────────────────────────────
@@ -47,6 +60,8 @@ export class SidecarServer {
   private readonly sessionDir: string | undefined
   private controlServer: NetServer | null = null
   private readonly sessions = new Map<string, Session>()
+  /** Live control connections — `session.exit` notifications go to all of them. */
+  private readonly controlClients = new Set<Socket>()
 
   constructor(opts: SidecarServerOptions) {
     this.controlEndpoint = opts.controlEndpoint
@@ -57,14 +72,18 @@ export class SidecarServer {
 
   async listen(): Promise<void> {
     removeSocket(this.controlEndpoint)
-    ensureDir(this.controlEndpoint)
+    ensureSecureDir(this.controlEndpoint)
 
     return new Promise<void>((resolve, reject) => {
       const srv = createServer((socket) => this.handleControlConnection(socket))
       this.controlServer = srv
 
       srv.on('error', reject)
-      srv.listen(this.controlEndpoint, () => resolve())
+      srv.listen(this.controlEndpoint, () => {
+        // Writing to this socket means writing to a PTY — owner only.
+        secureSocketFile(this.controlEndpoint)
+        resolve()
+      })
     })
   }
 
@@ -89,9 +108,18 @@ export class SidecarServer {
   private handleControlConnection(socket: Socket): void {
     let buf = ''
     socket.setEncoding('utf8')
+    this.controlClients.add(socket)
 
     socket.on('data', (chunk: string) => {
       buf += chunk
+
+      if (buf.length > MAX_CONTROL_LINE_BYTES) {
+        // Unterminated garbage — drop the peer instead of growing forever.
+        buf = ''
+        socket.destroy()
+        return
+      }
+
       const lines = buf.split('\n')
       buf = lines.pop() ?? ''
 
@@ -105,6 +133,17 @@ export class SidecarServer {
     socket.on('error', () => {
       // Connection dropped — silently ignore
     })
+
+    socket.on('close', () => {
+      this.controlClients.delete(socket)
+    })
+  }
+
+  /** Sends a JSON-RPC notification to every connected control client. */
+  private broadcastNotification(method: string, params: unknown): void {
+    for (const client of this.controlClients) {
+      sendJson(client, { jsonrpc: '2.0', method, params })
+    }
   }
 
   private handleControlMessage(socket: Socket, raw: string): void {
@@ -139,6 +178,9 @@ export class SidecarServer {
       case 'session.replay':
         this.handleReplay(socket, id, params as { sessionId: string })
         break
+      case 'session.foreground':
+        this.handleForeground(socket, id, params as { sessionId: string })
+        break
       default:
         sendJson(socket, {
           jsonrpc: '2.0',
@@ -153,16 +195,22 @@ export class SidecarServer {
   private handleCreate(socket: Socket, id: string | number, params: SessionCreateParams): void {
     const { sessionId, shell, cwd, cols, rows, scrollbackBytes, initialCommand } = params
 
-    if (this.sessions.has(sessionId)) {
+    const existing = this.sessions.get(sessionId)
+    if (existing && !existing.exited) {
       // Idempotent: return the existing session's endpoint instead of erroring.
       // No new PTY is spawned and no new ring buffer is created.
-      const existing = this.sessions.get(sessionId)!
       const result: SessionCreateResult = { sessionId, dataEndpoint: existing.dataEndpoint }
       sendJson(socket, { jsonrpc: '2.0', id, result })
       return
     }
+    if (existing) {
+      // The previous PTY for this id died. Tear the husk down completely so the
+      // caller gets a live shell rather than a socket nobody is listening on.
+      this.destroySession(existing)
+      this.sessions.delete(sessionId)
+    }
 
-    const buffer = new RingBuffer(scrollbackBytes ?? DEFAULT_SCROLLBACK_BYTES)
+    const buffer = new RingBuffer(scrollbackBytes ?? SCROLLBACK_DEFAULT_BYTES)
 
     // Spawn the PTY
     const ptyProcess = pty.spawn(shell, [], {
@@ -170,12 +218,12 @@ export class SidecarServer {
       cols,
       rows,
       cwd,
-      env: process.env as Record<string, string>
+      env: ptyEnv()
     })
 
     // Determine data endpoint path
     const dataEndpoint = this.resolveDataEndpoint(sessionId)
-    ensureDir(dataEndpoint)
+    ensureSecureDir(dataEndpoint)
     removeSocket(dataEndpoint)
 
     const dataServer = createServer((dataClient) => {
@@ -211,7 +259,8 @@ export class SidecarServer {
       buffer,
       dataEndpoint,
       dataServer,
-      dataClients: new Set()
+      dataClients: new Set(),
+      exited: false
     }
 
     this.sessions.set(sessionId, session)
@@ -230,14 +279,27 @@ export class SidecarServer {
       }
     })
 
-    ptyProcess.onExit(() => {
-      // Remove from registry; do not forcibly destroy the data server so
-      // replay still works until the next session.kill.
-      this.sessions.delete(sessionId)
+    ptyProcess.onExit(({ exitCode, signal }) => {
+      // Keep the record (and its ring buffer) so replay still works until the
+      // client calls session.kill, but stop accepting new data connections and
+      // drop the socket file so it does not linger in ~/.multiterm-studio.
+      session.exited = true
+      try {
+        session.dataServer.close()
+      } catch {
+        // ignore
+      }
+      removeSocket(session.dataEndpoint)
+
+      const params: SessionExitParams = { sessionId, exitCode, signal }
+      this.broadcastNotification(SESSION_EXIT_METHOD, params)
     })
 
     // Start the data server, then respond
     dataServer.listen(dataEndpoint, () => {
+      // Bytes written to this socket are fed straight into the PTY — owner only.
+      secureSocketFile(dataEndpoint)
+
       // After 300 ms the shell prompt is ready. Write in strict order:
       //   1. OSC 7 hook (if the shell needs one)
       //   2. initialCommand (if provided)
@@ -275,7 +337,7 @@ export class SidecarServer {
     params: { sessionId: string; data: string }
   ): void {
     const session = this.sessions.get(params.sessionId)
-    if (!session) {
+    if (!session || session.exited) {
       sendJson(socket, {
         jsonrpc: '2.0',
         id,
@@ -304,7 +366,7 @@ export class SidecarServer {
     params: { sessionId: string; cols: number; rows: number }
   ): void {
     const session = this.sessions.get(params.sessionId)
-    if (!session) {
+    if (!session || session.exited) {
       sendJson(socket, {
         jsonrpc: '2.0',
         id,
@@ -366,6 +428,66 @@ export class SidecarServer {
     sendJson(socket, { jsonrpc: '2.0', id, result: null })
   }
 
+  /**
+   * Reports whether a command is running in the session, and its name.
+   *
+   * The shell is the PTY's direct child; anything it runs in the foreground is
+   * a child of the shell. Asking `ps` for the shell's children is therefore a
+   * good enough proxy, and avoids needing the tty fd that node-pty does not
+   * expose.
+   */
+  private handleForeground(
+    socket: Socket,
+    id: string | number,
+    params: { sessionId: string }
+  ): void {
+    const session = this.sessions.get(params.sessionId)
+    if (!session || session.exited) {
+      sendJson(socket, { jsonrpc: '2.0', id, result: { hasProcess: false, processName: null } })
+      return
+    }
+
+    execFile('ps', ['-o', 'comm=', '--ppid', String(session.pty.pid)], (err, stdout) => {
+      if (err) {
+        // BSD ps (macOS) does not accept --ppid; fall back to filtering by ppid.
+        execFile('ps', ['-o', 'ppid=,comm='], (err2, all) => {
+          if (err2) {
+            sendJson(socket, {
+              jsonrpc: '2.0',
+              id,
+              result: { hasProcess: false, processName: null }
+            })
+            return
+          }
+          const child = all
+            .split('\n')
+            .map((line) => line.trim().match(/^(\d+)\s+(.*)$/))
+            .find((m) => m && Number(m[1]) === session.pty.pid)
+          sendJson(socket, {
+            jsonrpc: '2.0',
+            id,
+            result: child
+              ? { hasProcess: true, processName: baseCommand(child[2]) }
+              : { hasProcess: false, processName: null }
+          })
+        })
+        return
+      }
+
+      const name = stdout
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)[0]
+      sendJson(socket, {
+        jsonrpc: '2.0',
+        id,
+        result: name
+          ? { hasProcess: true, processName: baseCommand(name) }
+          : { hasProcess: false, processName: null }
+      })
+    })
+  }
+
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   private resolveDataEndpoint(sessionId: string): string {
@@ -406,6 +528,33 @@ export class SidecarServer {
 
 // ── Module-level utilities ────────────────────────────────────────────────────
 
+/**
+ * Variables Electron injects into this process that must not reach the user's
+ * shell. The sidecar is forked from Electron, so `process.env` carries
+ * ELECTRON_RUN_AS_NODE=1 and friends; inheriting them makes `node`, `npx` and
+ * anything else Node-based misbehave inside every terminal.
+ */
+const STRIPPED_ENV_VARS = [
+  'ELECTRON_RUN_AS_NODE',
+  'ELECTRON_NO_ATTACH_CONSOLE',
+  'ELECTRON_NO_ASAR',
+  'NODE_OPTIONS',
+  'SIDECAR_CONTROL_ENDPOINT'
+]
+
+/** The environment a spawned shell should see. */
+function ptyEnv(): Record<string, string> {
+  const env: Record<string, string> = { ...(process.env as Record<string, string>) }
+  for (const key of STRIPPED_ENV_VARS) delete env[key]
+  return env
+}
+
+/** Strips path and arguments from a `ps` command column. */
+function baseCommand(raw: string): string {
+  const first = raw.trim().split(/\s+/)[0] ?? raw
+  return first.split('/').pop() || first
+}
+
 function sendJson(socket: Socket, obj: unknown): void {
   try {
     socket.write(JSON.stringify(obj) + '\n')
@@ -417,14 +566,6 @@ function sendJson(socket: Socket, obj: unknown): void {
 function removeSocket(path: string): void {
   try {
     if (existsSync(path)) unlinkSync(path)
-  } catch {
-    // ignore
-  }
-}
-
-function ensureDir(filePath: string): void {
-  try {
-    mkdirSync(dirname(filePath), { recursive: true })
   } catch {
     // ignore
   }

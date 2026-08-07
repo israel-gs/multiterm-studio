@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { homedir } from 'os'
 import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, readdirSync } from 'fs'
 import { resolve, join } from 'path'
-import { handleAttentionEvent } from './attentionService'
+import { handleAttentionEvent, clearAttentionNotification } from './attentionService'
 import { getScrollbackBytes } from './settingsManager'
 import type { SidecarClient } from './sidecar/client'
 
@@ -90,6 +90,18 @@ function deleteSessionMeta(id: string): void {
 
 const cwdCache = new Map<string, string>()
 
+/**
+ * Trailing bytes of the previous chunk per session.
+ *
+ * PTY output arrives in arbitrarily-sized chunks, so a prompt like
+ * "Continue? (y/N)" can be split across two reads and match neither. Each chunk
+ * is tested with the previous tail prepended.
+ */
+const attentionTails = new Map<string, string>()
+
+/** Long enough to span any prompt ATTENTION_PATTERN can match. */
+const ATTENTION_TAIL_CHARS = 200
+
 // --- Session data-endpoint tracking (for onData unsubscription) ---
 
 interface SessionEntry {
@@ -118,11 +130,6 @@ export function listPtySessions(): string[] {
   return Array.from(sessions.keys())
 }
 
-/** Update the BrowserWindow reference used by PTY data push (called when window is re-created). */
-export function setPtyWindow(win: BrowserWindow): void {
-  currentWin = win
-}
-
 /** @internal Reset registration guard — only for tests */
 export function _resetPtyHandlersForTests(): void {
   ptyHandlersRegistered = false
@@ -131,6 +138,17 @@ export function _resetPtyHandlersForTests(): void {
   sessions.clear()
   cwdCache.clear()
   attentionCooldown.clear()
+  attentionTails.clear()
+}
+
+/** Forget every trace of a session. Safe to call more than once. */
+function forgetSession(id: string): void {
+  clearAttentionNotification(id)
+  sessions.delete(id)
+  attentionCooldown.delete(id)
+  attentionTails.delete(id)
+  cwdCache.delete(id)
+  deleteSessionMeta(id)
 }
 
 export function registerPtyHandlers(win: BrowserWindow, client: SidecarClient): void {
@@ -139,6 +157,27 @@ export function registerPtyHandlers(win: BrowserWindow, client: SidecarClient): 
 
   if (ptyHandlersRegistered) return
   ptyHandlersRegistered = true
+
+  // The sidecar tells us when a shell dies (user typed `exit`, process crashed,
+  // …). Without this the tile stays on screen looking alive forever.
+  client.onSessionExit(({ sessionId, exitCode, signal }) => {
+    if (!sessions.has(sessionId)) return
+    forgetSession(sessionId)
+    if (currentWin && !currentWin.isDestroyed()) {
+      currentWin.webContents.send('pty:exit', { id: sessionId, exitCode, signal })
+    }
+  })
+
+  // If the sidecar process itself dies, every session is gone with it.
+  client.onDisconnect(() => {
+    const orphaned = Array.from(sessions.keys())
+    for (const id of orphaned) forgetSession(id)
+    if (currentWin && !currentWin.isDestroyed()) {
+      for (const id of orphaned) {
+        currentWin.webContents.send('pty:exit', { id, exitCode: -1, disconnected: true })
+      }
+    }
+  })
 
   ipcMain.handle('pty:create', async (_event, id: string, cwd: string, initialCommand?: string) => {
     const shell = process.env.SHELL || (process.platform === 'win32' ? 'cmd.exe' : '/bin/bash')
@@ -181,12 +220,17 @@ export function registerPtyHandlers(win: BrowserWindow, client: SidecarClient): 
       const data = chunk.toString('utf8')
       currentWin.webContents.send(`pty:data:${id}`, data)
 
-      if (ATTENTION_PATTERN.test(data)) {
+      // Match across the chunk boundary, then remember this chunk's tail.
+      const tail = attentionTails.get(id) ?? ''
+      const searchable = tail + data
+      attentionTails.set(id, searchable.slice(-ATTENTION_TAIL_CHARS))
+
+      if (ATTENTION_PATTERN.test(searchable)) {
         const now = Date.now()
         const lastFired = attentionCooldown.get(id) ?? 0
         if (now - lastFired >= ATTENTION_COOLDOWN_MS) {
           attentionCooldown.set(id, now)
-          const snippet = data.slice(0, 120).trim()
+          const snippet = data.slice(0, 120).trim() || searchable.slice(-120).trim()
           currentWin.webContents.send('pty:attention', { id, snippet })
           handleAttentionEvent(currentWin, id, 'Terminal', snippet)
         }
@@ -211,10 +255,13 @@ export function registerPtyHandlers(win: BrowserWindow, client: SidecarClient): 
   })
 
   ipcMain.handle('pty:has-process', async (_event, id: string) => {
-    // The sidecar does not expose process detection; return false so the UI
-    // does not block on a broken IPC. A future phase can add this.
     if (!sessions.has(id)) return { hasProcess: false, processName: null }
-    return { hasProcess: false, processName: null }
+    try {
+      return await client.foreground(id)
+    } catch {
+      // Never let a probe failure break the close-confirmation UI.
+      return { hasProcess: false, processName: null }
+    }
   })
 
   ipcMain.handle('pty:get-cwd', (_event, id: string) => {
@@ -229,11 +276,11 @@ export function registerPtyHandlers(win: BrowserWindow, client: SidecarClient): 
 
   ipcMain.handle('pty:kill', async (_event, id: string) => {
     if (!sessions.has(id)) return
-    await client.kill(id)
-    sessions.delete(id)
-    attentionCooldown.delete(id)
-    cwdCache.delete(id)
-    deleteSessionMeta(id)
+    try {
+      await client.kill(id)
+    } finally {
+      forgetSession(id)
+    }
   })
 
   // OSC 7 CWD push: renderer fires this after parsing an OSC 7 sequence

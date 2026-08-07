@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, act } from '@testing-library/react'
-import React from 'react'
 
 // --- Hoisted mock refs (available inside vi.mock factory) ---
 
-const { mockTerm, mockFitAddon, mockWebLinksAddon, MockTerminalConstructor } = vi.hoisted(() => {
+const { mockTerm, mockFitAddon, mockWebLinksAddon, mockWebglAddon, MockTerminalConstructor } =
+  vi.hoisted(() => {
   const mockTerm = {
     loadAddon: vi.fn(),
     open: vi.fn(),
@@ -21,8 +21,9 @@ const { mockTerm, mockFitAddon, mockWebLinksAddon, MockTerminalConstructor } = v
   }
   const mockFitAddon = { fit: vi.fn() }
   const mockWebLinksAddon = {}
+  const mockWebglAddon = { onContextLoss: vi.fn(), dispose: vi.fn() }
   const MockTerminalConstructor = vi.fn(() => mockTerm)
-  return { mockTerm, mockFitAddon, mockWebLinksAddon, MockTerminalConstructor }
+  return { mockTerm, mockFitAddon, mockWebLinksAddon, mockWebglAddon, MockTerminalConstructor }
 })
 
 // --- Module mocks ---
@@ -39,6 +40,10 @@ vi.mock('@xterm/addon-web-links', () => ({
   WebLinksAddon: vi.fn(() => mockWebLinksAddon)
 }))
 
+vi.mock('@xterm/addon-webgl', () => ({
+  WebglAddon: vi.fn(() => mockWebglAddon)
+}))
+
 // Mock xterm.css import (no-op in tests)
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}))
 
@@ -47,7 +52,7 @@ vi.mock('@xterm/xterm/css/xterm.css', () => ({}))
 const mockObserve = vi.fn()
 const mockDisconnect = vi.fn()
 
-global.ResizeObserver = vi.fn((_cb) => ({
+global.ResizeObserver = vi.fn(() => ({
   observe: mockObserve,
   disconnect: mockDisconnect
 }))
@@ -61,6 +66,7 @@ const mockElectronAPI = {
   ptyKill: vi.fn().mockResolvedValue(undefined),
   onPtyData: vi.fn().mockReturnValue(vi.fn()),
   onPtyScrollback: vi.fn().mockReturnValue(vi.fn()),
+  onPtyExit: vi.fn().mockReturnValue(vi.fn()),
   ptyCwdChanged: vi.fn(),
   settingsGet: vi.fn().mockResolvedValue(true)
 }
@@ -88,16 +94,17 @@ describe('TerminalPanel', () => {
     mockElectronAPI.ptyKill.mockResolvedValue(undefined)
     mockElectronAPI.onPtyData.mockReturnValue(vi.fn())
     mockElectronAPI.onPtyScrollback.mockReturnValue(vi.fn())
+    mockElectronAPI.onPtyExit.mockReturnValue(vi.fn())
     mockElectronAPI.settingsGet.mockResolvedValue(true)
     MockTerminalConstructor.mockReturnValue(mockTerm)
   })
 
-  it('creates xterm Terminal with scrollback: 200000', () => {
+  it('creates xterm Terminal with a bounded scrollback', () => {
     act(() => {
       render(<TerminalPanel sessionId={sessionId} cwd={cwd} />)
     })
     expect(MockTerminalConstructor).toHaveBeenCalledWith(
-      expect.objectContaining({ scrollback: 200000 })
+      expect.objectContaining({ scrollback: 50_000 })
     )
   })
 

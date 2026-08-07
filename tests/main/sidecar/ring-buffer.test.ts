@@ -1,11 +1,11 @@
 /** @vitest-environment node */
 import { describe, test, expect } from 'vitest'
+import { RingBuffer } from '../../../src/main/sidecar/ring-buffer'
 import {
-  RingBuffer,
-  DEFAULT_SCROLLBACK_BYTES,
-  MIN_SCROLLBACK_BYTES,
-  MAX_SCROLLBACK_BYTES
-} from '../../../src/main/sidecar/ring-buffer'
+  SCROLLBACK_DEFAULT_BYTES as DEFAULT_SCROLLBACK_BYTES,
+  SCROLLBACK_MIN_BYTES as MIN_SCROLLBACK_BYTES,
+  SCROLLBACK_MAX_BYTES as MAX_SCROLLBACK_BYTES
+} from '../../../src/shared/scrollback'
 
 describe('RingBuffer — constants', () => {
   test('DEFAULT_SCROLLBACK_BYTES is 8 MB', () => {

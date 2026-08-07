@@ -36,7 +36,8 @@ vi.mock('electron', () => ({
 // ── attentionService mock ─────────────────────────────────────────────────────
 
 vi.mock('../../src/main/attentionService', () => ({
-  handleAttentionEvent: vi.fn()
+  handleAttentionEvent: vi.fn(),
+  clearAttentionNotification: vi.fn()
 }))
 
 // ── settingsManager mock ──────────────────────────────────────────────────────
@@ -76,8 +77,18 @@ const mockClient = {
   replay: vi.fn(async () => undefined),
   onData: vi.fn(async (id: string, _dataEndpoint: string, cb: (chunk: Buffer) => void) => {
     mockOnDataCbs.set(id, cb)
-  })
+  }),
+  onSessionExit: vi.fn((cb: (params: { sessionId: string; exitCode: number }) => void) => {
+    mockSessionExitCb = cb
+    return () => {
+      mockSessionExitCb = null
+    }
+  }),
+  onDisconnect: vi.fn(() => () => {})
 }
+
+/** Captured `session.exit` listener registered by registerPtyHandlers. */
+let mockSessionExitCb: ((params: { sessionId: string; exitCode: number }) => void) | null = null
 
 // ── BrowserWindow mock ────────────────────────────────────────────────────────
 
@@ -310,6 +321,50 @@ describe('pty:kill — cleans up session state', () => {
   })
 })
 
+describe('sidecar session.exit — surfaced to the renderer', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    Object.keys(capturedHandlers).forEach((k) => delete capturedHandlers[k])
+    Object.keys(capturedListeners).forEach((k) => delete capturedListeners[k])
+    mockOnDataCbs.clear()
+    await setupHandlers()
+  })
+
+  test('subscribes to the client exit notification', () => {
+    expect(mockClient.onSessionExit).toHaveBeenCalled()
+    expect(mockSessionExitCb).toBeTypeOf('function')
+  })
+
+  test('sends pty:exit to the renderer when the shell dies', async () => {
+    await capturedHandlers['pty:create'](fakeEvent, 'exit-sess', '/tmp')
+    vi.clearAllMocks()
+
+    mockSessionExitCb!({ sessionId: 'exit-sess', exitCode: 7 })
+
+    expect(mockWebContents.send).toHaveBeenCalledWith('pty:exit', {
+      id: 'exit-sess',
+      exitCode: 7,
+      signal: undefined
+    })
+  })
+
+  test('forgets the session so later writes do not reach a dead PTY', async () => {
+    await capturedHandlers['pty:create'](fakeEvent, 'exit-write-sess', '/tmp')
+    mockSessionExitCb!({ sessionId: 'exit-write-sess', exitCode: 0 })
+    vi.clearAllMocks()
+
+    await capturedHandlers['pty:write'](fakeEvent, 'exit-write-sess', 'data')
+
+    expect(mockClient.write).not.toHaveBeenCalled()
+  })
+
+  test('ignores an exit for a session it never tracked', () => {
+    mockSessionExitCb!({ sessionId: 'never-seen', exitCode: 0 })
+
+    expect(mockWebContents.send).not.toHaveBeenCalledWith('pty:exit', expect.anything())
+  })
+})
+
 describe('pty:cwd-changed and pty:get-cwd — CWD cache', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -384,6 +439,32 @@ describe('attention detection — ATTENTION_PATTERN and cooldown', () => {
       id: 'attn-sess',
       snippet: expect.any(String)
     })
+  })
+
+  test('detects a prompt split across two chunks', async () => {
+    await capturedHandlers['pty:create'](fakeEvent, 'split-sess', '/tmp')
+
+    const cb = mockOnDataCbs.get('split-sess')!
+    // PTY reads land on arbitrary boundaries — this one bisects "(y/N)".
+    cb(Buffer.from('Overwrite the file? (y'))
+    cb(Buffer.from('/N) '))
+
+    expect(mockWebContents.send).toHaveBeenCalledWith('pty:attention', {
+      id: 'split-sess',
+      snippet: expect.any(String)
+    })
+  })
+
+  test('does not match across unrelated output far apart in the stream', async () => {
+    await capturedHandlers['pty:create'](fakeEvent, 'far-sess', '/tmp')
+
+    const cb = mockOnDataCbs.get('far-sess')!
+    cb(Buffer.from('Overwrite the file? (y'))
+    cb(Buffer.from('x'.repeat(500))) // pushes the fragment out of the tail window
+    cb(Buffer.from('/N) '))
+
+    const attentionCalls = mockWebContents.send.mock.calls.filter((c) => c[0] === 'pty:attention')
+    expect(attentionCalls).toHaveLength(0)
   })
 
   test('5-second cooldown: second match within 5s does NOT fire attention again', async () => {

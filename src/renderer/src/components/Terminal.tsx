@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { Terminal } from '@xterm/xterm'
+import { Terminal, type ITheme } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
+import { WebglAddon } from '@xterm/addon-webgl'
 import '@xterm/xterm/css/xterm.css'
 import { colors, lightColors, fonts } from '../tokens'
 import { usePanelStore } from '../store/panelStore'
@@ -13,7 +14,7 @@ interface Props {
   zoomRef?: React.RefObject<number>
 }
 
-const darkTheme = {
+const darkTheme: ITheme = {
   background: colors.bgCard,
   foreground: colors.fgPrimary,
   cursor: colors.fgPrimary,
@@ -36,7 +37,7 @@ const darkTheme = {
   brightWhite: '#ffffff'
 }
 
-const lightTheme = {
+const lightTheme: ITheme = {
   background: lightColors.bgCard,
   foreground: lightColors.fgPrimary,
   cursor: lightColors.fgPrimary,
@@ -59,7 +60,7 @@ const lightTheme = {
   brightWhite: '#000000'
 }
 
-function resolveTheme(): typeof darkTheme {
+function resolveTheme(): ITheme {
   const mode = useAppearanceStore.getState().mode
   if (mode === 'light') return lightTheme
   if (mode === 'system') {
@@ -75,7 +76,13 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
     if (!containerRef.current) return
 
     const term = new Terminal({
-      scrollback: 200000,
+      // xterm preallocates a slot per scrollback line in both the normal and
+      // alternate buffers, so this is a per-tile memory floor paid by every
+      // terminal on the canvas — 200_000 costs megabytes per tile before a
+      // single byte of output. The sidecar keeps the authoritative history
+      // (see the scrollback setting), this is just what stays scrollable in
+      // the UI.
+      scrollback: 50_000,
       fontSize: 14,
       fontFamily: fonts.mono,
       theme: resolveTheme(),
@@ -94,6 +101,24 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
 
     // CRITICAL: term.open() must precede fitAddon.fit()
     term.open(containerRef.current)
+
+    // GPU renderer. The DOM renderer repaints every cell as an element, which
+    // is what makes a canvas full of busy terminals crawl. Must be loaded after
+    // open(); if the context is lost or unavailable, xterm falls back to the
+    // DOM renderer on its own once the addon is disposed.
+    let webglAddon: WebglAddon | null = null
+    try {
+      webglAddon = new WebglAddon()
+      webglAddon.onContextLoss(() => {
+        webglAddon?.dispose()
+        webglAddon = null
+      })
+      term.loadAddon(webglAddon)
+    } catch {
+      // No WebGL available (software rendering, remote session) — DOM renderer.
+      webglAddon = null
+    }
+
     fitAddon.fit()
 
     // Register OSC 7 handler for CWD tracking.
@@ -114,7 +139,22 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
     // Create PTY session in main process
     // If initialCommand is set, pass it to ptyCreate so the sidecar sends it after spawn
     const meta = usePanelStore.getState().panels[sessionId]
-    window.electronAPI.ptyCreate(sessionId, cwd, meta?.initialCommand)
+    window.electronAPI.ptyCreate(sessionId, cwd, meta?.initialCommand).catch((err: Error) => {
+      // Surface the failure in the tile instead of leaving a blank terminal.
+      term.write(`\r\n\x1b[31mFailed to start terminal: ${err.message}\x1b[0m\r\n`)
+    })
+
+    // Shell died (or the sidecar went away) — say so instead of pretending the
+    // dead terminal is still live.
+    const unsubExit = window.electronAPI.onPtyExit(sessionId, (info) => {
+      const reason = info.disconnected
+        ? 'terminal backend disconnected'
+        : info.signal
+          ? `killed by signal ${info.signal}`
+          : `exited with code ${info.exitCode}`
+      term.write(`\r\n\x1b[2m[process ${reason}]\x1b[0m\r\n`)
+      usePanelStore.getState().setHasProcess(sessionId, false, null)
+    })
 
     // Clipboard integration: Cmd+C copies selection to system clipboard,
     // Cmd+V pastes from system clipboard into the terminal.
@@ -141,6 +181,7 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
     // Filter out DA1/DA2/XTVERSION responses that xterm.js generates in reply
     // to terminal queries. The IPC roundtrip delay causes these to arrive
     // after the shell exits its query state, so they get forwarded to the shell as text.
+    // eslint-disable-next-line no-control-regex -- matching ANSI escapes is the point
     const DA_RESPONSE = /^\x1b\[\??[\d;]*c$|^\x1b\[>[\d;]*c$|^\x1bP>[|].*\x1b\\$/
     term.onData((data) => {
       if (DA_RESPONSE.test(data)) return
@@ -155,35 +196,61 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
     // Handle OSC 52 clipboard sequences.
     // When a terminal copies text (mouse selection with set-clipboard on), it sends
     // OSC 52: \x1b]52;c;<base64>\x07 (or \x1b\\ as terminator).
-    // We intercept this, decode the base64, and write to system clipboard.
-    const OSC52_RE =
-      /\x1b\]52;[a-z]*;([A-Za-z0-9+/=]*)\x07|\x1b\]52;[a-z]*;([A-Za-z0-9+/=]*)\x1b\\/g
-    function handleOsc52(data: string): string {
-      return data.replace(OSC52_RE, (_match, b64a, b64b) => {
-        const b64 = b64a || b64b
-        if (b64) {
-          try {
-            const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
-            const text = new TextDecoder().decode(bytes)
-            window.electronAPI.clipboardWriteText(text)
-          } catch {
-            /* ignore decode errors */
-          }
-        }
-        return '' // strip the OSC 52 sequence from terminal output
+    //
+    // Registering with xterm's parser rather than regex-replacing each chunk:
+    // the parser reassembles sequences split across reads, which a per-chunk
+    // regex silently misses (and it strips the sequence from the output for us).
+    // Off means the sequence is still consumed (so it never prints as garbage)
+    // but the clipboard is left alone.
+    let osc52Allowed = true
+    void window.electronAPI
+      .settingsGet('terminal.osc52Clipboard')
+      .then((raw) => {
+        if (typeof raw === 'boolean') osc52Allowed = raw
       })
-    }
+      .catch(() => {
+        /* keep the default */
+      })
+
+    term.parser.registerOscHandler(52, (data: string) => {
+      const b64 = data.slice(data.indexOf(';') + 1)
+      if (osc52Allowed && b64 && b64 !== '?') {
+        try {
+          const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+          window.electronAPI.clipboardWriteText(new TextDecoder().decode(bytes))
+        } catch {
+          /* ignore decode errors */
+        }
+      }
+      return true
+    })
 
     // Main → Renderer: PTY output
     const unsubscribe = window.electronAPI.onPtyData(sessionId, (data) => {
-      term.write(handleOsc52(data))
+      term.write(data)
     })
 
     // Resize roundtrip: ResizeObserver → fitAddon.fit() → IPC pty:resize
+    //
+    // Coalesced into one frame: dragging a tile edge fires the observer on
+    // every pointer move, and each raw call reflows xterm and sends the PTY a
+    // SIGWINCH. Programs like vim repaint on every one of those.
+    let resizeRaf: number | null = null
+    let lastCols = 0
+    let lastRows = 0
     const observer = new ResizeObserver(() => {
-      fitAddon.fit()
-      const { cols, rows } = term
-      window.electronAPI.ptyResize(sessionId, cols, rows)
+      if (resizeRaf !== null) return
+      resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = null
+        fitAddon.fit()
+        const { cols, rows } = term
+        // fit() often lands on the same cell grid — only tell the PTY when the
+        // dimensions actually changed.
+        if (cols === lastCols && rows === lastRows) return
+        lastCols = cols
+        lastRows = rows
+        window.electronAPI.ptyResize(sessionId, cols, rows)
+      })
     })
     observer.observe(containerRef.current)
 
@@ -197,7 +264,7 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
     // wrong cell positions from mouse events (screen-space offset / logical cell size).
     // We intercept mouse events in capture phase and adjust clientX/clientY so the
     // offset from getBoundingClientRect() is in logical pixels.
-    const xtermScreen = containerRef.current.querySelector('.xterm-screen')
+    const xtermScreen = containerRef.current.querySelector<HTMLElement>('.xterm-screen')
     function adjustMouseForZoom(e: MouseEvent): void {
       const scale = zoomRef?.current ?? 1
       if (scale === 1 || !xtermScreen) return
@@ -232,14 +299,17 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
     return () => {
       unsubAppearance()
       unsubScrollback()
+      unsubExit()
       unsubscribe()
       observer.disconnect()
+      if (resizeRaf !== null) cancelAnimationFrame(resizeRaf)
       clearInterval(processInterval)
       if (xtermScreen) {
         xtermScreen.removeEventListener('mousedown', adjustMouseForZoom, true)
         xtermScreen.removeEventListener('mousemove', adjustMouseForZoom, true)
         xtermScreen.removeEventListener('mouseup', adjustMouseForZoom, true)
       }
+      webglAddon?.dispose()
       // NOTE: ptyKill is intentionally NOT called here.
       // PTY lifecycle is managed by TerminalCanvas's handleClosePanel
       // to avoid double-kill when a panel is closed.

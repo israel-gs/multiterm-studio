@@ -559,4 +559,197 @@ describe('SidecarServer — JSON-RPC over Unix socket', () => {
 
     ctrl.close()
   }, 10_000)
+
+  // ── Foreground process detection ───────────────────────────────────────────
+
+  it('session.foreground reports no process for an idle shell', async () => {
+    const ctrl = await connectControl(controlSock)
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 60,
+      method: 'session.create',
+      params: { sessionId: 'sess-idle', shell: '/bin/sh', cwd: tmpdir(), cols: 80, rows: 24 }
+    })
+    await ctrl.nextLine()
+    await sleep(500) // let the shell settle at its prompt
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 61,
+      method: 'session.foreground',
+      params: { sessionId: 'sess-idle' }
+    })
+    const resp = JSON.parse(await ctrl.nextLine())
+    expect(resp.result).toEqual({ hasProcess: false, processName: null })
+
+    ctrl.close()
+  }, 10_000)
+
+  it('session.foreground names the command running in the shell', async () => {
+    const ctrl = await connectControl(controlSock)
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 62,
+      method: 'session.create',
+      params: { sessionId: 'sess-busy', shell: '/bin/sh', cwd: tmpdir(), cols: 80, rows: 24 }
+    })
+    await ctrl.nextLine()
+    await sleep(400)
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 63,
+      method: 'session.write',
+      params: { sessionId: 'sess-busy', data: 'sleep 5\n' }
+    })
+    await ctrl.nextLine()
+    await sleep(600) // give the shell time to fork `sleep`
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 64,
+      method: 'session.foreground',
+      params: { sessionId: 'sess-busy' }
+    })
+    const resp = JSON.parse(await ctrl.nextLine())
+    expect(resp.result.hasProcess).toBe(true)
+    expect(resp.result.processName).toBe('sleep')
+
+    ctrl.close()
+  }, 15_000)
+
+  // ── The shell must not inherit Electron's environment ──────────────────────
+
+  it('does not leak ELECTRON_RUN_AS_NODE into the shell', async () => {
+    process.env.ELECTRON_RUN_AS_NODE = '1'
+    try {
+      const ctrl = await connectControl(controlSock)
+      const dataLines: string[] = []
+
+      ctrl.send({
+        jsonrpc: '2.0',
+        id: 70,
+        method: 'session.create',
+        params: { sessionId: 'sess-env', shell: '/bin/sh', cwd: tmpdir(), cols: 80, rows: 24 }
+      })
+      const created = JSON.parse(await ctrl.nextLine())
+
+      const data = createConnection(created.result.dataEndpoint)
+      data.on('data', (c: Buffer) => dataLines.push(c.toString()))
+      await new Promise((r) => data.once('connect', r))
+
+      ctrl.send({
+        jsonrpc: '2.0',
+        id: 71,
+        method: 'session.write',
+        params: {
+          sessionId: 'sess-env',
+          data: 'echo "RUN_AS_NODE=[${ELECTRON_RUN_AS_NODE:-unset}]"\n'
+        }
+      })
+      await ctrl.nextLine()
+      await sleep(700)
+
+      expect(dataLines.join('')).toContain('RUN_AS_NODE=[unset]')
+
+      data.destroy()
+      ctrl.close()
+    } finally {
+      delete process.env.ELECTRON_RUN_AS_NODE
+    }
+  }, 15_000)
+
+  // ── PTY exit is reported and the session can be recreated ──────────────────
+
+  it('broadcasts a session.exit notification when the shell dies', async () => {
+    const ctrl = await connectControl(controlSock)
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 40,
+      method: 'session.create',
+      params: { sessionId: 'sess-exit', shell: '/bin/sh', cwd: tmpdir(), cols: 80, rows: 24 }
+    })
+    await ctrl.nextLine() // create response
+
+    // Ask the shell to exit with a distinctive status.
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 41,
+      method: 'session.write',
+      params: { sessionId: 'sess-exit', data: 'exit 7\n' }
+    })
+    await ctrl.nextLine() // write response
+
+    // The next control message is the unsolicited exit notification.
+    const notification = JSON.parse(await ctrl.nextLine())
+    expect(notification.method).toBe('session.exit')
+    expect(notification.id).toBeUndefined()
+    expect(notification.params.sessionId).toBe('sess-exit')
+    expect(notification.params.exitCode).toBe(7)
+
+    ctrl.close()
+  }, 10_000)
+
+  it('removes the data socket file once the shell exits', async () => {
+    const ctrl = await connectControl(controlSock)
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 42,
+      method: 'session.create',
+      params: { sessionId: 'sess-sock', shell: '/bin/sh', cwd: tmpdir(), cols: 80, rows: 24 }
+    })
+    const created = JSON.parse(await ctrl.nextLine())
+    const endpoint = created.result.dataEndpoint
+    expect(existsSync(endpoint)).toBe(true)
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 43,
+      method: 'session.write',
+      params: { sessionId: 'sess-sock', data: 'exit\n' }
+    })
+    await ctrl.nextLine()
+    await ctrl.nextLine() // session.exit notification
+
+    expect(existsSync(endpoint)).toBe(false)
+
+    ctrl.close()
+  }, 10_000)
+
+  it('session.create after an exit spawns a fresh shell rather than reusing the dead one', async () => {
+    const ctrl = await connectControl(controlSock)
+    const params = { sessionId: 'sess-revive', shell: '/bin/sh', cwd: tmpdir(), cols: 80, rows: 24 }
+
+    ctrl.send({ jsonrpc: '2.0', id: 50, method: 'session.create', params })
+    await ctrl.nextLine()
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 51,
+      method: 'session.write',
+      params: { sessionId: 'sess-revive', data: 'exit\n' }
+    })
+    await ctrl.nextLine()
+    await ctrl.nextLine() // session.exit notification
+
+    // Recreating must yield a usable session — writes would fail on the husk.
+    ctrl.send({ jsonrpc: '2.0', id: 52, method: 'session.create', params })
+    const recreated = JSON.parse(await ctrl.nextLine())
+    expect(recreated.result.sessionId).toBe('sess-revive')
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 53,
+      method: 'session.write',
+      params: { sessionId: 'sess-revive', data: 'echo alive\n' }
+    })
+    const write = JSON.parse(await ctrl.nextLine())
+    expect(write.error).toBeUndefined()
+
+    ctrl.close()
+  }, 10_000)
 })

@@ -1,11 +1,24 @@
 import { createConnection, type Socket } from 'net'
-import type { SessionCreateParams, SessionCreateResult } from './protocol'
+import {
+  SESSION_EXIT_METHOD,
+  type SessionCreateParams,
+  type SessionCreateResult,
+  type SessionExitParams
+} from './protocol'
+
+/**
+ * How long to wait for a control-socket reply before giving up. Without this a
+ * sidecar that dies mid-call leaves the caller — and the terminal waiting on
+ * it — hanging forever.
+ */
+const CALL_TIMEOUT_MS = 10_000
 
 // ── Pending RPC call state ─────────────────────────────────────────────────────
 
 interface PendingCall {
   resolve: (result: unknown) => void
   reject: (err: Error) => void
+  timer: ReturnType<typeof setTimeout>
 }
 
 // ── SidecarClient ─────────────────────────────────────────────────────────────
@@ -24,6 +37,12 @@ export class SidecarClient {
 
   /** Per-session raw data sockets created by onData(). */
   private readonly dataSockets = new Map<string, Socket>()
+
+  /** Listeners notified when the sidecar reports that a PTY has exited. */
+  private readonly exitListeners = new Set<(params: SessionExitParams) => void>()
+
+  /** Listeners notified when the control connection drops unexpectedly. */
+  private readonly disconnectListeners = new Set<() => void>()
 
   // ── Connection ───────────────────────────────────────────────────────────────
 
@@ -47,26 +66,51 @@ export class SidecarClient {
 
       sock.on('error', (err) => {
         // Reject all in-flight calls on connection error
-        for (const pending of this.pending.values()) {
-          pending.reject(err)
-        }
-        this.pending.clear()
+        this.failPending(err)
+        reject(err)
       })
 
       sock.on('close', () => {
-        for (const pending of this.pending.values()) {
-          pending.reject(new Error('Control socket closed'))
+        const wasConnected = this.controlSocket === sock
+        // Drop the reference so later calls fail fast with "Not connected"
+        // instead of writing into a dead socket and never being answered.
+        if (wasConnected) this.controlSocket = null
+        this.failPending(new Error('Control socket closed'))
+        if (wasConnected) {
+          for (const listener of this.disconnectListeners) listener()
         }
-        this.pending.clear()
       })
 
       sock.on('connect', () => {
         this.controlSocket = sock
         resolve()
       })
-
-      sock.on('error', reject)
     })
+  }
+
+  /** Registers a callback fired when a PTY session exits. Returns an unsubscribe fn. */
+  onSessionExit(cb: (params: SessionExitParams) => void): () => void {
+    this.exitListeners.add(cb)
+    return () => this.exitListeners.delete(cb)
+  }
+
+  /** Registers a callback fired when the control connection is lost. */
+  onDisconnect(cb: () => void): () => void {
+    this.disconnectListeners.add(cb)
+    return () => this.disconnectListeners.delete(cb)
+  }
+
+  /** True while the control socket is usable. */
+  get connected(): boolean {
+    return this.controlSocket !== null && !this.controlSocket.destroyed
+  }
+
+  private failPending(err: Error): void {
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer)
+      pending.reject(err)
+    }
+    this.pending.clear()
   }
 
   disconnect(): void {
@@ -112,6 +156,14 @@ export class SidecarClient {
 
   async replay(sessionId: string): Promise<void> {
     await this.call('session.replay', { sessionId })
+  }
+
+  /** Whether a command is currently running in the session's shell. */
+  async foreground(
+    sessionId: string
+  ): Promise<{ hasProcess: boolean; processName: string | null }> {
+    const result = await this.call('session.foreground', { sessionId })
+    return result as { hasProcess: boolean; processName: string | null }
   }
 
   // ── Data socket subscription ──────────────────────────────────────────────────
@@ -162,28 +214,41 @@ export class SidecarClient {
 
   private call(method: string, params?: unknown): Promise<unknown> {
     return new Promise<unknown>((resolve, reject) => {
-      if (!this.controlSocket) {
-        reject(new Error('Not connected'))
+      if (!this.connected) {
+        reject(new Error('Sidecar is not connected'))
         return
       }
 
       const id = this.nextId++
-      this.pending.set(id, { resolve, reject })
+      const timer = setTimeout(() => {
+        this.pending.delete(id)
+        reject(new Error(`Sidecar call timed out after ${CALL_TIMEOUT_MS} ms: ${method}`))
+      }, CALL_TIMEOUT_MS)
+      timer.unref?.()
+
+      this.pending.set(id, { resolve, reject, timer })
 
       const msg: Record<string, unknown> = { jsonrpc: '2.0', id, method }
       if (params !== undefined) msg.params = params
 
       try {
-        this.controlSocket.write(JSON.stringify(msg) + '\n')
+        this.controlSocket!.write(JSON.stringify(msg) + '\n')
       } catch (err) {
+        clearTimeout(timer)
         this.pending.delete(id)
-        reject(err)
+        reject(err as Error)
       }
     })
   }
 
   private handleMessage(raw: string): void {
-    let msg: { id?: number; result?: unknown; error?: { code: number; message: string } }
+    let msg: {
+      id?: number
+      method?: string
+      params?: unknown
+      result?: unknown
+      error?: { code: number; message: string }
+    }
 
     try {
       msg = JSON.parse(raw)
@@ -194,12 +259,20 @@ export class SidecarClient {
 
     const { id, result, error } = msg
 
-    if (id === undefined || id === null) return
+    // Server → client notifications carry a method and no id.
+    if (id === undefined || id === null) {
+      if (msg.method === SESSION_EXIT_METHOD && msg.params) {
+        const params = msg.params as SessionExitParams
+        for (const listener of this.exitListeners) listener(params)
+      }
+      return
+    }
 
     const pending = this.pending.get(id as number)
     if (!pending) return
 
     this.pending.delete(id as number)
+    clearTimeout(pending.timer)
 
     if (error) {
       pending.reject(new Error(`JSON-RPC error ${error.code}: ${error.message}`))

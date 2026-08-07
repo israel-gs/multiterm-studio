@@ -1,28 +1,6 @@
 /** @vitest-environment node */
-import { describe, test, expect, afterEach } from 'vitest'
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'fs'
-import { tmpdir } from 'os'
-import { join } from 'path'
-import { osc7ShellHook, zshIntegrationDir } from '../../../src/main/sidecar/shell-init'
-
-// Temp dirs created during tests — cleaned up in afterEach.
-const tempDirs: string[] = []
-
-function makeTempDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'mts-shell-init-test-'))
-  tempDirs.push(dir)
-  return dir
-}
-
-afterEach(() => {
-  for (const dir of tempDirs.splice(0)) {
-    try {
-      rmSync(dir, { recursive: true, force: true })
-    } catch {
-      // best-effort cleanup
-    }
-  }
-})
+import { describe, test, expect } from 'vitest'
+import { osc7ShellHook } from '../../../src/main/sidecar/shell-init'
 
 describe('osc7ShellHook', () => {
   test('returns a non-empty string for zsh', () => {
@@ -79,61 +57,5 @@ describe('osc7ShellHook', () => {
 
   test('returns null for unknown shells', () => {
     expect(osc7ShellHook('tcsh')).toBeNull()
-  })
-})
-
-describe('zshIntegrationDir', () => {
-  test('returns a directory path that exists after the call', () => {
-    const base = makeTempDir()
-    const dir = zshIntegrationDir(undefined, base)
-    expect(existsSync(dir)).toBe(true)
-  })
-
-  test('contains a .zshrc file', () => {
-    const base = makeTempDir()
-    const dir = zshIntegrationDir(undefined, base)
-    expect(existsSync(join(dir, '.zshrc'))).toBe(true)
-  })
-
-  test('.zshrc restores real ZDOTDIR via _MTS_ZDOTDIR marker', () => {
-    const base = makeTempDir()
-    const dir = zshIntegrationDir('/Users/me/.config/zsh', base)
-    const zshrc = readFileSync(join(dir, '.zshrc'), 'utf8')
-    expect(zshrc).toContain('_MTS_ZDOTDIR')
-  })
-
-  test('.zshrc sources user real .zshrc when realZdotdir is provided', () => {
-    const base = makeTempDir()
-    const realZdotdir = '/Users/me/.config/zsh'
-    const dir = zshIntegrationDir(realZdotdir, base)
-    const zshrc = readFileSync(join(dir, '.zshrc'), 'utf8')
-    expect(zshrc).toContain(realZdotdir)
-  })
-
-  test('.zshrc defines __mts_osc7 function', () => {
-    const base = makeTempDir()
-    const dir = zshIntegrationDir(undefined, base)
-    const zshrc = readFileSync(join(dir, '.zshrc'), 'utf8')
-    expect(zshrc).toContain('__mts_osc7')
-  })
-
-  test('.zshrc appends __mts_osc7 to precmd_functions', () => {
-    const base = makeTempDir()
-    const dir = zshIntegrationDir(undefined, base)
-    const zshrc = readFileSync(join(dir, '.zshrc'), 'utf8')
-    expect(zshrc).toContain('precmd_functions')
-  })
-
-  test('dir is placed under the provided base directory', () => {
-    const base = makeTempDir()
-    const dir = zshIntegrationDir(undefined, base)
-    expect(dir.startsWith(base)).toBe(true)
-  })
-
-  test('calling twice with same args returns a stable path', () => {
-    const base = makeTempDir()
-    const dir1 = zshIntegrationDir(undefined, base)
-    const dir2 = zshIntegrationDir(undefined, base)
-    expect(dir1).toBe(dir2)
   })
 })

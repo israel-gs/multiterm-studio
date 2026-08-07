@@ -3,13 +3,6 @@ import { join } from 'path'
 
 // ── Type definitions ─────────────────────────────────────────────────────────
 
-export type RpcMethod =
-  | 'session.create'
-  | 'session.write'
-  | 'session.resize'
-  | 'session.kill'
-  | 'session.replay'
-
 export interface SessionCreateParams {
   sessionId: string
   shell: string
@@ -24,6 +17,16 @@ export interface SessionCreateResult {
   sessionId: string
   dataEndpoint: string
 }
+
+/** Payload of the `session.exit` notification broadcast when a PTY dies. */
+export interface SessionExitParams {
+  sessionId: string
+  exitCode: number
+  signal?: number
+}
+
+/** Method name of the server → client notification sent when a PTY exits. */
+export const SESSION_EXIT_METHOD = 'session.exit'
 
 export interface JsonRpcRequest {
   jsonrpc: '2.0'
@@ -78,32 +81,3 @@ export function sessionDataEndpointPath(sessionId: string): string {
 
 export const SIDECAR_CONTROL_ENDPOINT = makeEndpointPath('sidecar')
 export const SIDECAR_PID_PATH = join(homedir(), '.multiterm-studio', 'sidecar.pid')
-export const DEFAULT_SCROLLBACK_BYTES = 8 * 1024 * 1024
-
-// ── JSON-RPC 2.0 codec helpers ───────────────────────────────────────────────
-
-function serialize(obj: unknown): string {
-  return JSON.stringify(obj) + '\n'
-}
-
-export function makeRequest(id: string | number, method: string, params?: unknown): string {
-  const msg: JsonRpcRequest = { jsonrpc: '2.0', id, method }
-  if (params !== undefined) msg.params = params
-  return serialize(msg)
-}
-
-export function makeResponse(id: string | number, result: unknown): string {
-  const msg: JsonRpcResponse = { jsonrpc: '2.0', id, result }
-  return serialize(msg)
-}
-
-export function makeError(id: string | number, code: number, message: string): string {
-  const msg: JsonRpcError = { jsonrpc: '2.0', id, error: { code, message } }
-  return serialize(msg)
-}
-
-export function makeNotification(method: string, params?: unknown): string {
-  const msg: JsonRpcNotification = { jsonrpc: '2.0', method }
-  if (params !== undefined) msg.params = params
-  return serialize(msg)
-}

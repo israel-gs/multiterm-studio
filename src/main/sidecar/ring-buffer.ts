@@ -1,6 +1,4 @@
-export const DEFAULT_SCROLLBACK_BYTES = 8 * 1024 * 1024
-export const MIN_SCROLLBACK_BYTES = 16 * 1024
-export const MAX_SCROLLBACK_BYTES = 64 * 1024 * 1024
+import { SCROLLBACK_DEFAULT_BYTES } from '../../shared/scrollback'
 
 /**
  * Bounded ring buffer for PTY scrollback.
@@ -14,7 +12,7 @@ export class RingBuffer {
   private head: number = 0 // next write position (oldest data starts here after wrap)
   private used: number = 0 // how many bytes are currently valid
 
-  constructor(capacityBytes: number = DEFAULT_SCROLLBACK_BYTES) {
+  constructor(capacityBytes: number = SCROLLBACK_DEFAULT_BYTES) {
     this.storage = Buffer.allocUnsafe(capacityBytes)
   }
 
