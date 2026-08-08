@@ -136,3 +136,51 @@ describe('removeHooks', () => {
     expect(readFileSync(sharedSettings(), 'utf-8')).toBe(before)
   })
 })
+
+describe('injectOpenCodeHooks — .gitignore handling', () => {
+  // The plugin must live in the project (OpenCode only loads plugins from
+  // there), so the generated file is added to .gitignore instead.
+  beforeEach(() => {
+    mkdirSync(join(home, '.opencode'), { recursive: true })
+  })
+
+  it('adds the generated plugin to .gitignore', async () => {
+    writeFileSync(join(project, '.gitignore'), 'node_modules\n')
+
+    const { injectOpenCodeHooks } = await import('../../src/main/hookInjector')
+    await injectOpenCodeHooks(project)
+
+    const ignored = readFileSync(join(project, '.gitignore'), 'utf-8')
+    expect(ignored).toContain('.opencode/plugins/multiterm-studio.js')
+  })
+
+  it('does not append again on a second open', async () => {
+    writeFileSync(join(project, '.gitignore'), 'node_modules\n')
+
+    const { injectOpenCodeHooks } = await import('../../src/main/hookInjector')
+    await injectOpenCodeHooks(project)
+    const first = readFileSync(join(project, '.gitignore'), 'utf-8')
+    await injectOpenCodeHooks(project)
+
+    expect(readFileSync(join(project, '.gitignore'), 'utf-8')).toBe(first)
+  })
+
+  it('leaves .gitignore alone when a broader rule already covers it', async () => {
+    // Ignoring the whole directory is enough; appending would churn the file
+    // on every project open.
+    const original = 'node_modules\n.opencode/\n'
+    writeFileSync(join(project, '.gitignore'), original)
+
+    const { injectOpenCodeHooks } = await import('../../src/main/hookInjector')
+    await injectOpenCodeHooks(project)
+
+    expect(readFileSync(join(project, '.gitignore'), 'utf-8')).toBe(original)
+  })
+
+  it('does not create a .gitignore where the project has none', async () => {
+    const { injectOpenCodeHooks } = await import('../../src/main/hookInjector')
+    await injectOpenCodeHooks(project)
+
+    expect(existsSync(join(project, '.gitignore'))).toBe(false)
+  })
+})
