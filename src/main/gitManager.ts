@@ -4,8 +4,15 @@ import { readFile, stat } from 'fs/promises'
 import { isAbsolute, join, relative, resolve as resolvePath, sep } from 'path'
 import { isPathInsideRoots } from './pathGuard'
 import {
+  GIT_LOG_PAGE_SIZE,
   GIT_MAX_DIFF_BYTES,
+  type GitCommit,
+  type GitCommitDetailResult,
+  type GitCommitFile,
+  type GitCommitFileStatus,
   type GitDiffResult,
+  type GitLogResult,
+  type GitRef,
   type GitFileState,
   type GitFileStatus,
   type GitStatus,
@@ -150,22 +157,32 @@ export function registerGitHandlers(): void {
       _event,
       folderPath: string,
       filePath: string,
-      staged = false
+      staged = false,
+      sha?: string
     ): Promise<GitDiffResult> => {
       const repoPath = toRepoRelative(folderPath, filePath)
       if (!repoPath) {
         return { ok: false, error: 'Path is outside the project' }
       }
+      if (sha !== undefined && !isShaLike(sha)) {
+        return { ok: false, error: 'Not a commit id' }
+      }
 
       try {
-        // Staged compares the index against HEAD; unstaged compares the file on
-        // disk against the index, so what you see is exactly what `git add`
-        // would take.
+        // Three comparisons, one handler: a commit against its parent, the
+        // index against HEAD, or the file on disk against the index — the last
+        // being exactly what `git add` would take.
         const [original, modified] = await Promise.all([
-          staged ? readBlob(folderPath, `HEAD:${repoPath}`) : readBlob(folderPath, `:${repoPath}`),
-          staged
-            ? readBlob(folderPath, `:${repoPath}`)
-            : readWorktreeFile(join(folderPath, repoPath))
+          sha
+            ? readBlob(folderPath, `${sha}^:${repoPath}`)
+            : staged
+              ? readBlob(folderPath, `HEAD:${repoPath}`)
+              : readBlob(folderPath, `:${repoPath}`),
+          sha
+            ? readBlob(folderPath, `${sha}:${repoPath}`)
+            : staged
+              ? readBlob(folderPath, `:${repoPath}`)
+              : readWorktreeFile(join(folderPath, repoPath))
         ])
 
         const kind =
@@ -182,7 +199,8 @@ export function registerGitHandlers(): void {
             original: kind === 'text' ? (original.data?.toString('utf-8') ?? '') : '',
             modified: kind === 'text' ? (modified.data?.toString('utf-8') ?? '') : '',
             kind,
-            staged
+            staged,
+            sha
           }
         }
       } catch (err: unknown) {
@@ -190,6 +208,208 @@ export function registerGitHandlers(): void {
       }
     }
   )
+
+  ipcMain.handle(
+    'git:log',
+    async (
+      _event,
+      folderPath: string,
+      limit = GIT_LOG_PAGE_SIZE,
+      skip = 0
+    ): Promise<GitLogResult> => {
+      try {
+        const { stdout } = await runGit(
+          [
+            '--no-optional-locks',
+            'log',
+            // --all so the graph has branches to draw, --topo-order so a branch
+            // reads as one run of commits instead of being interleaved by date.
+            '--all',
+            '--topo-order',
+            `--max-count=${Math.max(1, Math.trunc(limit))}`,
+            `--skip=${Math.max(0, Math.trunc(skip))}`,
+            `--format=${LOG_FORMAT}`
+          ],
+          folderPath
+        )
+        return { ok: true, commits: parseLog(stdout) }
+      } catch (err: unknown) {
+        return { ok: false, error: errorMessage(err, 'Failed to read history') }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:commit-detail',
+    async (_event, folderPath: string, sha: string): Promise<GitCommitDetailResult> => {
+      if (!isShaLike(sha)) return { ok: false, error: 'Not a commit id' }
+
+      try {
+        // --root so the first commit in a repository reports its files rather
+        // than nothing, and -z so paths stay verbatim.
+        const args = ['--no-optional-locks', 'diff-tree', '--no-commit-id', '-r', '-z', '--root']
+        const [nameStatus, numstat] = await Promise.all([
+          runGit([...args, '--name-status', sha], folderPath),
+          runGit([...args, '--numstat', sha], folderPath)
+        ])
+
+        const files = mergeCommitFiles(
+          parseNameStatus(nameStatus.stdout),
+          parseNumstat(numstat.stdout)
+        )
+
+        return {
+          ok: true,
+          detail: {
+            sha,
+            files,
+            insertions: files.reduce((sum, file) => sum + file.insertions, 0),
+            deletions: files.reduce((sum, file) => sum + file.deletions, 0)
+          }
+        }
+      } catch (err: unknown) {
+        return { ok: false, error: errorMessage(err, 'Failed to read commit') }
+      }
+    }
+  )
+}
+
+/**
+ * Unit separator between fields, record separator between commits.
+ *
+ * A commit body can contain newlines and tabs, so no printable delimiter is
+ * safe; these two control characters are the ones git itself suggests for
+ * machine-read output.
+ */
+const FIELD_SEP = '\x1f'
+const RECORD_SEP = '\x1e'
+const LOG_FORMAT = '%H%x1f%h%x1f%an%x1f%ae%x1f%at%x1f%P%x1f%D%x1f%s%x1f%b%x1e'
+
+/** Reject anything that is not plausibly an object id before it reaches git. */
+function isShaLike(sha: string): boolean {
+  return /^[0-9a-fA-F]{4,40}$/.test(sha)
+}
+
+export function parseLog(raw: string): GitCommit[] {
+  return raw
+    .split(RECORD_SEP)
+    .map((record) => record.replace(/^\n+/, ''))
+    .filter((record) => record.length > 0)
+    .map((record) => {
+      const [sha, shortSha, authorName, authorEmail, timestamp, parents, refs, subject, body] =
+        record.split(FIELD_SEP)
+      return {
+        sha,
+        shortSha,
+        authorName,
+        authorEmail,
+        timestamp: Number(timestamp) || 0,
+        parents: parents ? parents.trim().split(' ').filter(Boolean) : [],
+        refs: parseRefs(refs ?? ''),
+        subject: subject ?? '',
+        body: (body ?? '').trim()
+      }
+    })
+    .filter((commit) => commit.sha)
+}
+
+/** Turn git's "HEAD -> main, origin/main, tag: v1.0" into typed refs. */
+function parseRefs(decoration: string): GitRef[] {
+  return decoration
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      if (part.startsWith('tag: ')) return { name: part.slice(5), kind: 'tag' as const }
+      // "HEAD -> main" names the branch HEAD is on; the arrow is not part of it.
+      if (part.startsWith('HEAD -> ')) return { name: part.slice(8), kind: 'head' as const }
+      if (part === 'HEAD') return { name: 'HEAD', kind: 'head' as const }
+      return { name: part, kind: part.includes('/') ? ('remote' as const) : ('branch' as const) }
+    })
+}
+
+const STATUS_LETTERS: Record<string, GitCommitFileStatus> = {
+  A: 'added',
+  M: 'modified',
+  D: 'deleted',
+  R: 'renamed',
+  C: 'copied',
+  T: 'modified'
+}
+
+/**
+ * Parse `diff-tree --name-status -z`: status and path as separate NUL fields,
+ * with renames and copies carrying a source path as a third field.
+ */
+export function parseNameStatus(raw: string): GitCommitFile[] {
+  const fields = raw.split('\0').filter((field) => field.length > 0)
+  const files: GitCommitFile[] = []
+
+  for (let i = 0; i < fields.length; ) {
+    const code = fields[i][0]
+    const status = STATUS_LETTERS[code]
+    if (!status) {
+      i++
+      continue
+    }
+    const renamed = code === 'R' || code === 'C'
+    const origPath = renamed ? fields[i + 1] : undefined
+    const path = renamed ? fields[i + 2] : fields[i + 1]
+    i += renamed ? 3 : 2
+    if (!path) continue
+    files.push({ path, origPath, status, insertions: 0, deletions: 0, binary: false })
+  }
+
+  return files
+}
+
+interface LineCounts {
+  insertions: number
+  deletions: number
+  binary: boolean
+}
+
+/**
+ * Parse `diff-tree --numstat -z`: "adds\tdeletes\tpath" per entry, except a
+ * rename splits the path into two more NUL fields, and a binary file reports
+ * "-" instead of counts.
+ */
+export function parseNumstat(raw: string): Map<string, LineCounts> {
+  const fields = raw.split('\0').filter((field) => field.length > 0)
+  const counts = new Map<string, LineCounts>()
+
+  for (let i = 0; i < fields.length; ) {
+    const parts = fields[i].split('\t')
+    if (parts.length < 3) {
+      i++
+      continue
+    }
+    const [adds, dels, inlinePath] = parts
+    // An empty path means the two following fields hold the rename's source and
+    // destination; the destination is the one the file list is keyed by.
+    const path = inlinePath === '' ? fields[i + 2] : inlinePath
+    i += inlinePath === '' ? 3 : 1
+    if (!path) continue
+
+    const binary = adds === '-' || dels === '-'
+    counts.set(path, {
+      insertions: binary ? 0 : Number(adds) || 0,
+      deletions: binary ? 0 : Number(dels) || 0,
+      binary
+    })
+  }
+
+  return counts
+}
+
+function mergeCommitFiles(
+  files: GitCommitFile[],
+  counts: Map<string, LineCounts>
+): GitCommitFile[] {
+  return files.map((file) => {
+    const count = counts.get(file.path)
+    return count ? { ...file, ...count } : file
+  })
 }
 
 /**

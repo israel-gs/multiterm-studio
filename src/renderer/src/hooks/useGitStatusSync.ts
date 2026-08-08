@@ -15,6 +15,7 @@ import { useProjectStore } from '../store/projectStore'
 export function useGitStatusSync(folderPath: string): void {
   const isRepo = useGitStore((s) => s.isRepo)
   const refreshStatus = useGitStore((s) => s.refreshStatus)
+  const loadCommits = useGitStore((s) => s.loadCommits)
   const scheduleStatusRefresh = useGitStore((s) => s.scheduleStatusRefresh)
   const clearStatus = useGitStore((s) => s.clearStatus)
   const fsRefreshKey = useProjectStore((s) => s.fsRefreshKey)
@@ -27,7 +28,10 @@ export function useGitStatusSync(folderPath: string): void {
       return
     }
     void refreshStatus(folderPath)
-  }, [folderPath, isRepo, refreshStatus, clearStatus])
+    // History only changes when commits are made, so it is read once per folder
+    // rather than on every watcher tick like the status.
+    void loadCommits(folderPath)
+  }, [folderPath, isRepo, refreshStatus, loadCommits, clearStatus])
 
   // Later reads ride the file watcher, debounced: a build touching a thousand
   // files must cost one `git status`, not a thousand.

@@ -11,6 +11,8 @@ export interface PanelMeta {
   filePath?: string
   /** Diff tiles only: compare the index against HEAD instead of disk vs index. */
   diffStaged?: boolean
+  /** Diff tiles only: compare this commit against its parent instead. */
+  diffSha?: string
   dirty: boolean
   previewMode: boolean
   initialCommand?: string
@@ -47,6 +49,7 @@ export interface PanelStore {
   setCwd: (id: string, cwd: string) => void
   setNoteContent: (id: string, content: string) => void
   setDiffStaged: (id: string, staged: boolean) => void
+  setDiffSha: (id: string, sha: string) => void
   pendingFocus: string | null
   requestFocus: (id: string) => void
   clearPendingFocus: () => void
@@ -175,6 +178,12 @@ export const usePanelStore = create<PanelStore>((set) => ({
     set((s) => {
       if (!s.panels[id]) return s
       return { panels: { ...s.panels, [id]: { ...s.panels[id], diffStaged: staged } } }
+    }),
+
+  setDiffSha: (id, sha) =>
+    set((s) => {
+      if (!s.panels[id]) return s
+      return { panels: { ...s.panels, [id]: { ...s.panels[id], diffSha: sha } } }
     }),
 
   pendingFocus: null,

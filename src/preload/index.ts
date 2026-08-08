@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer, clipboard } from 'electron'
-import type { GitDiffResult, GitStatusResult } from '../shared/git'
+import type {
+  GitCommitDetailResult,
+  GitDiffResult,
+  GitLogResult,
+  GitStatusResult
+} from '../shared/git'
 import type { FileSearchResult } from '../shared/search'
 
 /** A project or workspace shown on the welcome screen. */
@@ -174,9 +179,22 @@ const api = {
   gitStatus: (folderPath: string): Promise<GitStatusResult> =>
     ipcRenderer.invoke('git:status', folderPath),
 
-  /** `staged` compares the index against HEAD instead of the disk against the index. */
-  gitDiff: (folderPath: string, filePath: string, staged = false): Promise<GitDiffResult> =>
-    ipcRenderer.invoke('git:diff', folderPath, filePath, staged),
+  /**
+   * `staged` compares the index against HEAD instead of the disk against the
+   * index; `sha` overrides both and compares that commit against its parent.
+   */
+  gitDiff: (
+    folderPath: string,
+    filePath: string,
+    staged = false,
+    sha?: string
+  ): Promise<GitDiffResult> => ipcRenderer.invoke('git:diff', folderPath, filePath, staged, sha),
+
+  gitLog: (folderPath: string, limit?: number, skip?: number): Promise<GitLogResult> =>
+    ipcRenderer.invoke('git:log', folderPath, limit, skip),
+
+  gitCommitDetail: (folderPath: string, sha: string): Promise<GitCommitDetailResult> =>
+    ipcRenderer.invoke('git:commit-detail', folderPath, sha),
 
   // Agent spawning push channel (PreToolUse:Agent → create panel per agent)
   onAgentSpawning: (

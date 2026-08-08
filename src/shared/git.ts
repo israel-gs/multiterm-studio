@@ -54,6 +54,8 @@ export interface GitFileDiff {
   kind: GitDiffKind
   /** True when the comparison is index-vs-HEAD rather than worktree-vs-index. */
   staged: boolean
+  /** Set when the comparison is a commit against its parent instead. */
+  sha?: string
 }
 
 /** Largest blob either side of a diff may have before we refuse to load it. */
@@ -67,3 +69,55 @@ export const GIT_MAX_DIFF_BYTES = 5 * 1024 * 1024
 export type GitStatusResult = { ok: true; status: GitStatus } | { ok: false; error: string }
 
 export type GitDiffResult = { ok: true; diff: GitFileDiff } | { ok: false; error: string }
+
+// --- History ---
+
+/** One commit as `git log` reports it. */
+export interface GitCommit {
+  sha: string
+  shortSha: string
+  authorName: string
+  authorEmail: string
+  /** Author date, seconds since the epoch. */
+  timestamp: number
+  /** Parent shas: none for a root commit, several for a merge. */
+  parents: string[]
+  /** Decorations git prints for this commit: branches, tags, HEAD. */
+  refs: GitRef[]
+  subject: string
+  body: string
+}
+
+export interface GitRef {
+  name: string
+  kind: 'head' | 'branch' | 'remote' | 'tag'
+}
+
+export type GitCommitFileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied'
+
+export interface GitCommitFile {
+  path: string
+  origPath?: string
+  status: GitCommitFileStatus
+  insertions: number
+  deletions: number
+  /** True when git reported "-" line counts, which it does for binaries. */
+  binary: boolean
+}
+
+/** What the hover card and the expanded file list need, fetched per commit. */
+export interface GitCommitDetail {
+  sha: string
+  files: GitCommitFile[]
+  insertions: number
+  deletions: number
+}
+
+export type GitLogResult = { ok: true; commits: GitCommit[] } | { ok: false; error: string }
+
+export type GitCommitDetailResult =
+  | { ok: true; detail: GitCommitDetail }
+  | { ok: false; error: string }
+
+/** Commits fetched per page of history. */
+export const GIT_LOG_PAGE_SIZE = 100

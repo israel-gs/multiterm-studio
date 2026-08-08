@@ -4,7 +4,13 @@ import { execFileSync } from 'child_process'
 import { mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import type { GitDiffResult, GitStatus, GitStatusResult } from '../../src/shared/git'
+import type {
+  GitCommitDetailResult,
+  GitDiffResult,
+  GitLogResult,
+  GitStatus,
+  GitStatusResult
+} from '../../src/shared/git'
 
 /**
  * Exercised against a real repository: the point of these handlers is how git
@@ -362,5 +368,179 @@ describe('git:status and git:diff', () => {
     const result = await diff('../repo/file.txt')
 
     expect(result).toEqual({ ok: false, error: 'Path is outside the project' })
+  })
+})
+
+describe('git:log and git:commit-detail', () => {
+  let hist: string
+
+  async function log(): Promise<GitLogResult> {
+    return (await handlers['git:log'](event, hist)) as GitLogResult
+  }
+
+  async function detail(sha: string): Promise<GitCommitDetailResult> {
+    return (await handlers['git:commit-detail'](event, hist, sha)) as GitCommitDetailResult
+  }
+
+  function sha(subject: string, commits: { subject: string; sha: string }[]): string {
+    const found = commits.find((c) => c.subject === subject)
+    if (!found) throw new Error(`no commit named ${subject}`)
+    return found.sha
+  }
+
+  beforeAll(() => {
+    hist = join(root, 'hist')
+    mkdirSync(hist)
+    git(['init', '-q', '-b', 'main'], hist)
+    git(['config', 'user.email', 'test@example.com'], hist)
+    git(['config', 'user.name', 'Test'], hist)
+
+    // A first commit, a branch, and a merge — enough shape for the graph.
+    writeFileSync(join(hist, 'a.txt'), 'one\n')
+    git(['add', '.'], hist)
+    git(['commit', '-qm', 'first'], hist)
+
+    git(['checkout', '-q', '-b', 'feature'], hist)
+    writeFileSync(join(hist, 'with space.txt'), 'branch\n')
+    git(['add', '.'], hist)
+    git(['commit', '-qm', 'on the branch', '-m', 'A body line.\n\nAnd another.'], hist)
+
+    git(['checkout', '-q', 'main'], hist)
+    writeFileSync(join(hist, 'a.txt'), 'one\ntwo\n')
+    writeFileSync(join(hist, 'gone.txt'), 'bye\n')
+    git(['add', '.'], hist)
+    git(['commit', '-qm', 'on main'], hist)
+
+    git(['merge', '-q', '--no-ff', 'feature', '-m', 'merge feature'], hist)
+    git(['rm', '-q', 'gone.txt'], hist)
+    git(['commit', '-qm', 'remove a file'], hist)
+    git(['tag', 'v1'], hist)
+  })
+
+  it('reports commits newest first', async () => {
+    const result = await log()
+    if (!result.ok) throw new Error(result.error)
+
+    expect(result.commits[0].subject).toBe('remove a file')
+    expect(result.commits.map((c) => c.subject)).toContain('first')
+  })
+
+  it('carries the author, a real timestamp and both sha forms', async () => {
+    const result = await log()
+    if (!result.ok) throw new Error(result.error)
+    const head = result.commits[0]
+
+    expect(head.authorName).toBe('Test')
+    expect(head.authorEmail).toBe('test@example.com')
+    expect(head.timestamp).toBeGreaterThan(1_000_000_000)
+    expect(head.sha.startsWith(head.shortSha)).toBe(true)
+  })
+
+  it('keeps a multi-line body intact', async () => {
+    const result = await log()
+    if (!result.ok) throw new Error(result.error)
+    const branchCommit = result.commits.find((c) => c.subject === 'on the branch')
+
+    expect(branchCommit?.body).toContain('A body line.')
+    expect(branchCommit?.body).toContain('And another.')
+  })
+
+  it('reports two parents for a merge', async () => {
+    const result = await log()
+    if (!result.ok) throw new Error(result.error)
+    const merge = result.commits.find((c) => c.subject === 'merge feature')
+
+    expect(merge?.parents).toHaveLength(2)
+  })
+
+  it('classifies the decorations git prints', async () => {
+    const result = await log()
+    if (!result.ok) throw new Error(result.error)
+    const head = result.commits[0]
+
+    expect(head.refs).toEqual(
+      expect.arrayContaining([
+        { name: 'main', kind: 'head' },
+        { name: 'v1', kind: 'tag' }
+      ])
+    )
+  })
+
+  it('includes commits from every branch, so the graph has branches to draw', async () => {
+    const result = await log()
+    if (!result.ok) throw new Error(result.error)
+
+    expect(result.commits.map((c) => c.subject)).toContain('on the branch')
+  })
+
+  it('lists the files a commit touched, with line counts', async () => {
+    const listed = await log()
+    if (!listed.ok) throw new Error(listed.error)
+
+    const result = await detail(sha('on main', listed.commits))
+    if (!result.ok) throw new Error(result.error)
+
+    expect(result.detail.files.map((f) => f.path).sort()).toEqual(['a.txt', 'gone.txt'])
+    expect(result.detail.insertions).toBe(2)
+    expect(result.detail.deletions).toBe(0)
+  })
+
+  it('reports a deletion as such', async () => {
+    const listed = await log()
+    if (!listed.ok) throw new Error(listed.error)
+
+    const result = await detail(sha('remove a file', listed.commits))
+    if (!result.ok) throw new Error(result.error)
+
+    expect(result.detail.files).toEqual([
+      expect.objectContaining({ path: 'gone.txt', status: 'deleted', deletions: 1 })
+    ])
+  })
+
+  it('reports the files of the first commit, which has no parent', async () => {
+    const listed = await log()
+    if (!listed.ok) throw new Error(listed.error)
+
+    const result = await detail(sha('first', listed.commits))
+    if (!result.ok) throw new Error(result.error)
+
+    expect(result.detail.files.map((f) => f.path)).toEqual(['a.txt'])
+  })
+
+  it('keeps a path with a space in one piece', async () => {
+    const listed = await log()
+    if (!listed.ok) throw new Error(listed.error)
+
+    const result = await detail(sha('on the branch', listed.commits))
+    if (!result.ok) throw new Error(result.error)
+
+    expect(result.detail.files.map((f) => f.path)).toEqual(['with space.txt'])
+  })
+
+  it('refuses anything that is not a commit id', async () => {
+    const result = await detail('--upload-pack=touch /tmp/mts-pwned')
+
+    expect(result).toEqual({ ok: false, error: 'Not a commit id' })
+  })
+
+  it('diffs a file at a commit against its parent', async () => {
+    const listed = await log()
+    if (!listed.ok) throw new Error(listed.error)
+
+    const result = (await handlers['git:diff'](
+      event,
+      hist,
+      'a.txt',
+      false,
+      sha('on main', listed.commits)
+    )) as GitDiffResult
+    if (!result.ok) throw new Error(result.error)
+
+    expect(result.diff.original).toBe('one\n')
+    expect(result.diff.modified).toBe('one\ntwo\n')
+  })
+
+  it('fails as a value on a directory that is not a repository', async () => {
+    expect(((await handlers['git:log'](event, plain)) as GitLogResult).ok).toBe(false)
   })
 })

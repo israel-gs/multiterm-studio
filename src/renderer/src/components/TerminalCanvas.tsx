@@ -38,6 +38,7 @@ export interface SavedLayoutShape {
     filePath?: string
     noteContent?: string
     diffStaged?: boolean
+    diffSha?: string
   }>
   positions?: Record<string, CardRect>
   viewport?: { panX: number; panY: number; zoom: number; centerX?: number; centerY?: number }
@@ -79,7 +80,8 @@ function buildLayoutSnapshot(
       type: allPanels[id].type,
       filePath: allPanels[id].filePath,
       noteContent: allPanels[id].noteContent,
-      diffStaged: allPanels[id].diffStaged
+      diffStaged: allPanels[id].diffStaged,
+      diffSha: allPanels[id].diffSha
     }))
   return { version: 3, panelIds, panels, positions: normalizeZIndices(positions), viewport }
 }
@@ -1133,6 +1135,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
           undefined,
           p.diffStaged
         )
+        if (p.diffSha) usePanelStore.getState().setDiffSha(p.id, p.diffSha)
         if (p.type === 'note' && p.noteContent) {
           usePanelStore.getState().setNoteContent(p.id, p.noteContent)
         }
@@ -1336,7 +1339,6 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       requestAnimationFrame(() => panToTileRef.current(reveal.id))
     })
     return unsubscribe
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Subscribe to pendingFocus from panelStore (agent focus, RPC pane.focus)
@@ -1437,16 +1439,17 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   }
 
   // --- Open a git diff tile for a file ---
-  function handleOpenDiff(filePath: string, staged: boolean): void {
+  function handleOpenDiff(filePath: string, staged: boolean, sha?: string): void {
     const wasMaximized = !!maximizedIdRef.current
+    const store = usePanelStore.getState()
 
-    // A tile already comparing this file is reused even if it is showing the
-    // other side — flipping it beats stacking two near-identical tiles.
-    const existing = usePanelStore.getState().panels
+    // A tile already comparing this file at the same revision is reused: for the
+    // working tree that means flipping which side it shows rather than stacking
+    // two near-identical tiles, while each commit gets its own tile.
     for (const id of panelIdsRef.current) {
-      const pm = existing[id]
-      if (pm && pm.type === 'diff' && pm.filePath === filePath) {
-        usePanelStore.getState().setDiffStaged(id, staged)
+      const pm = store.panels[id]
+      if (pm && pm.type === 'diff' && pm.filePath === filePath && pm.diffSha === sha) {
+        if (!sha) store.setDiffStaged(id, staged)
         if (wasMaximized) setMaximizedId(id)
         else handleBringToFront(id)
         return
@@ -1454,7 +1457,11 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     }
 
     const newId = crypto.randomUUID()
-    addPanel(newId, undefined, colors.bgCard, 'diff', filePath, undefined, undefined, staged)
+    const title = sha ? `${sha.slice(0, 7)}: ${basename(filePath)}` : undefined
+    addPanel(newId, title, colors.bgCard, 'diff', filePath, undefined, undefined, staged)
+    // Set synchronously so the panel's first render already knows the revision
+    // and does not fetch the working-tree diff first.
+    if (sha) usePanelStore.getState().setDiffSha(newId, sha)
     placeNewTile(newId, wasMaximized)
   }
 
@@ -1516,7 +1523,11 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   useEffect(() => {
     const unsubscribe = useProjectStore.subscribe((state, prev) => {
       if (state.pendingDiffOpen && state.pendingDiffOpen !== prev.pendingDiffOpen) {
-        handleOpenDiff(state.pendingDiffOpen.filePath, state.pendingDiffOpen.staged)
+        handleOpenDiff(
+          state.pendingDiffOpen.filePath,
+          state.pendingDiffOpen.staged,
+          state.pendingDiffOpen.sha
+        )
         useProjectStore.getState().clearPendingDiffOpen()
       }
     })

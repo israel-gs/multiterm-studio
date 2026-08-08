@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import type { GitDiffResult } from '../../src/shared/git'
 
-const gitDiff = vi.fn<(cwd: string, filePath: string, staged: boolean) => Promise<GitDiffResult>>()
+const gitDiff =
+  vi.fn<(cwd: string, filePath: string, staged: boolean, sha?: string) => Promise<GitDiffResult>>()
 
 Object.defineProperty(window, 'electronAPI', {
   value: { gitDiff },
@@ -60,7 +61,9 @@ describe('DiffPanel', () => {
   it('reads the working-tree side by default', async () => {
     render(<DiffPanel sessionId={SESSION} cwd="/proj" filePath="/proj/src/a.ts" />)
 
-    await waitFor(() => expect(gitDiff).toHaveBeenCalledWith('/proj', '/proj/src/a.ts', false))
+    await waitFor(() =>
+      expect(gitDiff).toHaveBeenCalledWith('/proj', '/proj/src/a.ts', false, undefined)
+    )
   })
 
   it('lets Monaco own the measuring so a re-parented tile re-measures', async () => {
@@ -86,7 +89,9 @@ describe('DiffPanel', () => {
 
     fireEvent.click(screen.getByText('Staged'))
 
-    await waitFor(() => expect(gitDiff).toHaveBeenCalledWith('/proj', '/proj/src/a.ts', true))
+    await waitFor(() =>
+      expect(gitDiff).toHaveBeenCalledWith('/proj', '/proj/src/a.ts', true, undefined)
+    )
     expect(usePanelStore.getState().panels[SESSION].diffStaged).toBe(true)
   })
 
@@ -95,7 +100,42 @@ describe('DiffPanel', () => {
 
     render(<DiffPanel sessionId={SESSION} cwd="/proj" filePath="/proj/src/a.ts" />)
 
-    await waitFor(() => expect(gitDiff).toHaveBeenCalledWith('/proj', '/proj/src/a.ts', true))
+    await waitFor(() =>
+      expect(gitDiff).toHaveBeenCalledWith('/proj', '/proj/src/a.ts', true, undefined)
+    )
+  })
+
+  it('compares a commit against its parent when the tile carries a sha', async () => {
+    usePanelStore.getState().setDiffSha(SESSION, 'abc1234')
+
+    render(<DiffPanel sessionId={SESSION} cwd="/proj" filePath="/proj/src/a.ts" />)
+
+    await waitFor(() =>
+      expect(gitDiff).toHaveBeenCalledWith('/proj', '/proj/src/a.ts', false, 'abc1234')
+    )
+  })
+
+  it('offers no side toggle for a commit, which has only one comparison', async () => {
+    usePanelStore.getState().setDiffSha(SESSION, 'abc1234')
+
+    render(<DiffPanel sessionId={SESSION} cwd="/proj" filePath="/proj/src/a.ts" />)
+
+    await waitFor(() => expect(screen.getByText('commit vs parent')).toBeTruthy())
+    expect(screen.queryByText('Staged')).toBeNull()
+    expect(screen.getByText('abc1234')).toBeTruthy()
+  })
+
+  it('does not re-read a commit when the file watcher fires', async () => {
+    usePanelStore.getState().setDiffSha(SESSION, 'abc1234')
+
+    render(<DiffPanel sessionId={SESSION} cwd="/proj" filePath="/proj/src/a.ts" />)
+    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(1))
+
+    // A commit's contents cannot change, so watcher churn must not refetch it.
+    useProjectStore.setState({ fsRefreshKey: 7 })
+    await new Promise((resolve) => setTimeout(resolve, 400))
+
+    expect(gitDiff).toHaveBeenCalledTimes(1)
   })
 
   it('explains a binary file instead of rendering an empty diff', async () => {

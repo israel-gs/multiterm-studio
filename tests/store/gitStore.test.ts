@@ -1,13 +1,30 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useGitStore, STATUS_DEBOUNCE_MS } from '@renderer/store/gitStore'
-import type { GitStatus, GitStatusResult } from '../../src/shared/git'
+import { GIT_LOG_PAGE_SIZE } from '../../src/shared/git'
+import type { GitCommit, GitStatus, GitStatusResult } from '../../src/shared/git'
 
 const gitStatus = vi.fn<(folderPath: string) => Promise<GitStatusResult>>()
+const gitLog = vi.fn()
+const gitCommitDetail = vi.fn()
 
 Object.defineProperty(window, 'electronAPI', {
-  value: { gitStatus },
+  value: { gitStatus, gitLog, gitCommitDetail },
   writable: true
 })
+
+function commits(count: number, offset = 0): GitCommit[] {
+  return Array.from({ length: count }, (_, i) => ({
+    sha: `sha${offset + i}`,
+    shortSha: `sha${offset + i}`,
+    authorName: 'Test',
+    authorEmail: 't@example.com',
+    timestamp: 0,
+    parents: [],
+    refs: [],
+    subject: `commit ${offset + i}`,
+    body: ''
+  }))
+}
 
 function status(overrides: Partial<GitStatus> = {}): GitStatus {
   return { branch: 'main', ahead: 0, behind: 0, detached: false, files: [], ...overrides }
@@ -127,5 +144,92 @@ describe('gitStore — status', () => {
 
     expect(useGitStore.getState().status).toBeNull()
     expect(useGitStore.getState().statusPath).toBeNull()
+  })
+})
+
+describe('gitStore — history', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    useGitStore.getState().reset()
+    gitLog.mockResolvedValue({ ok: true, commits: commits(3) })
+    gitCommitDetail.mockResolvedValue({
+      ok: true,
+      detail: { sha: 'sha0', files: [], insertions: 0, deletions: 0 }
+    })
+  })
+
+  it('loads the first page', async () => {
+    await useGitStore.getState().loadCommits('/proj')
+
+    expect(gitLog).toHaveBeenCalledWith('/proj', GIT_LOG_PAGE_SIZE, 0)
+    expect(useGitStore.getState().commits).toHaveLength(3)
+    expect(useGitStore.getState().commitsLoading).toBe(false)
+  })
+
+  it('knows there is no more history when a page comes back short', async () => {
+    await useGitStore.getState().loadCommits('/proj')
+
+    expect(useGitStore.getState().hasMoreCommits).toBe(false)
+  })
+
+  it('offers more when a page comes back full', async () => {
+    gitLog.mockResolvedValue({ ok: true, commits: commits(GIT_LOG_PAGE_SIZE) })
+
+    await useGitStore.getState().loadCommits('/proj')
+
+    expect(useGitStore.getState().hasMoreCommits).toBe(true)
+  })
+
+  it('appends the next page rather than replacing it', async () => {
+    gitLog.mockResolvedValueOnce({ ok: true, commits: commits(GIT_LOG_PAGE_SIZE) })
+    await useGitStore.getState().loadCommits('/proj')
+
+    gitLog.mockResolvedValueOnce({ ok: true, commits: commits(2, GIT_LOG_PAGE_SIZE) })
+    await useGitStore.getState().loadMoreCommits('/proj')
+
+    expect(gitLog).toHaveBeenLastCalledWith('/proj', GIT_LOG_PAGE_SIZE, GIT_LOG_PAGE_SIZE)
+    expect(useGitStore.getState().commits).toHaveLength(GIT_LOG_PAGE_SIZE + 2)
+  })
+
+  it('does not ask for more when there is none', async () => {
+    await useGitStore.getState().loadCommits('/proj')
+    gitLog.mockClear()
+
+    await useGitStore.getState().loadMoreCommits('/proj')
+
+    expect(gitLog).not.toHaveBeenCalled()
+  })
+
+  it('keeps a failure as a message', async () => {
+    gitLog.mockResolvedValue({ ok: false, error: 'not a repository' })
+
+    await useGitStore.getState().loadCommits('/proj')
+
+    expect(useGitStore.getState().commits).toEqual([])
+    expect(useGitStore.getState().commitsError).toBe('not a repository')
+  })
+
+  it('survives a rejected bridge call', async () => {
+    gitLog.mockRejectedValue(new Error('bridge is gone'))
+
+    await useGitStore.getState().loadCommits('/proj')
+
+    expect(useGitStore.getState().commitsError).toBeTruthy()
+    expect(useGitStore.getState().commitsLoading).toBe(false)
+  })
+
+  it('caches a commit detail, since a commit cannot change', async () => {
+    await useGitStore.getState().loadCommitDetail('/proj', 'sha0')
+    await useGitStore.getState().loadCommitDetail('/proj', 'sha0')
+
+    expect(gitCommitDetail).toHaveBeenCalledTimes(1)
+    expect(useGitStore.getState().commitDetails['sha0']).toBeTruthy()
+  })
+
+  it('drops cached details when the history is reloaded for another folder', async () => {
+    await useGitStore.getState().loadCommitDetail('/proj', 'sha0')
+    await useGitStore.getState().loadCommits('/other')
+
+    expect(useGitStore.getState().commitDetails).toEqual({})
   })
 })

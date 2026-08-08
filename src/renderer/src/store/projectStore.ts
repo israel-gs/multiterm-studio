@@ -30,8 +30,8 @@ export interface ProjectStore {
   pendingFileOpen: string | null
   openFileInEditor: (filePath: string) => void
   clearPendingFileOpen: () => void
-  pendingDiffOpen: { filePath: string; staged: boolean } | null
-  openDiff: (filePath: string, staged: boolean) => void
+  pendingDiffOpen: { filePath: string; staged: boolean; sha?: string } | null
+  openDiff: (filePath: string, staged: boolean, sha?: string) => void
   clearPendingDiffOpen: () => void
   pendingAgentSpawn: AgentSpawnRequest | null
   spawnAgentTerminal: (req: AgentSpawnRequest) => void
@@ -74,7 +74,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   pendingDiffOpen: null,
   // A fresh object every time, so asking for the same file twice still fires
   // the canvas subscription that compares against the previous value.
-  openDiff: (filePath, staged) => set({ pendingDiffOpen: { filePath, staged } }),
+  openDiff: (filePath, staged, sha) => set({ pendingDiffOpen: { filePath, staged, sha } }),
   clearPendingDiffOpen: () => set({ pendingDiffOpen: null }),
   pendingAgentSpawn: null,
   spawnAgentTerminal: (req) => set({ pendingAgentSpawn: req }),

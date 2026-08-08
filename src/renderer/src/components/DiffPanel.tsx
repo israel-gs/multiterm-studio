@@ -22,8 +22,11 @@ export function DiffPanel({ sessionId, cwd, filePath }: DiffPanelProps): React.J
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null)
   const staged = usePanelStore((s) => s.panels[sessionId]?.diffStaged ?? false)
+  const sha = usePanelStore((s) => s.panels[sessionId]?.diffSha)
   const setDiffStaged = usePanelStore((s) => s.setDiffStaged)
   const fsRefreshKey = useProjectStore((s) => s.fsRefreshKey)
+  // A commit's contents cannot change, so watcher churn must not refetch it.
+  const watchKey = sha ? 0 : fsRefreshKey
   const [diff, setDiff] = useState<GitFileDiff | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -73,11 +76,11 @@ export function DiffPanel({ sessionId, cwd, filePath }: DiffPanelProps): React.J
   // it touches.
   useEffect(() => {
     let cancelled = false
-    const delay = fsRefreshKey === 0 ? 0 : RELOAD_DEBOUNCE_MS
+    const delay = watchKey === 0 ? 0 : RELOAD_DEBOUNCE_MS
 
     const timer = setTimeout(() => {
       window.electronAPI
-        .gitDiff(cwd, filePath, staged)
+        .gitDiff(cwd, filePath, staged, sha)
         .then((result) => {
           if (cancelled) return
           if (result.ok) {
@@ -97,7 +100,7 @@ export function DiffPanel({ sessionId, cwd, filePath }: DiffPanelProps): React.J
       cancelled = true
       clearTimeout(timer)
     }
-  }, [cwd, filePath, staged, fsRefreshKey])
+  }, [cwd, filePath, staged, sha, watchKey])
 
   // Push the loaded diff into the editor as a fresh pair of models.
   useEffect(() => {
@@ -125,24 +128,29 @@ export function DiffPanel({ sessionId, cwd, filePath }: DiffPanelProps): React.J
   return (
     <div className="diff-panel">
       <div className="diff-panel-toolbar">
-        <div className="diff-panel-tabs" role="group" aria-label="Diff side">
-          <button
-            className={`diff-panel-tab${staged ? '' : ' diff-panel-tab--active'}`}
-            onClick={() => setDiffStaged(sessionId, false)}
-            aria-pressed={!staged}
-          >
-            Working tree
-          </button>
-          <button
-            className={`diff-panel-tab${staged ? ' diff-panel-tab--active' : ''}`}
-            onClick={() => setDiffStaged(sessionId, true)}
-            aria-pressed={staged}
-          >
-            Staged
-          </button>
-        </div>
+        {/* A commit diff has no other side to switch to. */}
+        {sha ? (
+          <span className="diff-panel-commit">{sha.slice(0, 7)}</span>
+        ) : (
+          <div className="diff-panel-tabs" role="group" aria-label="Diff side">
+            <button
+              className={`diff-panel-tab${staged ? '' : ' diff-panel-tab--active'}`}
+              onClick={() => setDiffStaged(sessionId, false)}
+              aria-pressed={!staged}
+            >
+              Working tree
+            </button>
+            <button
+              className={`diff-panel-tab${staged ? ' diff-panel-tab--active' : ''}`}
+              onClick={() => setDiffStaged(sessionId, true)}
+              aria-pressed={staged}
+            >
+              Staged
+            </button>
+          </div>
+        )}
         <span className="diff-panel-against">
-          {staged ? 'index vs HEAD' : 'working tree vs index'}
+          {sha ? 'commit vs parent' : staged ? 'index vs HEAD' : 'working tree vs index'}
         </span>
       </div>
 

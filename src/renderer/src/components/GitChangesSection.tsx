@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { useGitStore } from '../store/gitStore'
+import { GitHistorySection } from './GitHistorySection'
 import { useProjectStore } from '../store/projectStore'
 import {
   groupStatusFiles,
@@ -117,6 +118,8 @@ export function GitChangesSection({ folderPath }: GitChangesSectionProps): React
           </section>
         )
       })}
+
+      <GitHistorySection folderPath={folderPath} />
     </div>
   )
 }
