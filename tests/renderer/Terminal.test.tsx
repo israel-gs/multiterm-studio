@@ -5,26 +5,26 @@ import { render, act } from '@testing-library/react'
 
 const { mockTerm, mockFitAddon, mockWebLinksAddon, mockWebglAddon, MockTerminalConstructor } =
   vi.hoisted(() => {
-  const mockTerm = {
-    loadAddon: vi.fn(),
-    open: vi.fn(),
-    onData: vi.fn(),
-    write: vi.fn(),
-    dispose: vi.fn(),
-    cols: 80,
-    rows: 24,
-    options: {} as Record<string, unknown>,
-    attachCustomKeyEventHandler: vi.fn(),
-    parser: {
-      registerOscHandler: vi.fn()
+    const mockTerm = {
+      loadAddon: vi.fn(),
+      open: vi.fn(),
+      onData: vi.fn(),
+      write: vi.fn(),
+      dispose: vi.fn(),
+      cols: 80,
+      rows: 24,
+      options: {} as Record<string, unknown>,
+      attachCustomKeyEventHandler: vi.fn(),
+      parser: {
+        registerOscHandler: vi.fn()
+      }
     }
-  }
-  const mockFitAddon = { fit: vi.fn() }
-  const mockWebLinksAddon = {}
-  const mockWebglAddon = { onContextLoss: vi.fn(), dispose: vi.fn() }
-  const MockTerminalConstructor = vi.fn(() => mockTerm)
-  return { mockTerm, mockFitAddon, mockWebLinksAddon, mockWebglAddon, MockTerminalConstructor }
-})
+    const mockFitAddon = { fit: vi.fn() }
+    const mockWebLinksAddon = {}
+    const mockWebglAddon = { onContextLoss: vi.fn(), dispose: vi.fn() }
+    const MockTerminalConstructor = vi.fn(() => mockTerm)
+    return { mockTerm, mockFitAddon, mockWebLinksAddon, mockWebglAddon, MockTerminalConstructor }
+  })
 
 // --- Module mocks ---
 
