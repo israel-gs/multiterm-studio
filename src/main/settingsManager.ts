@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs'
 import { join, dirname } from 'path'
 import { app } from 'electron'
 import { randomUUID } from 'crypto'
+import { reportError } from './errorReporter'
 import { SCROLLBACK_DEFAULT_BYTES, clampScrollbackBytes } from '../shared/scrollback'
 
 let settings: Record<string, unknown> = {}
@@ -27,8 +28,8 @@ export function setSetting(key: string, value: unknown): void {
     const tmp = `${settingsPath}.${randomUUID()}.tmp`
     writeFileSync(tmp, JSON.stringify(settings, null, 2), 'utf-8')
     renameSync(tmp, settingsPath)
-  } catch {
-    // silent
+  } catch (err) {
+    reportError('settings-save', 'Could not save your settings', err)
   }
 }
 

@@ -2,6 +2,7 @@ import { mkdir, writeFile, rename, readFile, unlink } from 'fs/promises'
 import { mkdirSync, writeFileSync, renameSync, unlinkSync } from 'fs'
 import { dirname, resolve, isAbsolute } from 'path'
 import { randomUUID } from 'crypto'
+import { reportError } from './errorReporter'
 import type { LayoutSnapshot } from './layoutManager'
 
 export interface MultiTermWorkspace {
@@ -67,7 +68,8 @@ export async function saveWorkspaceFile(
     await mkdir(dirname(filePath), { recursive: true })
     await writeFile(tmp, JSON.stringify(workspace, null, 2), 'utf-8')
     await rename(tmp, filePath)
-  } catch {
+  } catch (err) {
+    reportError('workspace-save', 'Could not save the workspace file', err)
     try {
       await unlink(tmp)
     } catch {
@@ -82,7 +84,8 @@ export function saveWorkspaceFileSync(filePath: string, workspace: MultiTermWork
     mkdirSync(dirname(filePath), { recursive: true })
     writeFileSync(tmp, JSON.stringify(workspace, null, 2), 'utf-8')
     renameSync(tmp, filePath)
-  } catch {
+  } catch (err) {
+    reportError('workspace-save', 'Could not save the workspace file', err)
     try {
       unlinkSync(tmp)
     } catch {

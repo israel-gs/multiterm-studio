@@ -2,6 +2,7 @@ import { mkdir, writeFile, rename, readFile, appendFile, unlink } from 'fs/promi
 import { existsSync, mkdirSync, writeFileSync, renameSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
+import { reportError } from './errorReporter'
 
 export interface PanelEntry {
   id: string
@@ -96,8 +97,8 @@ export async function saveLayout(folderPath: string, layout: LayoutSnapshot): Pr
     await mkdir(multitermDir(folderPath), { recursive: true })
     await writeFile(tmpPath, JSON.stringify(layout, null, 2))
     await rename(tmpPath, targetPath)
-  } catch {
-    // Silent failure — do not crash the app on save errors
+  } catch (err) {
+    reportError('layout-save', 'Could not save the tile layout for this project', err)
     try {
       await unlink(tmpPath)
     } catch {
@@ -117,8 +118,8 @@ export function saveLayoutSync(folderPath: string, layout: LayoutSnapshot): void
     mkdirSync(multitermDir(folderPath), { recursive: true })
     writeFileSync(tmpPath, JSON.stringify(layout, null, 2))
     renameSync(tmpPath, targetPath)
-  } catch {
-    // Silent failure
+  } catch (err) {
+    reportError('layout-save', 'Could not save the tile layout for this project', err)
     try {
       unlinkSync(tmpPath)
     } catch {
@@ -159,7 +160,8 @@ export async function ensureGitignore(folderPath: string): Promise<void> {
     const contents = await readFile(gitignorePath, 'utf-8')
     if (contents.includes('.multiterm')) return
     await appendFile(gitignorePath, '\n# Multiterm Studio local config\n.multiterm/\n')
-  } catch {
-    // Silent failure
+  } catch (err) {
+    // Cosmetic: the layout still saves, it just is not gitignored.
+    reportError('gitignore', 'Could not add .multiterm/ to .gitignore', err)
   }
 }

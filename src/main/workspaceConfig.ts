@@ -1,6 +1,7 @@
 import { readFile, writeFile, rename, mkdir, unlink } from 'fs/promises'
 import { join, dirname } from 'path'
 import { randomUUID } from 'crypto'
+import { reportError } from './errorReporter'
 
 export interface WorkspaceConfig {
   selected_file: string | null
@@ -39,7 +40,8 @@ export async function saveWorkspaceConfig(
     await mkdir(dirname(target), { recursive: true })
     await writeFile(tmp, JSON.stringify(config, null, 2), 'utf-8')
     await rename(tmp, target)
-  } catch {
+  } catch (err) {
+    reportError('workspace-config', 'Could not save this project\u2019s sidebar state', err)
     try {
       await unlink(tmp)
     } catch {

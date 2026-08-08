@@ -4,6 +4,7 @@ import { TerminalCanvas } from './components/TerminalCanvas'
 import type { SavedLayoutShape } from './components/TerminalCanvas'
 import { EnhancedSidebar } from './components/EnhancedSidebar'
 import { WelcomeScreen } from './components/WelcomeScreen'
+import { ErrorToasts } from './components/ErrorToasts'
 import { useProjectStore } from './store/projectStore'
 import { usePanelStore } from './store/panelStore'
 import { flushSave } from './utils/layoutPersistence'
@@ -400,6 +401,7 @@ function App(): React.JSX.Element {
             } as React.CSSProperties
           }
         />
+        <ErrorToasts />
         <WelcomeScreen
           onSelectProject={(path) => {
             if (path.endsWith('.multiterm-workspace') || path.endsWith('.code-workspace')) {
@@ -491,6 +493,7 @@ function App(): React.JSX.Element {
           savedLayout={savedLayoutRef.current}
         />
       </main>
+      <ErrorToasts />
     </div>
   )
 }

@@ -37,6 +37,7 @@ import type { MultiTermWorkspace } from './workspaceFileManager'
 import { setupUpdateIPC, updateManager } from './updater'
 import { launchTargetFromArgv } from './launchTarget'
 import { isPathInsideRoots } from './pathGuard'
+import { setErrorSink } from './errorReporter'
 
 // Set app name early — used by macOS menu bar
 app.setName('Multiterm Studio')
@@ -427,6 +428,14 @@ app.whenReady().then(async () => {
       return new Response('Forbidden', { status: 403 })
     }
     return net.fetch(`file://${filePath}`)
+  })
+
+  // Persistence failures are non-fatal by design, but the user still has to
+  // learn that their layout or settings did not save.
+  setErrorSink((error) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send('app:error', error)
+    }
   })
 
   initSettings()

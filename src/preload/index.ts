@@ -398,6 +398,16 @@ const api = {
   // Declares which folders local-resource:// may serve files from.
   workspaceSetRoots: (roots: string[]): void => ipcRenderer.send('workspace:set-roots', roots),
 
+  // Failures the main process wants the user to see (failed saves, etc.)
+  onAppError: (callback: (error: { message: string; detail?: string }) => void): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      error: { message: string; detail?: string }
+    ): void => callback(error)
+    ipcRenderer.on('app:error', listener)
+    return () => ipcRenderer.removeListener('app:error', listener)
+  },
+
   // Launch target — folder/workspace passed on the command line or via Finder
   appTakeOpenPath: (): Promise<string | null> => ipcRenderer.invoke('app:take-open-path'),
 

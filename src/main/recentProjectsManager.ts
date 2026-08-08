@@ -3,6 +3,7 @@ import { readFile, writeFile, rename, mkdir, unlink } from 'fs/promises'
 import { basename, join } from 'path'
 import { existsSync } from 'fs'
 import { randomUUID } from 'crypto'
+import { reportError } from './errorReporter'
 
 export interface RecentProject {
   path: string
@@ -38,8 +39,8 @@ async function saveRecent(projects: RecentProject[]): Promise<void> {
     }
     await writeFile(tmp, JSON.stringify(projects, null, 2))
     await rename(tmp, target)
-  } catch {
-    // Silent failure
+  } catch (err) {
+    reportError('recent-projects', 'Could not update the recent projects list', err)
     try {
       await unlink(tmp)
     } catch {

@@ -3469,3 +3469,62 @@ main > .sidebar-toggle-btn {
   height: 100%;
   background: var(--bg-card);
 }
+
+/* Failure toasts (see ErrorToasts.tsx) */
+.toast-stack {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 380px;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-red);
+  border-radius: 8px;
+  background: var(--bg-card);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-red);
+}
+
+.toast-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.toast-message {
+  color: var(--fg-primary);
+  font-size: 13px;
+}
+
+.toast-detail {
+  margin-top: 2px;
+  color: var(--fg-secondary);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.toast-close {
+  flex-shrink: 0;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--fg-secondary);
+  cursor: pointer;
+}
+
+.toast-close:hover {
+  color: var(--fg-primary);
+}
