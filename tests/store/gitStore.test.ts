@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { useGitStore, STATUS_DEBOUNCE_MS } from '@renderer/store/gitStore'
+import { useGitStore, STATUS_DEBOUNCE_MS, GIT_REFRESH_DEBOUNCE_MS } from '@renderer/store/gitStore'
 import { GIT_LOG_PAGE_SIZE } from '../../src/shared/git'
 import type { GitCommit, GitStatus, GitStatusResult } from '../../src/shared/git'
 
@@ -231,5 +231,52 @@ describe('gitStore — history', () => {
     await useGitStore.getState().loadCommits('/other')
 
     expect(useGitStore.getState().commitDetails).toEqual({})
+  })
+})
+
+describe('gitStore — reacting to a repository change', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    useGitStore.getState().reset()
+    gitStatus.mockResolvedValue({ ok: true, status: status() })
+    gitLog.mockResolvedValue({ ok: true, commits: commits(1) })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('re-reads both the working tree and the history', async () => {
+    vi.useFakeTimers()
+
+    useGitStore.getState().scheduleGitRefresh('/proj')
+    await vi.advanceTimersByTimeAsync(GIT_REFRESH_DEBOUNCE_MS)
+
+    expect(gitStatus).toHaveBeenCalledWith('/proj')
+    expect(gitLog).toHaveBeenCalled()
+  })
+
+  it('collapses the burst a single commit produces into one refresh', async () => {
+    vi.useFakeTimers()
+
+    // A commit writes HEAD, the index and a ref: three events, one refresh.
+    useGitStore.getState().scheduleGitRefresh('/proj')
+    useGitStore.getState().scheduleGitRefresh('/proj')
+    useGitStore.getState().scheduleGitRefresh('/proj')
+    await vi.advanceTimersByTimeAsync(GIT_REFRESH_DEBOUNCE_MS)
+
+    expect(gitStatus).toHaveBeenCalledTimes(1)
+    expect(gitLog).toHaveBeenCalledTimes(1)
+  })
+
+  it('cancels a pending refresh when the project is closed', async () => {
+    vi.useFakeTimers()
+
+    useGitStore.getState().scheduleGitRefresh('/proj')
+    useGitStore.getState().reset()
+    await vi.advanceTimersByTimeAsync(GIT_REFRESH_DEBOUNCE_MS * 4)
+
+    expect(gitStatus).not.toHaveBeenCalled()
+    expect(gitLog).not.toHaveBeenCalled()
   })
 })

@@ -3,9 +3,10 @@ import { render, act } from '@testing-library/react'
 import type { GitStatusResult } from '../../src/shared/git'
 
 const gitStatus = vi.fn<(folderPath: string) => Promise<GitStatusResult>>()
+const gitLog = vi.fn()
 
 Object.defineProperty(window, 'electronAPI', {
-  value: { gitStatus },
+  value: { gitStatus, gitLog },
   writable: true
 })
 
@@ -22,7 +23,8 @@ describe('useGitStatusSync', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     useGitStore.getState().reset()
-    useProjectStore.setState({ fsRefreshKey: 0 })
+    useProjectStore.setState({ fsRefreshKey: 0, gitRefreshKey: 0 })
+    gitLog.mockResolvedValue({ ok: true, commits: [] })
     gitStatus.mockResolvedValue({
       ok: true,
       status: { branch: 'main', ahead: 0, behind: 0, detached: false, files: [] }
@@ -80,5 +82,52 @@ describe('useGitStatusSync', () => {
 
     expect(useGitStore.getState().status).toBeNull()
     expect(useGitStore.getState().statusPath).toBeNull()
+  })
+
+  it('reads the history once when the folder is opened', async () => {
+    useGitStore.getState().setIsRepo(true)
+
+    render(<Probe folderPath="/proj" />)
+
+    await vi.waitFor(() => expect(gitLog).toHaveBeenCalledTimes(1))
+  })
+
+  it('re-reads status and history when the repository changes', async () => {
+    vi.useFakeTimers()
+    useGitStore.getState().setIsRepo(true)
+
+    render(<Probe folderPath="/proj" />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    gitStatus.mockClear()
+    gitLog.mockClear()
+
+    // Committing touches nothing but .git, which arrives on its own channel.
+    await act(async () => {
+      useProjectStore.getState().bumpGitRefresh()
+      await vi.advanceTimersByTimeAsync(500)
+    })
+
+    expect(gitStatus).toHaveBeenCalledTimes(1)
+    expect(gitLog).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not re-read the history for an ordinary file change', async () => {
+    vi.useFakeTimers()
+    useGitStore.getState().setIsRepo(true)
+
+    render(<Probe folderPath="/proj" />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    gitLog.mockClear()
+
+    await act(async () => {
+      useProjectStore.getState().bumpFsRefresh()
+      await vi.advanceTimersByTimeAsync(500)
+    })
+
+    expect(gitLog).not.toHaveBeenCalled()
   })
 })

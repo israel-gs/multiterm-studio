@@ -44,6 +44,9 @@ export interface ProjectStore {
   clearPendingTerminalCwd: () => void
   fsRefreshKey: number
   bumpFsRefresh: () => void
+  /** Bumped when the repository changes: a commit, a stage, a branch switch. */
+  gitRefreshKey: number
+  bumpGitRefresh: () => void
   expandedDirs: Set<string>
   setExpandedDirs: (dirs: Set<string>) => void
   toggleExpandedDir: (dir: string) => void
@@ -87,6 +90,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   clearPendingTerminalCwd: () => set({ pendingTerminalCwd: null }),
   fsRefreshKey: 0,
   bumpFsRefresh: () => set((s) => ({ fsRefreshKey: s.fsRefreshKey + 1 })),
+  gitRefreshKey: 0,
+  bumpGitRefresh: () => set((s) => ({ gitRefreshKey: s.gitRefreshKey + 1 })),
   expandedDirs: new Set<string>(),
   setExpandedDirs: (dirs) => set({ expandedDirs: dirs }),
   toggleExpandedDir: (dir) =>

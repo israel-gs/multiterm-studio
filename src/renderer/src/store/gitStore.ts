@@ -5,6 +5,9 @@ import type { GitCommit, GitCommitDetail, GitStatus } from '../../../shared/git'
 /** How long the file watcher must stay quiet before a status read is worth it. */
 export const STATUS_DEBOUNCE_MS = 250
 
+/** A commit writes HEAD, the index and a ref; one refresh should cover them. */
+export const GIT_REFRESH_DEBOUNCE_MS = 300
+
 export interface GitStore {
   isRepo: boolean
   currentBranch: string
@@ -42,6 +45,11 @@ export interface GitStore {
    */
   commitDetails: Record<string, GitCommitDetail>
   loadCommitDetail: (folderPath: string, sha: string) => Promise<void>
+  /**
+   * Re-read both the working tree and the history, debounced. A commit writes
+   * several files under .git, so the events arrive in a burst.
+   */
+  scheduleGitRefresh: (folderPath: string, delayMs?: number) => void
 }
 
 /**
@@ -53,6 +61,7 @@ let statusRequestId = 0
 let statusTimer: ReturnType<typeof setTimeout> | null = null
 /** Same guard for history: switching folders must not accept the old repo's log. */
 let logRequestId = 0
+let gitRefreshTimer: ReturnType<typeof setTimeout> | null = null
 
 export const useGitStore = create<GitStore>((set, get) => ({
   isRepo: false,
@@ -74,6 +83,8 @@ export const useGitStore = create<GitStore>((set, get) => ({
   reset: () => {
     if (statusTimer) clearTimeout(statusTimer)
     statusTimer = null
+    if (gitRefreshTimer) clearTimeout(gitRefreshTimer)
+    gitRefreshTimer = null
     statusRequestId++
     set({
       isRepo: false,
@@ -132,6 +143,8 @@ export const useGitStore = create<GitStore>((set, get) => ({
   clearStatus: () => {
     if (statusTimer) clearTimeout(statusTimer)
     statusTimer = null
+    if (gitRefreshTimer) clearTimeout(gitRefreshTimer)
+    gitRefreshTimer = null
     statusRequestId++
     set({
       status: null,
@@ -209,6 +222,15 @@ export const useGitStore = create<GitStore>((set, get) => ({
     if (!result.ok) return
 
     set((s) => ({ commitDetails: { ...s.commitDetails, [sha]: result.detail } }))
+  },
+
+  scheduleGitRefresh: (folderPath, delayMs = GIT_REFRESH_DEBOUNCE_MS) => {
+    if (gitRefreshTimer) clearTimeout(gitRefreshTimer)
+    gitRefreshTimer = setTimeout(() => {
+      gitRefreshTimer = null
+      void get().refreshStatus(folderPath)
+      void get().loadCommits(folderPath)
+    }, delayMs)
   }
 }))
 

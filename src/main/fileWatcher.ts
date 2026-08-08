@@ -26,8 +26,13 @@ function spawnWorker(): void {
   worker = utilityProcess.fork(workerPath())
 
   worker.on('message', (msg: { type: string; changes?: unknown[]; error?: string }) => {
-    if (msg.type === 'changes' && currentWin && !currentWin.isDestroyed()) {
+    if (!currentWin || currentWin.isDestroyed()) return
+    if (msg.type === 'changes') {
       currentWin.webContents.send('fs:changed', msg.changes)
+    } else if (msg.type === 'git-changes') {
+      // Its own channel: a git change must refresh the source control view
+      // without making every open file tree re-read its children.
+      currentWin.webContents.send('git:changed', msg.changes)
     }
   })
 

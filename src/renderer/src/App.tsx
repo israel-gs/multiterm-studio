@@ -218,6 +218,9 @@ function App(): React.JSX.Element {
     const unsubFsChanged = window.electronAPI.onFsChanged(() => {
       useProjectStore.getState().bumpFsRefresh()
     })
+    const unsubGitChanged = window.electronAPI.onGitChanged(() => {
+      useProjectStore.getState().bumpGitRefresh()
+    })
     const unsubPaneCreate = window.electronAPI.onPaneCreate((data) => {
       useProjectStore.getState().spawnInteractivePane(data)
     })
@@ -231,6 +234,7 @@ function App(): React.JSX.Element {
       unsubSessionStarted()
       unsubSessionEnded()
       unsubFsChanged()
+      unsubGitChanged()
       unsubPaneCreate()
       unsubPaneFocus()
     }

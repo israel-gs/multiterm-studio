@@ -1,8 +1,14 @@
 import { subscribe, type AsyncSubscription, type Event } from '@parcel/watcher'
 import { relative } from 'path'
+import { isGitSignalPath, isInsideGitDir } from '../shared/gitWatch'
 
+/**
+ * `.git` is deliberately not ignored: committing touches nothing but `.git`, so
+ * ignoring it left the source control view showing changes that were already
+ * committed. The noise is filtered per event instead, and reported on its own
+ * channel so it does not make the file tree re-read itself.
+ */
 const IGNORE_PATTERNS = [
-  '**/.git/**',
   '**/.DS_Store',
   '**/Thumbs.db',
   '**/node_modules/**',
@@ -31,14 +37,20 @@ function subscribeFolder(folderPath: string): Promise<void> {
         return
       }
 
-      const changes = events.map((e: Event) => ({
+      const all = events.map((e: Event) => ({
         path: e.path,
         relativePath: relative(folderPath, e.path),
         type: e.type
       }))
 
+      const changes = all.filter((change) => !isInsideGitDir(change.relativePath))
       if (changes.length > 0) {
         process.parentPort!.postMessage({ type: 'changes', changes })
+      }
+
+      const gitChanges = all.filter((change) => isGitSignalPath(change.relativePath))
+      if (gitChanges.length > 0) {
+        process.parentPort!.postMessage({ type: 'git-changes', changes: gitChanges })
       }
     },
     { ignore: IGNORE_PATTERNS }

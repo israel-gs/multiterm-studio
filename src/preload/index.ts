@@ -307,6 +307,13 @@ const api = {
     return () => ipcRenderer.removeListener('fs:changed', listener)
   },
 
+  /** Fires when the repository state changes: a commit, a stage, a branch switch. */
+  onGitChanged: (callback: () => void): (() => void) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('git:changed', listener)
+    return () => ipcRenderer.removeListener('git:changed', listener)
+  },
+
   // Native context menu
   contextMenuShow: (
     items: Array<{ id: string; label?: string; enabled?: boolean }>
