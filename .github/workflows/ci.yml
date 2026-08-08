@@ -39,9 +39,10 @@ jobs:
         run: pnpm typecheck
 
       # The suite mocks Electron and drives node-pty directly, so no display
-      # server is needed.
+      # server is needed. Files run one at a time so the verbose log names the
+      # file a hang stops on — worth the extra seconds on a suite this size.
       - name: Test
-        run: pnpm test
+        run: pnpm test -- --no-file-parallelism
 
   build:
     name: Build (${{ matrix.os }})
