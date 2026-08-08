@@ -326,18 +326,7 @@ function createWindow(): void {
       shell.showItemInFolder(fullPath)
     })
 
-    // Native UI zoom (Cmd+= / Cmd+- / Cmd+0) and fullscreen (Shift+Cmd+F)
-    ipcMain.on('zoom:in', () => {
-      if (mainWindow && !mainWindow.isDestroyed())
-        mainWindow.webContents.zoomLevel = Math.min(mainWindow.webContents.zoomLevel + 0.5, 5)
-    })
-    ipcMain.on('zoom:out', () => {
-      if (mainWindow && !mainWindow.isDestroyed())
-        mainWindow.webContents.zoomLevel = Math.max(mainWindow.webContents.zoomLevel - 0.5, -3)
-    })
-    ipcMain.on('zoom:reset', () => {
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.zoomLevel = 0
-    })
+    // UI zoom is handled by the menu's zoom roles, not from the renderer.
     ipcMain.on('fullscreen:toggle', () => {
       if (mainWindow && !mainWindow.isDestroyed())
         mainWindow.setFullScreen(!mainWindow.isFullScreen())
@@ -583,6 +572,11 @@ app.whenReady().then(async () => {
           accelerator: 'CmdOrCtrl+B',
           click: () => sendToRenderer('menu:toggle-sidebar')
         },
+        {
+          label: 'Toggle Tile Index',
+          accelerator: 'CmdOrCtrl+Alt+B',
+          click: () => sendToRenderer('menu:toggle-tile-index')
+        },
         { type: 'separator' },
         {
           label: 'Navigate Left',
@@ -604,6 +598,13 @@ app.whenReady().then(async () => {
           accelerator: 'CmdOrCtrl+Alt+Down',
           click: () => sendToRenderer('menu:nav-down')
         },
+        { type: 'separator' },
+        // Roles rather than hand-rolled keydown matching: Chromium registers
+        // the platform's zoom accelerators, including the variants a non-US
+        // keyboard produces, which a key-name comparison in the renderer misses.
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
         { type: 'separator' },
         { role: 'toggleDevTools' },
         { role: 'togglefullscreen' }

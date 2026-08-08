@@ -125,4 +125,33 @@ describe('panelStore', () => {
       cwd: undefined
     })
   })
+
+  describe('diff tiles', () => {
+    it('names a diff tile after the file it compares', () => {
+      usePanelStore.getState().addPanel('d1', undefined, undefined, 'diff', '/proj/src/a.ts')
+
+      expect(usePanelStore.getState().panels['d1'].title).toBe('Diff: a.ts')
+    })
+
+    it('remembers which side the tile was opened on', () => {
+      usePanelStore
+        .getState()
+        .addPanel('d1', undefined, undefined, 'diff', '/proj/src/a.ts', undefined, undefined, true)
+
+      expect(usePanelStore.getState().panels['d1'].diffStaged).toBe(true)
+    })
+
+    it('flips between the staged and working-tree sides', () => {
+      usePanelStore.getState().addPanel('d1', undefined, undefined, 'diff', '/proj/src/a.ts')
+      usePanelStore.getState().setDiffStaged('d1', true)
+      expect(usePanelStore.getState().panels['d1'].diffStaged).toBe(true)
+
+      usePanelStore.getState().setDiffStaged('d1', false)
+      expect(usePanelStore.getState().panels['d1'].diffStaged).toBe(false)
+    })
+
+    it('ignores a side change for a panel that is gone', () => {
+      expect(() => usePanelStore.getState().setDiffStaged('missing', true)).not.toThrow()
+    })
+  })
 })

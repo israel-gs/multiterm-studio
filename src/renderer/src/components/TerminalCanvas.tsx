@@ -4,7 +4,8 @@ import type { CardRect } from './FloatingCard'
 import { PanelModal } from './PanelModal'
 import { CanvasToolbar } from './CanvasToolbar'
 import { NewTerminalModal } from './NewTerminalModal'
-import { usePanelStore } from '../store/panelStore'
+import { usePanelStore, type PanelMeta } from '../store/panelStore'
+import { useCanvasStore } from '../store/canvasStore'
 import { useProjectStore } from '../store/projectStore'
 import type { AgentSpawnRequest, PaneCreateRequest } from '../store/projectStore'
 import { scheduleSave } from '../utils/layoutPersistence'
@@ -33,9 +34,10 @@ export interface SavedLayoutShape {
     id: string
     title: string
     color: string
-    type?: 'terminal' | 'editor' | 'note' | 'image'
+    type?: 'terminal' | 'editor' | 'note' | 'image' | 'diff'
     filePath?: string
     noteContent?: string
+    diffStaged?: boolean
   }>
   positions?: Record<string, CardRect>
   viewport?: { panX: number; panY: number; zoom: number; centerX?: number; centerY?: number }
@@ -76,7 +78,8 @@ function buildLayoutSnapshot(
       color: allPanels[id].color,
       type: allPanels[id].type,
       filePath: allPanels[id].filePath,
-      noteContent: allPanels[id].noteContent
+      noteContent: allPanels[id].noteContent,
+      diffStaged: allPanels[id].diffStaged
     }))
   return { version: 3, panelIds, panels, positions: normalizeZIndices(positions), viewport }
 }
@@ -393,6 +396,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
           }, 200)
         )
       }
+
+      // The tile index marks these too. The store ignores a set with the same
+      // members, so panning does not re-render it on every frame.
+      useCanvasStore.getState().setOffscreenIds(activeIds)
     }
 
     // --- Minimap ---
@@ -862,9 +869,11 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
         const closeLabel =
           pm?.type === 'editor'
             ? 'Close editor'
-            : pm?.type === 'note'
-              ? 'Close note'
-              : 'Close terminal'
+            : pm?.type === 'diff'
+              ? 'Close diff'
+              : pm?.type === 'note'
+                ? 'Close note'
+                : 'Close terminal'
         const isMaximized = maximizedId === cardId
         window.electronAPI
           .contextMenuShow([
@@ -1114,7 +1123,16 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
   useEffect(() => {
     if (savedLayout != null && savedLayout.panels.length > 0) {
       for (const p of savedLayout.panels) {
-        addPanel(p.id, p.title, p.color, p.type ?? 'terminal', p.filePath)
+        addPanel(
+          p.id,
+          p.title,
+          p.color,
+          p.type ?? 'terminal',
+          p.filePath,
+          undefined,
+          undefined,
+          p.diffStaged
+        )
         if (p.type === 'note' && p.noteContent) {
           usePanelStore.getState().setNoteContent(p.id, p.noteContent)
         }
@@ -1282,6 +1300,45 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Mirror the canvas view state for the tile index, which cannot reach into
+  // this component's local state.
+  useEffect(() => {
+    useCanvasStore.getState().setTileOrder(panelIds)
+  }, [panelIds])
+
+  useEffect(() => {
+    useCanvasStore.getState().setFocusedId(focusedCardId)
+  }, [focusedCardId])
+
+  useEffect(() => {
+    useCanvasStore.getState().setMaximizedId(maximizedId)
+  }, [maximizedId])
+
+  // Subscribe to pendingReveal from panelStore (tile index clicks): unlike
+  // pendingFocus this also pans, because the point is to find a tile you have
+  // lost track of on the canvas.
+  useEffect(() => {
+    const unsubscribe = usePanelStore.subscribe((state, prev) => {
+      const reveal = state.pendingReveal
+      if (!reveal || reveal === prev.pendingReveal) return
+      usePanelStore.getState().clearPendingReveal()
+
+      handleBringToFront(reveal.id)
+      setFocusedCardId(reveal.id)
+
+      // Switching tiles while one is maximized swaps which tile is maximized
+      // rather than dropping back to the canvas — same as opening a file does.
+      // Panning is pointless here: the canvas is hidden behind the tile.
+      if (reveal.maximize || maximizedIdRef.current) {
+        setMaximizedId(reveal.id)
+        return
+      }
+      requestAnimationFrame(() => panToTileRef.current(reveal.id))
+    })
+    return unsubscribe
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Subscribe to pendingFocus from panelStore (agent focus, RPC pane.focus)
   useEffect(() => {
     const unsubscribe = usePanelStore.subscribe((state, prev) => {
@@ -1293,37 +1350,11 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     return unsubscribe
   }, [])
 
-  // --- Open file in editor or image tile ---
-  function handleOpenFile(filePath: string): void {
-    const wasMaximized = !!maximizedIdRef.current
-
-    // Route images to handleAddImage
-    if (inferTileType(filePath) === 'image') {
-      if (wasMaximized) setMaximizedId(null)
-      handleAddImage(filePath)
-      return
-    }
-
-    // Check if file is already open -> maximize it (or bring to front)
-    const allPanels = usePanelStore.getState().panels
-    for (const id of panelIdsRef.current) {
-      const pm = allPanels[id]
-      if (pm && pm.type === 'editor' && pm.filePath === filePath) {
-        if (wasMaximized) {
-          setMaximizedId(id)
-        } else {
-          handleBringToFront(id)
-        }
-        return
-      }
-    }
-
-    // Create new editor panel
-    const newId = crypto.randomUUID()
-    const fileName = basename(filePath) || 'Untitled'
-    addPanel(newId, fileName, undefined, 'editor', filePath)
-
-    // Position at viewport center, avoiding overlap
+  /**
+   * Drop a freshly created tile at the centre of the viewport, nudged clear of
+   * whatever is already there, and give it the focus.
+   */
+  function placeNewTile(newId: string, wasMaximized: boolean, w = DEFAULT_W, h = DEFAULT_H): void {
     const viewport = viewportRef.current
     const scale = scaleRef.current
     let idealX = 40
@@ -1331,19 +1362,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     if (viewport) {
       const vw = viewport.clientWidth
       const vh = viewport.clientHeight
-      idealX = (vw / 2 - canvasXRef.current) / scale - DEFAULT_W / 2
-      idealY = (vh / 2 - canvasYRef.current) / scale - DEFAULT_H / 2
+      idealX = (vw / 2 - canvasXRef.current) / scale - w / 2
+      idealY = (vh / 2 - canvasYRef.current) / scale - h / 2
     }
 
-    const { x, y } = findNonOverlappingPosition(
-      idealX,
-      idealY,
-      DEFAULT_W,
-      DEFAULT_H,
-      positionsRef.current
-    )
+    const { x, y } = findNonOverlappingPosition(idealX, idealY, w, h, positionsRef.current)
     const newZ = ++topZRef.current
-    const newRect: CardRect = { x, y, w: DEFAULT_W, h: DEFAULT_H, z: newZ }
+    const newRect: CardRect = { x, y, w, h, z: newZ }
 
     setPanelIds((prev) => {
       const next = [...prev, newId]
@@ -1357,7 +1382,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       return next
     })
 
-    // If a tile was maximized, maximize the new file instead
+    // If a tile was maximized, maximize the new one instead.
     // Use requestAnimationFrame so the new panel renders first
     if (wasMaximized) {
       requestAnimationFrame(() => {
@@ -1368,6 +1393,69 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       setFocusedCardId(newId)
       requestAnimationFrame(() => panToTileRef.current(newId))
     }
+  }
+
+  /** Surface an existing tile instead of opening a second one for the same thing. */
+  function revealExistingTile(
+    match: (panel: PanelMeta) => boolean,
+    wasMaximized: boolean
+  ): boolean {
+    const allPanels = usePanelStore.getState().panels
+    for (const id of panelIdsRef.current) {
+      const pm = allPanels[id]
+      if (pm && match(pm)) {
+        if (wasMaximized) setMaximizedId(id)
+        else handleBringToFront(id)
+        return true
+      }
+    }
+    return false
+  }
+
+  // --- Open file in editor or image tile ---
+  function handleOpenFile(filePath: string): void {
+    const wasMaximized = !!maximizedIdRef.current
+
+    // Route images to handleAddImage
+    if (inferTileType(filePath) === 'image') {
+      if (wasMaximized) setMaximizedId(null)
+      handleAddImage(filePath)
+      return
+    }
+
+    if (
+      revealExistingTile((pm) => pm.type === 'editor' && pm.filePath === filePath, wasMaximized)
+    ) {
+      return
+    }
+
+    // Create new editor panel
+    const newId = crypto.randomUUID()
+    const fileName = basename(filePath) || 'Untitled'
+    addPanel(newId, fileName, undefined, 'editor', filePath)
+    placeNewTile(newId, wasMaximized)
+  }
+
+  // --- Open a git diff tile for a file ---
+  function handleOpenDiff(filePath: string, staged: boolean): void {
+    const wasMaximized = !!maximizedIdRef.current
+
+    // A tile already comparing this file is reused even if it is showing the
+    // other side — flipping it beats stacking two near-identical tiles.
+    const existing = usePanelStore.getState().panels
+    for (const id of panelIdsRef.current) {
+      const pm = existing[id]
+      if (pm && pm.type === 'diff' && pm.filePath === filePath) {
+        usePanelStore.getState().setDiffStaged(id, staged)
+        if (wasMaximized) setMaximizedId(id)
+        else handleBringToFront(id)
+        return
+      }
+    }
+
+    const newId = crypto.randomUUID()
+    addPanel(newId, undefined, colors.bgCard, 'diff', filePath, undefined, undefined, staged)
+    placeNewTile(newId, wasMaximized)
   }
 
   // Listen for menu bar actions
@@ -1418,6 +1506,18 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       if (state.pendingFileOpen && state.pendingFileOpen !== prev.pendingFileOpen) {
         handleOpenFile(state.pendingFileOpen)
         useProjectStore.getState().clearPendingFileOpen()
+      }
+    })
+    return unsubscribe
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Subscribe to pendingDiffOpen from projectStore (source control clicks)
+  useEffect(() => {
+    const unsubscribe = useProjectStore.subscribe((state, prev) => {
+      if (state.pendingDiffOpen && state.pendingDiffOpen !== prev.pendingDiffOpen) {
+        handleOpenDiff(state.pendingDiffOpen.filePath, state.pendingDiffOpen.staged)
+        useProjectStore.getState().clearPendingDiffOpen()
       }
     })
     return unsubscribe
@@ -1928,7 +2028,16 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
 
     const newId = crypto.randomUUID()
     const title = (pm.title || 'Terminal') + ' (copy)'
-    addPanel(newId, title, pm.color, pm.type, pm.filePath, pm.initialCommand)
+    addPanel(
+      newId,
+      title,
+      pm.color,
+      pm.type,
+      pm.filePath,
+      pm.initialCommand,
+      undefined,
+      pm.diffStaged
+    )
 
     const { x, y } = findNonOverlappingPosition(
       rect.x + 30,

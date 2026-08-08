@@ -1,5 +1,5 @@
 import { realpathSync } from 'fs'
-import { resolve, sep } from 'path'
+import { basename, dirname, join, resolve, sep } from 'path'
 
 /**
  * Containment check for paths that come from the renderer.
@@ -27,16 +27,26 @@ export function isPathInsideRoots(candidate: string, roots: string[]): boolean {
 }
 
 /**
- * realpath() for existing paths, plain resolve() otherwise.
+ * realpath() for existing paths; for one that does not exist, the realpath of
+ * its deepest existing ancestor with the missing segments re-attached.
  *
- * A path that does not exist yet cannot be a symlink escape, and resolve()
- * still collapses any `..` segments.
+ * Resolving only the existing prefix is both safe and necessary. Safe, because
+ * a component that does not exist cannot be a symlink. Necessary, because the
+ * roots are always fully resolved: comparing a bare resolve() against them
+ * rejects legitimate paths wherever an ancestor is a link — on macOS every
+ * path under /tmp or /var, whose real form lives under /private.
+ *
+ * Paths that do not exist are the normal case for a file being created, and
+ * for one git still reports after it has been deleted from the working tree.
  */
 function realPathOrResolved(filePath: string): string {
   const resolved = resolve(filePath)
   try {
     return realpathSync(resolved)
   } catch {
-    return resolved
+    const parent = dirname(resolved)
+    // Bottomed out at the filesystem root, which has no parent to resolve.
+    if (parent === resolved) return resolved
+    return join(realPathOrResolved(parent), basename(resolved))
   }
 }

@@ -46,6 +46,13 @@ describe('isPathInsideRoots — allows', () => {
   it('a file under any one of several roots', () => {
     expect(isPathInsideRoots(join(outside, 'secrets.txt'), [project, outside])).toBe(true)
   })
+
+  it('a path that does not exist yet', () => {
+    // A file about to be created, or one git still names after it was deleted.
+    // On macOS the root resolves under /private, so an unresolved candidate
+    // would never match it.
+    expect(isPathInsideRoots(join(project, 'docs', 'not-written-yet.png'), [project])).toBe(true)
+  })
 })
 
 describe('isPathInsideRoots — denies', () => {
@@ -59,6 +66,13 @@ describe('isPathInsideRoots — denies', () => {
 
   it('a symlink inside the root that points outside it', () => {
     expect(isPathInsideRoots(join(project, 'escape-hatch'), [project])).toBe(false)
+  })
+
+  it('a path that does not exist yet behind a symlink that escapes', () => {
+    // The missing leaf must not stop the guard from resolving the link above it.
+    const link = join(project, 'escape-dir')
+    symlinkSync(outside, link)
+    expect(isPathInsideRoots(join(link, 'not-written-yet.txt'), [project])).toBe(false)
   })
 
   it('a sibling directory sharing the root name as a prefix', () => {

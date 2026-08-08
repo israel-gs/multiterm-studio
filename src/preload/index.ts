@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer, clipboard } from 'electron'
+import type { GitDiffResult, GitStatusResult } from '../shared/git'
+import type { FileSearchResult } from '../shared/search'
 
 /** A project or workspace shown on the welcome screen. */
 export interface RecentProject {
@@ -129,6 +131,10 @@ const api = {
   folderCreate: (folderPath: string): Promise<void> =>
     ipcRenderer.invoke('folder:create', folderPath),
 
+  /** Filename search across a project root, walked in the main process. */
+  fileSearch: (rootPath: string, query: string): Promise<FileSearchResult> =>
+    ipcRenderer.invoke('file:search', rootPath, query),
+
   // Recent projects
   projectsRecent: (): Promise<RecentProject[]> => ipcRenderer.invoke('projects:recent'),
 
@@ -163,6 +169,14 @@ const api = {
     branchName: string
   ): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke('git:delete-branch', folderPath, branchName),
+
+  // Git operations — working tree
+  gitStatus: (folderPath: string): Promise<GitStatusResult> =>
+    ipcRenderer.invoke('git:status', folderPath),
+
+  /** `staged` compares the index against HEAD instead of the disk against the index. */
+  gitDiff: (folderPath: string, filePath: string, staged = false): Promise<GitDiffResult> =>
+    ipcRenderer.invoke('git:diff', folderPath, filePath, staged),
 
   // Agent spawning push channel (PreToolUse:Agent → create panel per agent)
   onAgentSpawning: (
@@ -302,6 +316,7 @@ const api = {
       'menu:zoom-fit-focused',
       'menu:tidy',
       'menu:toggle-sidebar',
+      'menu:toggle-tile-index',
       'menu:settings',
       'menu:nav-left',
       'menu:nav-right',
@@ -323,9 +338,6 @@ const api = {
   },
 
   // Native zoom and fullscreen
-  zoomIn: (): void => ipcRenderer.send('zoom:in'),
-  zoomOut: (): void => ipcRenderer.send('zoom:out'),
-  zoomReset: (): void => ipcRenderer.send('zoom:reset'),
   fullscreenToggle: (): void => ipcRenderer.send('fullscreen:toggle'),
 
   // Workspace config per project

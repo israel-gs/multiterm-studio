@@ -171,12 +171,6 @@ function sortEntries(entries: TreeEntry[], order: SortMode): TreeEntry[] {
   })
 }
 
-function filterEntries(entries: TreeEntry[], query: string): TreeEntry[] {
-  if (!query) return entries
-  const lq = query.toLowerCase()
-  return entries.filter((e) => e.name.toLowerCase().includes(lq))
-}
-
 // --- FileTreeNode ---
 
 interface FileTreeNodeProps {
@@ -186,7 +180,6 @@ interface FileTreeNodeProps {
   depth: number
   itemCount?: number
   modifiedAt?: number
-  searchQuery: string
   sortOrder: SortMode
   startRenaming?: boolean
   defaultExpanded?: boolean
@@ -201,7 +194,6 @@ const FileTreeNode = React.memo(function FileTreeNode({
   depth,
   itemCount,
   modifiedAt,
-  searchQuery,
   sortOrder,
   startRenaming: startRenamingProp,
   defaultExpanded,
@@ -391,8 +383,8 @@ const FileTreeNode = React.memo(function FileTreeNode({
 
   const displayChildren = useMemo(() => {
     if (!children) return null
-    return sortEntries(filterEntries(children, searchQuery), sortOrder)
-  }, [children, searchQuery, sortOrder])
+    return sortEntries(children, sortOrder)
+  }, [children, sortOrder])
 
   // Clear newChildRename after it's been consumed
   useEffect(() => {
@@ -569,7 +561,6 @@ const FileTreeNode = React.memo(function FileTreeNode({
               depth={depth + 1}
               itemCount={child.itemCount}
               modifiedAt={child.modifiedAt}
-              searchQuery={searchQuery}
               sortOrder={sortOrder}
               startRenaming={newChildRename === child.name ? true : undefined}
             />
@@ -584,15 +575,10 @@ const FileTreeNode = React.memo(function FileTreeNode({
 
 interface FileTreeProps {
   rootPath: string
-  searchQuery?: string
   sortOrder?: SortMode
 }
 
-export function FileTree({
-  rootPath,
-  searchQuery = '',
-  sortOrder = 'alpha-asc'
-}: FileTreeProps): React.JSX.Element {
+export function FileTree({ rootPath, sortOrder = 'alpha-asc' }: FileTreeProps): React.JSX.Element {
   const rootName = basename(rootPath) || rootPath
 
   return (
@@ -603,7 +589,6 @@ export function FileTree({
         name={rootName}
         isDir
         depth={0}
-        searchQuery={searchQuery}
         sortOrder={sortOrder}
         defaultExpanded
       />
@@ -613,14 +598,12 @@ export function FileTree({
 
 interface MultiRootFileTreeProps {
   rootPaths: string[]
-  searchQuery?: string
   sortOrder?: SortMode
   onRemoveFromWorkspace?: (path: string) => void
 }
 
 export function MultiRootFileTree({
   rootPaths,
-  searchQuery = '',
   sortOrder = 'alpha-asc',
   onRemoveFromWorkspace
 }: MultiRootFileTreeProps): React.JSX.Element {
@@ -636,7 +619,6 @@ export function MultiRootFileTree({
               name={rootName}
               isDir
               depth={0}
-              searchQuery={searchQuery}
               sortOrder={sortOrder}
               defaultExpanded
               isWorkspaceRoot={rootPaths.length > 1}

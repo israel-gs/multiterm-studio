@@ -4,6 +4,7 @@ import { Sun, TerminalSquare, Pencil, Keyboard, Moon, Monitor, X } from 'lucide-
 import { useAppearanceStore } from '../store/appearanceStore'
 import type { AppearanceMode } from '../tokens'
 
+import { KEYBINDINGS, formatAccelerator } from '../../../shared/keybindings'
 import {
   SCROLLBACK_DEFAULT_BYTES as SCROLLBACK_DEFAULT,
   SCROLLBACK_MIN_BYTES as SCROLLBACK_MIN,
@@ -203,6 +204,44 @@ function TerminalSettings(): React.JSX.Element {
   )
 }
 
+function KeybindingsSettings(): React.JSX.Element {
+  const isMac = navigator.platform.toLowerCase().includes('mac')
+
+  return (
+    <div className="stg-content">
+      <div className="stg-content-header">
+        <h2 className="stg-content-title">Keybindings</h2>
+        <p className="stg-content-desc">
+          Every shortcut the app answers to. They are not editable yet.
+        </p>
+      </div>
+
+      {KEYBINDINGS.map((group) => (
+        <div className="stg-group" key={group.title}>
+          <div className="stg-group-label">{group.title}</div>
+          <dl className="stg-keys">
+            {group.bindings.map((binding) => (
+              <div className="stg-keys-row" key={`${group.title}:${binding.keys}:${binding.label}`}>
+                <dt className="stg-keys-label">
+                  {binding.label}
+                  {binding.context && <span className="stg-keys-context">{binding.context}</span>}
+                </dt>
+                <dd className="stg-keys-combo">
+                  {binding.source === 'gesture' ? (
+                    <span className="stg-keys-gesture">{binding.keys}</span>
+                  ) : (
+                    <kbd>{formatAccelerator(binding.keys, isMac)}</kbd>
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function PlaceholderSettings({ title, desc }: { title: string; desc: string }): React.JSX.Element {
   return (
     <div className="stg-content">
@@ -241,7 +280,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
       case 'editor':
         return <PlaceholderSettings title="Editor" desc="Customize the code editor experience" />
       case 'keybindings':
-        return <PlaceholderSettings title="Keybindings" desc="Manage keyboard shortcuts" />
+        return <KeybindingsSettings />
     }
   })()
 

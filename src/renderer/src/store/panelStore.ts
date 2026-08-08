@@ -6,9 +6,11 @@ export interface PanelMeta {
   title: string
   color: string
   attention: boolean
-  type: 'terminal' | 'editor' | 'note' | 'image'
+  type: 'terminal' | 'editor' | 'note' | 'image' | 'diff'
   noteContent?: string
   filePath?: string
+  /** Diff tiles only: compare the index against HEAD instead of disk vs index. */
+  diffStaged?: boolean
   dirty: boolean
   previewMode: boolean
   initialCommand?: string
@@ -24,10 +26,11 @@ export interface PanelStore {
     id: string,
     title?: string,
     color?: string,
-    type?: 'terminal' | 'editor' | 'note' | 'image',
+    type?: 'terminal' | 'editor' | 'note' | 'image' | 'diff',
     filePath?: string,
     initialCommand?: string,
-    cwd?: string
+    cwd?: string,
+    diffStaged?: boolean
   ) => void
   removePanel: (id: string) => void
   /** Drops every panel. Used when closing a project. */
@@ -43,26 +46,36 @@ export interface PanelStore {
   setHasProcess: (id: string, has: boolean, processName?: string | null) => void
   setCwd: (id: string, cwd: string) => void
   setNoteContent: (id: string, content: string) => void
+  setDiffStaged: (id: string, staged: boolean) => void
   pendingFocus: string | null
   requestFocus: (id: string) => void
   clearPendingFocus: () => void
+  /**
+   * A request to bring a tile into view, not just to the front — the canvas
+   * pans to it. A fresh object every time so asking twice for the same tile
+   * still fires the canvas subscription.
+   */
+  pendingReveal: { id: string; maximize: boolean } | null
+  revealTile: (id: string, maximize?: boolean) => void
+  clearPendingReveal: () => void
+}
+
+function defaultTitle(type: PanelMeta['type'] | undefined, filePath?: string): string {
+  if (filePath && (type === 'image' || type === 'editor')) return basename(filePath)
+  if (filePath && type === 'diff') return `Diff: ${basename(filePath)}`
+  if (type === 'note') return 'Note'
+  return 'Terminal'
 }
 
 export const usePanelStore = create<PanelStore>((set) => ({
   panels: {},
 
-  addPanel: (id, title, color, type, filePath, initialCommand, cwd) =>
+  addPanel: (id, title, color, type, filePath, initialCommand, cwd, diffStaged) =>
     set((s) => ({
       panels: {
         ...s.panels,
         [id]: {
-          title:
-            title ??
-            ((type === 'image' || type === 'editor') && filePath
-              ? basename(filePath)
-              : type === 'note'
-                ? 'Note'
-                : 'Terminal'),
+          title: title ?? defaultTitle(type, filePath),
           color: color ?? colors.bgCard,
           attention: false,
           type: type ?? 'terminal',
@@ -72,7 +85,8 @@ export const usePanelStore = create<PanelStore>((set) => ({
           initialCommand,
           agentActive: false,
           hasProcess: false,
-          cwd
+          cwd,
+          diffStaged
         }
       }
     })),
@@ -157,7 +171,17 @@ export const usePanelStore = create<PanelStore>((set) => ({
       return { panels: { ...s.panels, [id]: { ...s.panels[id], noteContent: content } } }
     }),
 
+  setDiffStaged: (id, staged) =>
+    set((s) => {
+      if (!s.panels[id]) return s
+      return { panels: { ...s.panels, [id]: { ...s.panels[id], diffStaged: staged } } }
+    }),
+
   pendingFocus: null,
   requestFocus: (id) => set({ pendingFocus: id }),
-  clearPendingFocus: () => set({ pendingFocus: null })
+  clearPendingFocus: () => set({ pendingFocus: null }),
+
+  pendingReveal: null,
+  revealTile: (id, maximize = false) => set({ pendingReveal: { id, maximize } }),
+  clearPendingReveal: () => set({ pendingReveal: null })
 }))

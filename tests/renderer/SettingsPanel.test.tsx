@@ -37,6 +37,7 @@ vi.mock('@renderer/store/appearanceStore', () => ({
 
 // --- Import component ---
 
+import { KEYBINDINGS } from '../../src/shared/keybindings'
 import { SettingsPanel } from '@renderer/components/SettingsPanel'
 
 // --- Helpers ---
@@ -112,6 +113,49 @@ describe('SettingsPanel — Terminal tab', () => {
     await waitFor(() => {
       const hint = screen.getAllByText(/newly created sessions/i)[0]
       expect(hint).toBeTruthy()
+    })
+  })
+
+  describe('keybindings tab', () => {
+    function clickKeybindingsTab(): void {
+      fireEvent.click(screen.getByText('Keybindings'))
+    }
+
+    it('lists the shortcuts instead of a "coming soon" placeholder', () => {
+      renderPanel()
+      clickKeybindingsTab()
+
+      expect(screen.queryByText('Coming soon')).toBeNull()
+      expect(screen.getByText('New terminal')).toBeTruthy()
+      expect(screen.getByText('Toggle the sidebar')).toBeTruthy()
+    })
+
+    it('groups the shortcuts by area', () => {
+      renderPanel()
+      clickKeybindingsTab()
+
+      // "Canvas" is both a group title and the context of some rows, so a
+      // strict single match would fail on legitimate duplication.
+      for (const group of KEYBINDINGS) {
+        expect(screen.getAllByText(group.title).length).toBeGreaterThan(0)
+      }
+    })
+
+    it('renders every documented binding', () => {
+      renderPanel()
+      clickKeybindingsTab()
+
+      const rows = KEYBINDINGS.flatMap((g) => g.bindings)
+      for (const binding of rows) {
+        expect(screen.getAllByText(binding.label).length).toBeGreaterThan(0)
+      }
+    })
+
+    it('shows a gesture as prose rather than as a key combination', () => {
+      renderPanel()
+      clickKeybindingsTab()
+
+      expect(screen.getByText('Scroll, or Space + drag')).toBeTruthy()
     })
   })
 })

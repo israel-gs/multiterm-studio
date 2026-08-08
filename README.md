@@ -13,6 +13,8 @@ Built with Electron, React, TypeScript, and xterm.js.
 - Grid snap (24px) for precise alignment
 - Minimap for canvas navigation
 - Edge indicators for off-screen tiles
+- Tile index sidebar (right): live status per tile, click to pan to it,
+  double-click to maximize, off-screen tiles flagged (Cmd+Opt+B to toggle)
 
 ### Terminal
 
@@ -91,21 +93,38 @@ recreated on each launch. Call `rpc.discover` for the method list.
 
 ### Menu Bar & Shortcuts
 
-| Action                      | Shortcut       |
-| --------------------------- | -------------- |
-| New Terminal                | Cmd+T          |
-| New Note                    | Cmd+Shift+N    |
-| Duplicate Tile              | Cmd+Shift+D    |
-| Close Tile                  | Cmd+W          |
-| Toggle Sidebar              | Cmd+B          |
-| Zoom to Fit All             | Cmd+Opt+0      |
-| Zoom to Fit Focused         | Cmd+Opt+F      |
-| Tidy Selection              | Cmd+Opt+T      |
-| Navigate Left/Right/Up/Down | Cmd+Opt+Arrows |
-| Maximize/Restore            | Header button  |
-| Cycle Theme                 | Shift+Cmd+T    |
-| Fullscreen                  | Shift+Cmd+F    |
-| Settings                    | Cmd+,          |
+The full list lives in the app, under **Settings → Keybindings** (Cmd+,). It is
+rendered from `src/shared/keybindings.ts`, which a test checks against the menu
+accelerators registered in `src/main/index.ts` so the two cannot drift.
+
+| Action                        | Shortcut               | Where                     |
+| ----------------------------- | ---------------------- | ------------------------- |
+| New Terminal                  | Cmd+T                  |                           |
+| New Note                      | Cmd+Shift+N            |                           |
+| Duplicate Tile                | Cmd+Shift+D            |                           |
+| Close Tile                    | Cmd+W                  |                           |
+| Close Selected Tiles          | Delete / Backspace     | Canvas, with a selection  |
+| Move / Resize Tile            | Arrows / Shift+Arrows  | Focused tile border       |
+| Restore → Unfocus → Deselect  | Escape                 |                           |
+| Zoom to Fit All               | Cmd+Opt+0              |                           |
+| Zoom to Fit Focused           | Cmd+Opt+F              |                           |
+| Tidy Selection                | Cmd+Opt+T              |                           |
+| Navigate Left/Right/Up/Down   | Cmd+Opt+Arrows         |                           |
+| Reset Canvas Zoom             | 0                      | Canvas                    |
+| Toggle Sidebar                | Cmd+B                  |                           |
+| Add Folder to Workspace       | Cmd+Shift+A            |                           |
+| Rename                        | F2                     | File tree                 |
+| Cycle Theme                   | Shift+Cmd+T            |                           |
+| Fullscreen                    | Shift+Cmd+F            |                           |
+| Zoom Interface In/Out/Reset   | Cmd+= / Cmd+- / Cmd+0  |                           |
+| Copy / Paste                  | Cmd+C / Cmd+V          | Terminal                  |
+| Save File                     | Cmd+S                  | Editor tile               |
+| Settings                      | Cmd+,                  |                           |
+| Maximize/Restore              | Header button           |                           |
+
+Mouse and trackpad: scroll or Space+drag to pan, pinch or Cmd+scroll to zoom,
+double-click the canvas for a new terminal, double-click a tile header to centre
+it, Shift+click or drag a box to select several tiles.
 
 ## Setup
 

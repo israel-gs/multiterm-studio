@@ -9,6 +9,7 @@ import { ImagePanel } from './ImagePanel'
 // including canvases made entirely of terminals.
 const EditorPanel = lazy(() => import('./EditorPanel').then((m) => ({ default: m.EditorPanel })))
 const NotePanel = lazy(() => import('./NotePanel').then((m) => ({ default: m.NotePanel })))
+const DiffPanel = lazy(() => import('./DiffPanel').then((m) => ({ default: m.DiffPanel })))
 
 /** Placeholder shown while a tile's editor chunk is still downloading. */
 function PanelLoading(): React.JSX.Element {
@@ -33,7 +34,7 @@ interface Props {
   zoomRef: React.RefObject<number>
   selected?: boolean
   focused?: boolean
-  type?: 'terminal' | 'editor' | 'note' | 'image'
+  type?: 'terminal' | 'editor' | 'note' | 'image' | 'diff'
   filePath?: string
   onSelect?: (id: string, shiftKey: boolean) => void
   onFocusCard?: (id: string | null) => void
@@ -515,6 +516,8 @@ export function FloatingCard({
               <EditorPanel sessionId={sessionId} filePath={filePath} />
             ) : type === 'image' && filePath ? (
               <ImagePanel sessionId={sessionId} filePath={filePath} />
+            ) : type === 'diff' && filePath ? (
+              <DiffPanel sessionId={sessionId} cwd={cwd} filePath={filePath} />
             ) : type === 'editor' && filePath ? (
               <EditorPanel sessionId={sessionId} filePath={filePath} />
             ) : type === 'note' ? (

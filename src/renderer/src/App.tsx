@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import React from 'react'
+import { PanelRight } from 'lucide-react'
 import { TerminalCanvas } from './components/TerminalCanvas'
 import type { SavedLayoutShape } from './components/TerminalCanvas'
 import { EnhancedSidebar } from './components/EnhancedSidebar'
+import { TileIndexSidebar } from './components/TileIndexSidebar'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { ErrorToasts } from './components/ErrorToasts'
 import { useProjectStore } from './store/projectStore'
@@ -11,6 +13,15 @@ import { flushSave } from './utils/layoutPersistence'
 import { useAppearanceStore } from './store/appearanceStore'
 import type { AppearanceMode } from './tokens'
 import { basename } from './utils/path'
+
+/** Bounds and default for the tile index width, matching the left sidebar's feel. */
+const TILE_INDEX_DEFAULT_WIDTH = 260
+const TILE_INDEX_MIN_WIDTH = 180
+const TILE_INDEX_MAX_WIDTH = 480
+
+function clampTileIndexWidth(width: number): number {
+  return Math.max(TILE_INDEX_MIN_WIDTH, Math.min(TILE_INDEX_MAX_WIDTH, Math.round(width)))
+}
 
 function App(): React.JSX.Element {
   const folderPath = useProjectStore((s) => s.folderPath)
@@ -34,6 +45,13 @@ function App(): React.JSX.Element {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const prevWidthRef = useRef(300)
   const toggleSidebarRef = useRef(() => {})
+
+  // Tile index (right sidebar). Width and collapse live in app settings rather
+  // than the per-project layout file: it is window chrome, not part of a
+  // project's tile arrangement.
+  const [indexWidth, setIndexWidth] = useState(TILE_INDEX_DEFAULT_WIDTH)
+  const [indexCollapsed, setIndexCollapsed] = useState(false)
+  const toggleTileIndexRef = useRef(() => {})
 
   /**
    * Tears down the project that is currently open before another one replaces it.
@@ -278,6 +296,14 @@ function App(): React.JSX.Element {
     )
   }, [sidebarWidth, sidebarCollapsed])
 
+  // Same for the tile index on the right
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      '--tile-index-width',
+      `${indexCollapsed ? 0 : indexWidth}px`
+    )
+  }, [indexWidth, indexCollapsed])
+
   // Toggle sidebar collapse
   function toggleSidebar(): void {
     if (sidebarCollapsed) {
@@ -301,19 +327,9 @@ function App(): React.JSX.Element {
           toggleSidebarRef.current()
         }
       }
-      // Cmd+= / Cmd+- / Cmd+0 — native UI zoom
-      if (meta && (e.key === '=' || e.key === '+')) {
-        e.preventDefault()
-        window.electronAPI.zoomIn()
-      }
-      if (meta && e.key === '-') {
-        e.preventDefault()
-        window.electronAPI.zoomOut()
-      }
-      if (meta && e.key === '0') {
-        e.preventDefault()
-        window.electronAPI.zoomReset()
-      }
+      // UI zoom is not handled here: the View menu's zoom roles let Chromium
+      // register the platform's own accelerators, which cover the key variants
+      // a non-US keyboard layout produces.
       // Shift+Cmd+F — fullscreen toggle
       if (meta && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault()
@@ -336,6 +352,7 @@ function App(): React.JSX.Element {
   useEffect(() => {
     const unsub = window.electronAPI.onMenuAction((action) => {
       if (action === 'toggle-sidebar') toggleSidebarRef.current()
+      else if (action === 'toggle-tile-index') toggleTileIndexRef.current()
       else if (action === 'add-folder') void addFolderToWorkspace()
       else if (action === 'save-workspace') void saveWorkspace()
       else if (action === 'open-workspace') {
@@ -346,6 +363,63 @@ function App(): React.JSX.Element {
     })
     return unsub
   }, [addFolderToWorkspace, saveWorkspace, openWorkspace])
+
+  useEffect(() => {
+    void Promise.all([
+      window.electronAPI.settingsGet('ui.tileIndex.width'),
+      window.electronAPI.settingsGet('ui.tileIndex.collapsed')
+    ]).then(([width, collapsed]) => {
+      if (typeof width === 'number') setIndexWidth(clampTileIndexWidth(width))
+      if (typeof collapsed === 'boolean') setIndexCollapsed(collapsed)
+    })
+  }, [])
+
+  const toggleTileIndex = useCallback(() => {
+    setIndexCollapsed((prev) => {
+      const next = !prev
+      window.electronAPI.settingsSet('ui.tileIndex.collapsed', next)
+      return next
+    })
+  }, [])
+  toggleTileIndexRef.current = toggleTileIndex
+
+  // Tile index drag-to-resize. It grows leftwards, so the delta is inverted.
+  function handleIndexResizeStart(e: React.MouseEvent): void {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = indexCollapsed ? 0 : indexWidth
+
+    document.body.classList.add('sidebar-resizing')
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    function widthAt(clientX: number): number {
+      return clampTileIndexWidth(startW + startX - clientX)
+    }
+
+    function onMove(ev: MouseEvent): void {
+      document.documentElement.style.setProperty('--tile-index-width', `${widthAt(ev.clientX)}px`)
+    }
+
+    function onUp(ev: MouseEvent): void {
+      document.body.classList.remove('sidebar-resizing')
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+
+      const finalW = widthAt(ev.clientX)
+      setIndexWidth(finalW)
+      window.electronAPI.settingsSet('ui.tileIndex.width', finalW)
+      if (indexCollapsed) {
+        setIndexCollapsed(false)
+        window.electronAPI.settingsSet('ui.tileIndex.collapsed', false)
+      }
+    }
+
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   // Sidebar drag-to-resize
   function handleSidebarResizeStart(e: React.MouseEvent): void {
@@ -488,11 +562,33 @@ function App(): React.JSX.Element {
             </svg>
           </button>
         )}
+        {indexCollapsed && (
+          <button
+            className="sidebar-toggle-btn tile-index-show-btn"
+            onClick={toggleTileIndex}
+            aria-label="Show tile index"
+            title="Show tile index"
+          >
+            <PanelRight size={16} strokeWidth={1.5} aria-hidden="true" />
+          </button>
+        )}
         <TerminalCanvas
           key={workspaceFilePath ?? folderPath}
           savedLayout={savedLayoutRef.current}
         />
       </main>
+      {/* Tile index stays mounted so its scroll position survives collapsing */}
+      <div className={`tile-index-mount${indexCollapsed ? ' tile-index-mount--hidden' : ''}`}>
+        <div
+          className="tile-index-resize-handle"
+          onMouseDown={handleIndexResizeStart}
+          onDoubleClick={toggleTileIndex}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize tile index"
+        />
+        <TileIndexSidebar onToggle={toggleTileIndex} />
+      </div>
       <ErrorToasts />
     </div>
   )
