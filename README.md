@@ -165,3 +165,7 @@ pnpm check        # lint + typecheck + tests, the same set CI runs
 - **@parcel/watcher** — native file watching
 - **Lucide React** — icons
 - **electron-vite** — build tooling
+
+## License
+
+[MIT](LICENSE) © Israel Gutierrez
