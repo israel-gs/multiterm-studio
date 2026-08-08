@@ -773,3 +773,26 @@ describe('SidecarServer — JSON-RPC over Unix socket', () => {
     ctrl.close()
   }, 10_000)
 })
+
+describe('SidecarServer — shutdown', () => {
+  it('closes even while a control client is still connected', async () => {
+    // net.Server.close() waits for existing connections to end, so a peer that
+    // never disconnects — an app that was killed, or a test that failed before
+    // closing its socket — would otherwise block shutdown forever.
+    const endpoint = tmpSock('shutdown')
+    const server = new SidecarServer({ controlEndpoint: endpoint, sessionDir: tmpdir() })
+    await server.listen()
+
+    const client = createConnection(endpoint)
+    await new Promise((resolve) => client.once('connect', resolve))
+
+    const outcome = await Promise.race([
+      server.close().then(() => 'closed'),
+      new Promise((resolve) => setTimeout(() => resolve('hung'), 3000))
+    ])
+
+    client.destroy()
+    cleanup(endpoint)
+    expect(outcome).toBe('closed')
+  }, 10_000)
+})

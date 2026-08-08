@@ -10,6 +10,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // A hanging test must fail with a name attached instead of stalling the
+    // run; teardownTimeout catches handles that outlive the tests themselves.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
+    teardownTimeout: 10_000,
     include: ['tests/**/*.test.{ts,tsx}'],
     alias: {
       '@renderer': resolve(__dirname, 'src/renderer/src')

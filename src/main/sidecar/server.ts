@@ -94,6 +94,18 @@ export class SidecarServer {
     }
     this.sessions.clear()
 
+    // Drop the control connections first. net.Server.close() stops accepting
+    // new peers but only completes once the existing ones have ended, so a
+    // still-connected client would keep shutdown waiting forever.
+    for (const client of this.controlClients) {
+      try {
+        client.destroy()
+      } catch {
+        // ignore
+      }
+    }
+    this.controlClients.clear()
+
     // Close control server
     if (this.controlServer) {
       await closeServer(this.controlServer)
