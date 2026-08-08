@@ -14,6 +14,9 @@ jobs:
   check:
     name: Lint, typecheck and test
     runs-on: ubuntu-latest
+    # A test that hangs must fail the run, not sit there burning the default
+    # six-hour budget.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +50,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 

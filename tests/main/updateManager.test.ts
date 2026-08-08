@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import { describe, expect, it, beforeEach, vi } from 'vitest'
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 
 /**
  * The updater drives quit-and-install, so the behaviour worth pinning is the
@@ -55,20 +55,34 @@ function fakeAutoUpdater(): Record<string, unknown> {
   }
 }
 
+/** Managers created during a test, torn down afterwards. */
+let live: Array<{ destroy: () => void }> = []
+
 async function freshManager(): Promise<typeof import('../../src/main/updater/update-manager')> {
   vi.resetModules()
   for (const k of Object.keys(listeners)) delete listeners[k]
   sent.length = 0
   const mod = await import('../../src/main/updater/update-manager')
   mod.setAutoUpdaterProvider(fakeAutoUpdater)
+  live.push(mod.updateManager)
   return mod
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // init() schedules a periodic update check in a packaged app. Fake timers
+  // keep that from holding the event loop open and hanging the whole run.
+  vi.useFakeTimers()
   isPackaged = true
   platform = 'linux'
   Object.defineProperty(process, 'platform', { value: platform, configurable: true })
+})
+
+afterEach(() => {
+  // destroy() clears the interval; the fake clock disposes of the rest.
+  for (const manager of live) manager.destroy()
+  live = []
+  vi.useRealTimers()
 })
 
 describe('update state', () => {
