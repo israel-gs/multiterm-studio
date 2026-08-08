@@ -10,6 +10,18 @@ import type { AgentSpawnRequest, PaneCreateRequest } from '../store/projectStore
 import { scheduleSave } from '../utils/layoutPersistence'
 import { shellQuote } from '../utils/shellQuote'
 import { extractLeafIds } from '../utils/layoutMigration'
+import {
+  snapToGrid,
+  normalizeZIndices,
+  boundsOf,
+  fitToViewport,
+  findNonOverlappingPosition,
+  computeMinimapTransform,
+  minimapPointToWorld,
+  GRID_CELL,
+  MIN_ZOOM,
+  MAX_ZOOM
+} from '../utils/canvasGeometry'
 import { colors } from '../tokens'
 import { basename } from '../utils/path'
 
@@ -40,9 +52,6 @@ const NOTE_H = 220
 const IMAGE_W = 280
 const IMAGE_H = 280
 const CASCADE_OFFSET = 30
-const MIN_ZOOM = 0.15
-const MAX_ZOOM = 3.0
-const GRID_CELL = 24
 const GRID_MAJOR = 5
 const EDGE_INSET = 12
 const MARQUEE_THRESHOLD = 3
@@ -51,89 +60,6 @@ const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', '
 function inferTileType(filePath: string): 'editor' | 'image' {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
   return IMAGE_EXTS.has(ext) ? 'image' : 'editor'
-}
-
-function normalizeZIndices(positions: Record<string, CardRect>): Record<string, CardRect> {
-  const entries = Object.entries(positions).sort(([, a], [, b]) => a.z - b.z)
-  const result: Record<string, CardRect> = {}
-  entries.forEach(([id, rect], i) => {
-    result[id] = { ...rect, z: i + 1 }
-  })
-  return result
-}
-
-function snapToGrid(v: number): number {
-  return Math.round(v / GRID_CELL) * GRID_CELL
-}
-
-/**
- * Find a position for a new tile that doesn't overlap existing ones.
- * Starts at (idealX, idealY) and spirals outward in grid steps until a
- * non-overlapping spot is found (up to maxAttempts).
- */
-function findNonOverlappingPosition(
-  idealX: number,
-  idealY: number,
-  w: number,
-  h: number,
-  positions: Record<string, CardRect>
-): { x: number; y: number } {
-  const GAP = GRID_CELL // minimum gap between tiles
-  const rects = Object.values(positions)
-
-  function overlaps(x: number, y: number): boolean {
-    for (const r of rects) {
-      if (x < r.x + r.w + GAP && x + w + GAP > r.x && y < r.y + r.h + GAP && y + h + GAP > r.y)
-        return true
-    }
-    return false
-  }
-
-  // Try ideal position first
-  let x = snapToGrid(idealX)
-  let y = snapToGrid(idealY)
-  if (!overlaps(x, y)) return { x, y }
-
-  // Spiral outward: try right, then below, expanding radius
-  const step = GRID_CELL * 2
-  for (let radius = 1; radius <= 20; radius++) {
-    const offset = radius * step
-    // Right of ideal
-    x = snapToGrid(idealX + offset)
-    y = snapToGrid(idealY)
-    if (!overlaps(x, y)) return { x, y }
-    // Below ideal
-    x = snapToGrid(idealX)
-    y = snapToGrid(idealY + offset)
-    if (!overlaps(x, y)) return { x, y }
-    // Right-below diagonal
-    x = snapToGrid(idealX + offset)
-    y = snapToGrid(idealY + offset)
-    if (!overlaps(x, y)) return { x, y }
-    // Left of ideal
-    x = snapToGrid(idealX - offset)
-    y = snapToGrid(idealY)
-    if (!overlaps(x, y)) return { x, y }
-    // Above ideal
-    x = snapToGrid(idealX)
-    y = snapToGrid(idealY - offset)
-    if (!overlaps(x, y)) return { x, y }
-    // Left-below
-    x = snapToGrid(idealX - offset)
-    y = snapToGrid(idealY + offset)
-    if (!overlaps(x, y)) return { x, y }
-    // Right-above
-    x = snapToGrid(idealX + offset)
-    y = snapToGrid(idealY - offset)
-    if (!overlaps(x, y)) return { x, y }
-    // Left-above
-    x = snapToGrid(idealX - offset)
-    y = snapToGrid(idealY - offset)
-    if (!overlaps(x, y)) return { x, y }
-  }
-
-  // Fallback: place with offset to avoid exact overlap
-  return { x: snapToGrid(idealX + GRID_CELL * 2), y: snapToGrid(idealY + GRID_CELL * 2) }
 }
 
 function buildLayoutSnapshot(
@@ -525,17 +451,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       minY -= pad
       maxX += pad
       maxY += pad
-      const worldW = maxX - minX
-      const worldH = maxY - minY
+      const { mScale, offsetX, offsetY } = computeMinimapTransform(
+        { minX, minY, maxX, maxY },
+        MM_W,
+        MM_H
+      )
 
-      const inset = 8
-      const availW = MM_W - inset * 2
-      const availH = MM_H - inset * 2
-      const mScale = Math.min(availW / worldW, availH / worldH)
-      const offsetX = inset + (availW - worldW * mScale) / 2
-      const offsetY = inset + (availH - worldH * mScale) / 2
-
-      // Store transform for click-to-pan
+      // Store transform for click-to-pan — the inverse must match exactly.
       minimapTransformRef.current = { minX, minY, mScale, offsetX, offsetY }
 
       // Background
@@ -605,8 +527,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       function panToMinimap(clientX: number, clientY: number): void {
         const mx = clientX - rect.left
         const my = clientY - rect.top
-        const worldX = (mx - t!.offsetX) / t!.mScale + t!.minX
-        const worldY = (my - t!.offsetY) / t!.mScale + t!.minY
+        const { x: worldX, y: worldY } = minimapPointToWorld(mx, my, t!)
         const vpW = viewport.clientWidth
         const vpH = viewport.clientHeight
         const scale = scaleRef.current
@@ -1869,35 +1790,13 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     const vp = viewportRef.current
     if (!vp) return
 
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity
-    for (const id of ids) {
-      const r = positionsRef.current[id]
-      if (!r) continue
-      minX = Math.min(minX, r.x)
-      minY = Math.min(minY, r.y)
-      maxX = Math.max(maxX, r.x + r.w)
-      maxY = Math.max(maxY, r.y + r.h)
-    }
-    if (!isFinite(minX)) return
+    const bounds = boundsOf(ids, positionsRef.current)
+    if (!bounds) return
 
-    const padding = 60
-    const bboxW = maxX - minX
-    const bboxH = maxY - minY
-    const vpW = vp.clientWidth
-    const vpH = vp.clientHeight
-    const scale = Math.min(
-      Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, (vpW - padding * 2) / bboxW)),
-      Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, (vpH - padding * 2) / bboxH))
-    )
-    const cx = (minX + maxX) / 2
-    const cy = (minY + maxY) / 2
-
+    const { scale, panX, panY } = fitToViewport(bounds, vp.clientWidth, vp.clientHeight)
     scaleRef.current = scale
-    canvasXRef.current = vpW / 2 - cx * scale
-    canvasYRef.current = vpH / 2 - cy * scale
+    canvasXRef.current = panX
+    canvasYRef.current = panY
     updateCanvasRef.current()
     triggerSave(panelIdsRef.current, positionsRef.current)
   }

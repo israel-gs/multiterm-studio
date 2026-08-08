@@ -24,6 +24,29 @@ const INITIAL_CHECK_DELAY_MS = 5_000
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let autoUpdater: any = null
 
+/**
+ * How the electron-updater module is obtained.
+ *
+ * It is loaded lazily because some builds ship without it and a static import
+ * would break startup there. Keeping it behind a replaceable provider also
+ * makes the state machine below reachable from tests, which cannot satisfy a
+ * bare require().
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AutoUpdaterProvider = () => any
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+let provideAutoUpdater: AutoUpdaterProvider = () => require('electron-updater')
+
+/** Replaces the provider. Returns a function restoring the previous one. */
+export function setAutoUpdaterProvider(provider: AutoUpdaterProvider): () => void {
+  const previous = provideAutoUpdater
+  provideAutoUpdater = provider
+  return () => {
+    provideAutoUpdater = previous
+  }
+}
+
 class UpdateManager {
   private state: UpdateState = { status: 'idle' }
   private initialized = false
@@ -35,12 +58,8 @@ class UpdateManager {
     if (this.initialized) return
     this.onBeforeQuit = opts?.onBeforeQuit ?? null
 
-    // Dynamic require — electron-updater may not be available in all builds
     try {
-      // Loaded lazily on purpose: electron-updater is absent from some builds
-      // and a static import would break startup there.
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const electronUpdater = require('electron-updater')
+      const electronUpdater = provideAutoUpdater()
       autoUpdater = electronUpdater.autoUpdater ?? electronUpdater.default?.autoUpdater
     } catch (err) {
       console.warn(
