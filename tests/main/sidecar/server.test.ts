@@ -4,7 +4,7 @@ import { createConnection, type Socket } from 'net'
 import { randomBytes } from 'crypto'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { unlinkSync, existsSync } from 'fs'
+import { unlinkSync, existsSync, accessSync, constants } from 'fs'
 
 // We import SidecarServer — it does not exist yet (RED phase).
 import { SidecarServer } from '../../../src/main/sidecar/server'
@@ -103,6 +103,22 @@ async function connectData(endpoint: string): Promise<{
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
+
+/**
+ * Some tests need a specific shell to actually start, because they assert on
+ * what it writes. CI runners do not ship zsh, so those tests are skipped rather
+ * than failing for a reason that has nothing to do with the sidecar.
+ */
+function hasShell(shellPath: string): boolean {
+  try {
+    accessSync(shellPath, constants.X_OK)
+    return true
+  } catch {
+    return false
+  }
+}
+
+const itIfZsh = hasShell('/bin/zsh') ? it : it.skip
 
 // ── Test suite ────────────────────────────────────────────────────────────────
 
@@ -411,46 +427,50 @@ describe('SidecarServer — JSON-RPC over Unix socket', () => {
 
   // ── 2.1.9 initialCommand written after hook in the same 300 ms tick ─────
 
-  it('session.create with zsh + initialCommand writes hook then initialCommand on the data socket', async () => {
-    const ctrl = await connectControl(controlSock)
+  itIfZsh(
+    'session.create with zsh + initialCommand writes hook then initialCommand on the data socket',
+    async () => {
+      const ctrl = await connectControl(controlSock)
 
-    ctrl.send({
-      jsonrpc: '2.0',
-      id: 50,
-      method: 'session.create',
-      params: {
-        sessionId: 'test-init-cmd-zsh',
-        shell: '/bin/zsh',
-        cwd: tmpdir(),
-        cols: 80,
-        rows: 24,
-        initialCommand: 'claude'
-      }
-    })
+      ctrl.send({
+        jsonrpc: '2.0',
+        id: 50,
+        method: 'session.create',
+        params: {
+          sessionId: 'test-init-cmd-zsh',
+          shell: '/bin/zsh',
+          cwd: tmpdir(),
+          cols: 80,
+          rows: 24,
+          initialCommand: 'claude'
+        }
+      })
 
-    const createRaw = await ctrl.nextLine()
-    const createResp = JSON.parse(createRaw)
-    const dataEndpoint: string = createResp.result.dataEndpoint
+      const createRaw = await ctrl.nextLine()
+      const createResp = JSON.parse(createRaw)
+      const dataEndpoint: string = createResp.result.dataEndpoint
 
-    const data = await connectData(dataEndpoint)
+      const data = await connectData(dataEndpoint)
 
-    // Wait longer than the 300 ms delay so the hook + initialCommand are written
-    await sleep(700)
+      // Wait longer than the 300 ms delay so the hook + initialCommand are written
+      await sleep(700)
 
-    const combined = Buffer.concat(data.received).toString('utf8')
+      const combined = Buffer.concat(data.received).toString('utf8')
 
-    // Both hook content and initialCommand must appear
-    const hookIdx = combined.indexOf('__mts_osc7')
-    const cmdIdx = combined.indexOf('claude')
+      // Both hook content and initialCommand must appear
+      const hookIdx = combined.indexOf('__mts_osc7')
+      const cmdIdx = combined.indexOf('claude')
 
-    expect(hookIdx).toBeGreaterThanOrEqual(0)
-    expect(cmdIdx).toBeGreaterThanOrEqual(0)
-    // Hook MUST appear before the initialCommand
-    expect(hookIdx).toBeLessThan(cmdIdx)
+      expect(hookIdx).toBeGreaterThanOrEqual(0)
+      expect(cmdIdx).toBeGreaterThanOrEqual(0)
+      // Hook MUST appear before the initialCommand
+      expect(hookIdx).toBeLessThan(cmdIdx)
 
-    data.close()
-    ctrl.close()
-  }, 15_000)
+      data.close()
+      ctrl.close()
+    },
+    15_000
+  )
 
   // ── 2.1.10 fish (no hook) + initialCommand still writes the command ──────
 
