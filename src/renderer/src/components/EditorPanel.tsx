@@ -204,7 +204,6 @@ export function EditorPanel({ sessionId, filePath }: EditorPanelProps): React.JS
       editor?.dispose()
       editorRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, filePath])
 
   return (

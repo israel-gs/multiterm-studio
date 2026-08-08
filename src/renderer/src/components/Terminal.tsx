@@ -315,7 +315,7 @@ export function TerminalPanel({ sessionId, cwd, zoomRef }: Props): React.JSX.Ele
       // to avoid double-kill when a panel is closed.
       term.dispose()
     }
-  }, [sessionId, cwd])
+  }, [sessionId, cwd, zoomRef])
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
 }

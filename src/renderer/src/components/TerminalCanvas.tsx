@@ -1234,7 +1234,6 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       }
     })
     return unsubscribe
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // --- Spawn agent terminal (viewer that tails agent transcript) ---
@@ -1371,7 +1370,6 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       }
     })
     return unsubscribe
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // --- Open file in editor or image tile ---

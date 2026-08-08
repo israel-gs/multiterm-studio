@@ -346,7 +346,7 @@ const FileTreeNode = React.memo(function FileTreeNode({
           break
       }
     },
-    [isDir, path, name, expanded, bumpFsRefresh, onRemoveFromWorkspace]
+    [isDir, path, name, bumpFsRefresh, isWorkspaceRoot, onRemoveFromWorkspace]
   )
 
   // Drag start handler (files and folders)

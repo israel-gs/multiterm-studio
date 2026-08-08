@@ -173,6 +173,19 @@ function App(): React.JSX.Element {
   useEffect(() => {
     const unsubAttention = window.electronAPI.onAttention((data) => setAttention(data.id))
     const unsubPanelFocus = window.electronAPI.onPanelFocus((id) => clearAttention(id))
+    // A subagent starting up gets its own tile tailing that agent's transcript.
+    const unsubAgentSpawning = window.electronAPI.onAgentSpawning((data) => {
+      // viewerPath comes from the hook script that Claude Code ran; without it
+      // there is nothing to tail.
+      if (!data.viewerPath) return
+      useProjectStore.getState().spawnAgentTerminal({
+        agentName: data.agentName,
+        toolUseId: data.toolUseId,
+        subagentsDir: data.subagentsDir,
+        cwd: data.cwd,
+        viewerPath: data.viewerPath
+      })
+    })
     const unsubSessionStarted = window.electronAPI.onAgentSessionStarted((data) => {
       if (data.ptySessionId) {
         usePanelStore.getState().setAgentActive(data.ptySessionId, true)
@@ -195,6 +208,7 @@ function App(): React.JSX.Element {
     return () => {
       unsubAttention()
       unsubPanelFocus()
+      unsubAgentSpawning()
       unsubSessionStarted()
       unsubSessionEnded()
       unsubFsChanged()
@@ -315,7 +329,6 @@ function App(): React.JSX.Element {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Menu bar actions for app-level features

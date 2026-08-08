@@ -24,7 +24,6 @@ export function GitBranchSection({
   }, [folderPaths?.length])
 
   // Override folderPath with activeFolder for all git operations below
-  // eslint-disable-next-line no-param-reassign
   folderPath = activeFolder
   const {
     isRepo,
