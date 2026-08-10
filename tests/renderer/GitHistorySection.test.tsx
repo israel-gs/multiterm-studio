@@ -101,6 +101,30 @@ describe('GitHistorySection', () => {
     expect(container.querySelectorAll('.git-history-gutter circle')).toHaveLength(2)
   })
 
+  it('bends a branch that ends into the commit rather than leaving it hanging', () => {
+    // Two tips over one parent: the second lane must be drawn as a curve into
+    // the dot, which is a path, not a straight pass-through line.
+    useGitStore.setState({
+      commits: [
+        commit({ sha: 'tipA', subject: 'tip a', parents: ['base'] }),
+        commit({ sha: 'tipB', subject: 'tip b', parents: ['base'] }),
+        commit({ sha: 'base', subject: 'base' })
+      ]
+    })
+
+    const { container } = render(<GitHistorySection folderPath="/proj" />)
+    const rows = container.querySelectorAll('.git-history-gutter')
+    const baseRow = rows[2]
+
+    expect(baseRow.querySelectorAll('path').length).toBeGreaterThan(0)
+    // Nothing may stop halfway down with no dot to meet: the only straight
+    // lines left are full-height pass-throughs.
+    for (const line of baseRow.querySelectorAll('line')) {
+      const y2 = Number(line.getAttribute('y2'))
+      expect(y2 === 34 || Number(line.getAttribute('x1')) === 6).toBe(true)
+    }
+  })
+
   it('reads the detail on hover and reports the totals', async () => {
     useGitStore.setState({ commits: [commit({ sha: 'aaaa111' })] })
 

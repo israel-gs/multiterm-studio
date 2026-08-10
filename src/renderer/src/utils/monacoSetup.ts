@@ -46,6 +46,20 @@ const EXT_TO_LANG: Record<string, string> = {
   dockerfile: 'dockerfile'
 }
 
+/**
+ * Options every editor tile needs, whatever kind it is.
+ *
+ * Monaco lifts hovers, suggestions and messages out of the editor and places
+ * them in page coordinates taken from its own layout. Tiles live inside the
+ * canvas's CSS transform, which that maths does not know about, so the widgets
+ * landed in a corner of the window. `fixedOverflowWidgets` switches them to
+ * fixed positioning measured with getBoundingClientRect, which does account for
+ * the transform.
+ */
+export const SHARED_EDITOR_OPTIONS = {
+  fixedOverflowWidgets: true
+} as const
+
 export function detectLanguage(filePath: string): string {
   const name = basename(filePath)
   const lower = name.toLowerCase()

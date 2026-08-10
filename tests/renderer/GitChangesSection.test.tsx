@@ -1,6 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import type { GitStatus } from '../../src/shared/git'
+
+const settingsGet = vi.fn().mockResolvedValue(null)
+const settingsSet = vi.fn()
+
+Object.defineProperty(window, 'electronAPI', {
+  value: { settingsGet, settingsSet },
+  writable: true
+})
 
 import { GitChangesSection } from '@renderer/components/GitChangesSection'
 import { useGitStore } from '@renderer/store/gitStore'
@@ -21,6 +29,8 @@ function seed(files: GitStatus['files'], folderPath = '/proj'): void {
 
 describe('GitChangesSection', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
+    settingsGet.mockResolvedValue(null)
     useGitStore.getState().reset()
     useProjectStore.setState({ pendingFileOpen: null, pendingDiffOpen: null })
   })
@@ -49,9 +59,11 @@ describe('GitChangesSection', () => {
 
     render(<GitChangesSection folderPath="/proj" />)
 
-    expect(screen.getByText('Staged changes')).toBeTruthy()
-    expect(screen.getByText('Changes')).toBeTruthy()
+    expect(screen.getByText('Staged')).toBeTruthy()
+    expect(screen.getByText('Unstaged')).toBeTruthy()
     expect(screen.getByText('Untracked')).toBeTruthy()
+    // The pane is the only thing called Changes; the group under it is not.
+    expect(screen.getAllByText('Changes')).toHaveLength(1)
     expect(screen.getByText('staged.ts')).toBeTruthy()
     // Both src/ rows show their directory next to the name.
     expect(screen.getAllByText('src')).toHaveLength(2)
@@ -111,7 +123,7 @@ describe('GitChangesSection', () => {
     ])
 
     render(<GitChangesSection folderPath="/proj" />)
-    fireEvent.click(screen.getByText('Staged changes'))
+    fireEvent.click(screen.getByText('Staged'))
 
     expect(screen.queryByText('staged.ts')).toBeNull()
     expect(screen.getByText('edited.ts')).toBeTruthy()
@@ -126,5 +138,97 @@ describe('GitChangesSection', () => {
 
     expect(screen.getByText('hooks/')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /hooks/ })).toBeNull()
+  })
+
+  describe('panes', () => {
+    it('gives changes and graph a header each', () => {
+      seed([])
+
+      render(<GitChangesSection folderPath="/proj" />)
+
+      expect(screen.getByText('Graph')).toBeTruthy()
+      expect(screen.getAllByText('Changes')).toHaveLength(1)
+    })
+
+    it('lets the open pane take the space when the other is collapsed', () => {
+      seed([{ path: 'a.ts', index: 'unmodified', worktree: 'modified' }])
+
+      const { container } = render(<GitChangesSection folderPath="/proj" />)
+      const [changesPane, graphPane] = container.querySelectorAll('.sc-pane')
+      expect(graphPane.className).toContain('sc-pane--grow')
+
+      // Collapsing the graph must hand its space over, not leave its header
+      // stranded above an empty block.
+      fireEvent.click(screen.getByText('Graph'))
+
+      expect(changesPane.className).toContain('sc-pane--grow')
+      expect(graphPane.className).not.toContain('sc-pane--grow')
+    })
+
+    it('collapses a pane to its header', () => {
+      seed([{ path: 'a.ts', index: 'unmodified', worktree: 'modified' }])
+
+      render(<GitChangesSection folderPath="/proj" />)
+      expect(screen.getByText('a.ts')).toBeTruthy()
+
+      fireEvent.click(screen.getByText('Changes'))
+
+      expect(screen.queryByText('a.ts')).toBeNull()
+      expect(settingsSet).toHaveBeenCalledWith('ui.sourceControl.changesCollapsed', true)
+    })
+
+    it('drops the divider when one pane is collapsed, leaving nothing to divide', () => {
+      seed([])
+
+      const { container } = render(<GitChangesSection folderPath="/proj" />)
+      expect(container.querySelector('.sc-splitter')).toBeTruthy()
+
+      fireEvent.click(screen.getByText('Graph'))
+
+      expect(container.querySelector('.sc-splitter')).toBeNull()
+    })
+
+    it('resizes the changes pane by dragging and remembers the height', () => {
+      seed([])
+
+      const { container } = render(<GitChangesSection folderPath="/proj" />)
+      const pane = container.querySelector('.sc-pane') as HTMLElement
+      const splitter = container.querySelector('.sc-splitter')!
+
+      fireEvent.mouseDown(splitter, { clientY: 300 })
+      fireEvent.mouseMove(document, { clientY: 360 })
+      fireEvent.mouseUp(document, { clientY: 360 })
+
+      expect(pane.style.flex).toBe('0 0 320px')
+      expect(settingsSet).toHaveBeenCalledWith('ui.sourceControl.changesHeight', 320)
+    })
+
+    it('refuses to drag a pane smaller than its header', () => {
+      seed([])
+
+      const { container } = render(<GitChangesSection folderPath="/proj" />)
+      const pane = container.querySelector('.sc-pane') as HTMLElement
+      const splitter = container.querySelector('.sc-splitter')!
+
+      fireEvent.mouseDown(splitter, { clientY: 300 })
+      fireEvent.mouseMove(document, { clientY: -500 })
+      fireEvent.mouseUp(document, { clientY: -500 })
+
+      expect(pane.style.flex).toBe('0 0 90px')
+    })
+
+    it('restores the remembered layout', async () => {
+      settingsGet.mockImplementation((key: string) =>
+        Promise.resolve(key === 'ui.sourceControl.changesHeight' ? 410 : false)
+      )
+      seed([])
+
+      const { container } = render(<GitChangesSection folderPath="/proj" />)
+      await act(async () => {
+        await Promise.resolve()
+      })
+
+      expect((container.querySelector('.sc-pane') as HTMLElement).style.flex).toBe('0 0 410px')
+    })
   })
 })

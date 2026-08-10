@@ -4,7 +4,13 @@ import { fonts } from '../tokens'
 import { usePanelStore } from '../store/panelStore'
 import { useProjectStore } from '../store/projectStore'
 import { useAppearanceStore } from '../store/appearanceStore'
-import { detectLanguage, ensureThemes, resolveMonacoTheme } from '../utils/monacoSetup'
+import {
+  SHARED_EDITOR_OPTIONS,
+  detectLanguage,
+  ensureThemes,
+  resolveMonacoTheme
+} from '../utils/monacoSetup'
+import { forgetScroll, recallScroll, rememberScroll } from '../utils/scrollMemory'
 import type { GitFileDiff } from '../../../shared/git'
 
 interface DiffPanelProps {
@@ -39,6 +45,7 @@ export function DiffPanel({ sessionId, cwd, filePath }: DiffPanelProps): React.J
 
     ensureThemes()
     const editor = monaco.editor.createDiffEditor(container, {
+      ...SHARED_EDITOR_OPTIONS,
       theme: resolveMonacoTheme(),
       fontFamily: fonts.mono,
       fontSize: 13,
@@ -52,9 +59,20 @@ export function DiffPanel({ sessionId, cwd, filePath }: DiffPanelProps): React.J
       // move — the editor kept the size of the small tile and the rest of the
       // card stayed blank.
       automaticLayout: true,
-      ignoreTrimWhitespace: false
+      ignoreTrimWhitespace: false,
+      // Collapse the untouched parts. In a 4000-line file a four-line change
+      // sits somewhere in the middle, and the overview ruler's marks — correct
+      // as they are — end up pointing hundreds of lines past the viewport.
+      hideUnchangedRegions: { enabled: true, contextLineCount: 3, minimumLineCount: 6 }
     })
     editorRef.current = editor
+
+    // Maximizing re-parents the card into a portal, which remounts this panel
+    // and builds a new editor; without this the diff jumped back to the top
+    // every time.
+    const scroll = editor
+      .getModifiedEditor()
+      .onDidScrollChange((e) => rememberScroll(sessionId, e.scrollTop))
 
     const unsubAppearance = useAppearanceStore.subscribe(() => {
       monaco.editor.setTheme(resolveMonacoTheme())
@@ -62,6 +80,10 @@ export function DiffPanel({ sessionId, cwd, filePath }: DiffPanelProps): React.J
 
     return () => {
       unsubAppearance()
+      scroll.dispose()
+      // The panel is gone from the store only when the tile was closed; a
+      // remount must keep its position.
+      if (!usePanelStore.getState().panels[sessionId]) forgetScroll(sessionId)
       const models = editor.getModel()
       editor.dispose()
       // createDiffEditor does not own the models it is given.
@@ -116,7 +138,11 @@ export function DiffPanel({ sessionId, cwd, filePath }: DiffPanelProps): React.J
     previous?.original.dispose()
     previous?.modified.dispose()
     editor.layout()
-  }, [diff, filePath])
+
+    // After the model, or the editor has nothing to scroll through yet.
+    const top = recallScroll(sessionId)
+    if (top) editor.getModifiedEditor().setScrollTop(top)
+  }, [diff, filePath, sessionId])
 
   const unreadable =
     diff?.kind === 'binary'

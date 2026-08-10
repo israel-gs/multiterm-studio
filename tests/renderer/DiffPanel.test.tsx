@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import type { GitDiffResult } from '../../src/shared/git'
 
 const gitDiff =
@@ -20,11 +20,21 @@ global.ResizeObserver = vi.fn(() => ({
 // around it: which side is requested, and what reaches setModel.
 const setModel = vi.fn()
 const getModel = vi.fn().mockReturnValue(null)
+const setScrollTop = vi.fn()
+/** Captures Monaco's scroll listener so a test can drive it. */
+let onScroll: ((e: { scrollTop: number }) => void) | null = null
 const createDiffEditor = vi.fn<(container: unknown, options: unknown) => unknown>(() => ({
   setModel,
   getModel,
   layout: vi.fn(),
-  dispose: vi.fn()
+  dispose: vi.fn(),
+  getModifiedEditor: () => ({
+    setScrollTop,
+    onDidScrollChange: (fn: (e: { scrollTop: number }) => void) => {
+      onScroll = fn
+      return { dispose: vi.fn() }
+    }
+  })
 }))
 const createModel = vi.fn((value: string) => ({ value, dispose: vi.fn() }))
 
@@ -56,6 +66,7 @@ describe('DiffPanel', () => {
     useProjectStore.setState({ fsRefreshKey: 0 })
     usePanelStore.getState().addPanel(SESSION, undefined, undefined, 'diff', '/proj/src/a.ts')
     gitDiff.mockResolvedValue(textDiff('one\n', 'one\ntwo\n'))
+    onScroll = null
   })
 
   it('reads the working-tree side by default', async () => {
@@ -73,6 +84,24 @@ describe('DiffPanel', () => {
 
     await waitFor(() => expect(createDiffEditor).toHaveBeenCalled())
     expect(createDiffEditor.mock.calls[0][1]).toMatchObject({ automaticLayout: true })
+  })
+
+  it('keeps overflow widgets pinned to the tile, not to the untransformed page', async () => {
+    // The canvas scales and translates its tiles; without this the read-only
+    // message and the hovers landed in a corner of the window.
+    render(<DiffPanel sessionId={SESSION} cwd="/proj" filePath="/proj/src/a.ts" />)
+
+    await waitFor(() => expect(createDiffEditor).toHaveBeenCalled())
+    expect(createDiffEditor.mock.calls[0][1]).toMatchObject({ fixedOverflowWidgets: true })
+  })
+
+  it('collapses the unchanged parts, so the changes are what you scroll through', async () => {
+    render(<DiffPanel sessionId={SESSION} cwd="/proj" filePath="/proj/src/a.ts" />)
+
+    await waitFor(() => expect(createDiffEditor).toHaveBeenCalled())
+    expect(createDiffEditor.mock.calls[0][1]).toMatchObject({
+      hideUnchangedRegions: { enabled: true }
+    })
   })
 
   it('hands both sides to the diff editor', async () => {
@@ -132,8 +161,10 @@ describe('DiffPanel', () => {
     await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(1))
 
     // A commit's contents cannot change, so watcher churn must not refetch it.
-    useProjectStore.setState({ fsRefreshKey: 7 })
-    await new Promise((resolve) => setTimeout(resolve, 400))
+    await act(async () => {
+      useProjectStore.setState({ fsRefreshKey: 7 })
+      await new Promise((resolve) => setTimeout(resolve, 400))
+    })
 
     expect(gitDiff).toHaveBeenCalledTimes(1)
   })
@@ -167,5 +198,48 @@ describe('DiffPanel', () => {
     render(<DiffPanel sessionId={SESSION} cwd="/proj" filePath="/proj/src/a.ts" />)
 
     await waitFor(() => expect(screen.getByText('bad object HEAD')).toBeTruthy())
+  })
+
+  describe('scroll position', () => {
+    it('resumes where it was when the tile is remounted', async () => {
+      // Maximizing re-parents the card into a portal, which remounts the panel.
+      const first = render(<DiffPanel sessionId={SESSION} cwd="/proj" filePath="/proj/src/a.ts" />)
+      await waitFor(() => expect(onScroll).toBeTruthy())
+      act(() => onScroll!({ scrollTop: 640 }))
+      first.unmount()
+
+      render(<DiffPanel sessionId={SESSION} cwd="/proj" filePath="/proj/src/a.ts" />)
+
+      await waitFor(() => expect(setScrollTop).toHaveBeenCalledWith(640))
+    })
+
+    it('does not hand one tile position to another', async () => {
+      const first = render(<DiffPanel sessionId={SESSION} cwd="/proj" filePath="/proj/src/a.ts" />)
+      await waitFor(() => expect(onScroll).toBeTruthy())
+      act(() => onScroll!({ scrollTop: 640 }))
+      first.unmount()
+
+      usePanelStore.getState().addPanel('diff-2', undefined, undefined, 'diff', '/proj/src/a.ts')
+      render(<DiffPanel sessionId="diff-2" cwd="/proj" filePath="/proj/src/a.ts" />)
+
+      await waitFor(() => expect(setModel).toHaveBeenCalled())
+      expect(setScrollTop).not.toHaveBeenCalled()
+    })
+
+    it('forgets the position once the tile is closed', async () => {
+      const first = render(<DiffPanel sessionId={SESSION} cwd="/proj" filePath="/proj/src/a.ts" />)
+      await waitFor(() => expect(onScroll).toBeTruthy())
+      act(() => onScroll!({ scrollTop: 640 }))
+
+      // Closing removes the panel from the store; unmounting alone does not.
+      usePanelStore.getState().removePanel(SESSION)
+      first.unmount()
+
+      usePanelStore.getState().addPanel(SESSION, undefined, undefined, 'diff', '/proj/src/a.ts')
+      render(<DiffPanel sessionId={SESSION} cwd="/proj" filePath="/proj/src/a.ts" />)
+
+      await waitFor(() => expect(setModel).toHaveBeenCalled())
+      expect(setScrollTop).not.toHaveBeenCalled()
+    })
   })
 })

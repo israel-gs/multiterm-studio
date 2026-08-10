@@ -60,6 +60,40 @@ describe('buildGraph', () => {
     expect(rows[2].lane).toBe(1)
   })
 
+  it('marks the lanes of branches that end at a commit, so they can bend into it', () => {
+    // Both tips point at base: base is drawn in lane 0, and lane 1's line has
+    // to curve into it rather than stop dead in the middle of the row.
+    const rows = buildGraph([commit('tipA', ['base']), commit('tipB', ['base']), commit('base')])
+
+    expect(rows[2].incomingLanes).toEqual([1])
+    expect(rows[2].lane).toBe(0)
+  })
+
+  it('leaves no lane occupied above a row without something to draw it into', () => {
+    const rows = buildGraph([
+      commit('merge', ['main', 'feature']),
+      commit('main', ['base']),
+      commit('feature', ['base']),
+      commit('base', ['older']),
+      commit('older')
+    ])
+
+    // Every lane that is occupied before a row and free after it must be
+    // accounted for: either it is the commit's own lane, or it bends in.
+    for (const row of rows) {
+      row.lanesBefore.forEach((sha, lane) => {
+        if (!sha || row.lanesAfter[lane]) return
+        expect(lane === row.lane || row.incomingLanes.includes(lane)).toBe(true)
+      })
+    }
+  })
+
+  it('has nothing incoming on an ordinary commit', () => {
+    const rows = buildGraph([commit('b', ['a']), commit('a')])
+
+    expect(rows.every((r) => r.incomingLanes.length === 0)).toBe(true)
+  })
+
   it('reuses a lane once the branch in it is finished', () => {
     const rows = buildGraph([
       commit('merge', ['main', 'feature']),

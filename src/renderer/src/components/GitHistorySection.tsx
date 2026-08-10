@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronRight, Copy } from 'lucide-react'
+import { Copy } from 'lucide-react'
 import { useGitStore } from '../store/gitStore'
 import { useProjectStore } from '../store/projectStore'
 import { buildGraph, laneColor, type GraphRow } from '../utils/gitGraph'
@@ -37,6 +37,10 @@ const STATUS_LETTERS: Record<GitCommitFile['status'], string> = {
   copied: 'C'
 }
 
+/**
+ * The commit list and its graph. The surrounding pane owns the header, the
+ * collapsing and the height, so this renders only the body.
+ */
 export function GitHistorySection({ folderPath }: GitHistorySectionProps): React.JSX.Element {
   const commits = useGitStore((s) => s.commits)
   const commitsLoading = useGitStore((s) => s.commitsLoading)
@@ -44,65 +48,45 @@ export function GitHistorySection({ folderPath }: GitHistorySectionProps): React
   const hasMoreCommits = useGitStore((s) => s.hasMoreCommits)
   const loadMoreCommits = useGitStore((s) => s.loadMoreCommits)
   const [openSha, setOpenSha] = useState<string | null>(null)
-  const [collapsed, setCollapsed] = useState(false)
 
   // Lanes are derived from the whole loaded page, so a commit's column only
   // makes sense in the context of the ones above it.
   const graph = useMemo(() => buildGraph(commits), [commits])
 
   return (
-    <section className="git-history">
-      <button
-        className="sidebar-git-group-header"
-        onClick={() => setCollapsed((prev) => !prev)}
-        aria-expanded={!collapsed}
-      >
-        <ChevronRight
-          className={`sidebar-git-chevron${collapsed ? '' : ' sidebar-git-chevron--open'}`}
-          size={12}
-          strokeWidth={1.5}
-          aria-hidden="true"
-        />
-        <span className="sidebar-git-group-label">Graph</span>
-        {commits.length > 0 && <span className="sidebar-git-group-count">{commits.length}</span>}
-      </button>
-
-      {!collapsed && (
-        <>
-          {commitsError && (
-            <p className="sidebar-git-message sidebar-git-message--error">{commitsError}</p>
-          )}
-          {!commitsError && commits.length === 0 && (
-            <p className="sidebar-git-message">
-              {commitsLoading ? 'Reading history...' : 'No commits yet'}
-            </p>
-          )}
-
-          <ul className="git-history-list">
-            {commits.map((commit, index) => (
-              <CommitRow
-                key={commit.sha}
-                commit={commit}
-                row={graph[index]}
-                folderPath={folderPath}
-                open={openSha === commit.sha}
-                onToggle={() => setOpenSha(openSha === commit.sha ? null : commit.sha)}
-              />
-            ))}
-          </ul>
-
-          {hasMoreCommits && (
-            <button
-              className="git-history-more"
-              onClick={() => void loadMoreCommits(folderPath)}
-              disabled={commitsLoading}
-            >
-              {commitsLoading ? 'Loading...' : 'Load more commits'}
-            </button>
-          )}
-        </>
+    <div className="git-history">
+      {commitsError && (
+        <p className="sidebar-git-message sidebar-git-message--error">{commitsError}</p>
       )}
-    </section>
+      {!commitsError && commits.length === 0 && (
+        <p className="sidebar-git-message">
+          {commitsLoading ? 'Reading history...' : 'No commits yet'}
+        </p>
+      )}
+
+      <ul className="git-history-list">
+        {commits.map((commit, index) => (
+          <CommitRow
+            key={commit.sha}
+            commit={commit}
+            row={graph[index]}
+            folderPath={folderPath}
+            open={openSha === commit.sha}
+            onToggle={() => setOpenSha(openSha === commit.sha ? null : commit.sha)}
+          />
+        ))}
+      </ul>
+
+      {hasMoreCommits && (
+        <button
+          className="git-history-more"
+          onClick={() => void loadMoreCommits(folderPath)}
+          disabled={commitsLoading}
+        >
+          {commitsLoading ? 'Loading...' : 'Load more commits'}
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -226,23 +210,37 @@ function GraphGutter({ row }: { row: GraphRow | undefined }): React.JSX.Element 
       width={width}
       height={ROW_HEIGHT}
       viewBox={`0 0 ${width} ${ROW_HEIGHT}`}
+      // Round caps so the segment of one row meets the next without a notch.
+      strokeLinecap="round"
       aria-hidden="true"
     >
-      {/* Lanes that only pass by: a line from the top edge down to where they
-          continue below, so a branch reads as continuous. */}
+      {/* Lanes that only pass by, drawn edge to edge so a branch reads as one
+          continuous line down the gutter. */}
       {row.lanesBefore.map((sha, lane) =>
-        sha && lane !== row.lane ? (
+        sha && lane !== row.lane && row.lanesAfter[lane] && !row.incomingLanes.includes(lane) ? (
           <line
-            key={`before-${lane}`}
+            key={`through-${lane}`}
             x1={x(lane)}
             y1={0}
             x2={x(lane)}
-            y2={row.lanesAfter[lane] ? ROW_HEIGHT : mid}
+            y2={ROW_HEIGHT}
             stroke={laneColor(lane)}
             strokeWidth={1.5}
           />
         ) : null
       )}
+
+      {/* Branches that end at this commit: bent into the dot rather than left
+          hanging in the middle of the row. */}
+      {row.incomingLanes.map((lane) => (
+        <path
+          key={`incoming-${lane}`}
+          d={`M ${x(lane)} 0 C ${x(lane)} ${mid - 6}, ${x(row.lane)} ${mid - 10}, ${x(row.lane)} ${mid}`}
+          fill="none"
+          stroke={laneColor(lane)}
+          strokeWidth={1.5}
+        />
+      ))}
 
       {/* This commit's own lane above the dot, when a child reserved it. */}
       {row.lanesBefore[row.lane] && (

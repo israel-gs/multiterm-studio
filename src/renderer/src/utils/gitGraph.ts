@@ -17,6 +17,12 @@ export interface GraphRow {
   lanesAfter: (string | null)[]
   /** Lane each parent continues in, drawn as a line leaving the dot. */
   parentLanes: number[]
+  /**
+   * Other lanes that were waiting for this same commit — one per branch that
+   * ends here. They are drawn curving into the dot; without them a merged
+   * branch's line stopped dead in the middle of the row.
+   */
+  incomingLanes: number[]
   /** How many lanes the row needs, for sizing the gutter. */
   width: number
 }
@@ -43,10 +49,13 @@ export function buildGraph(commits: GitCommit[]): GraphRow[] {
 
     // Several children can each have reserved a lane for this same commit — one
     // per branch that reaches it. Only the lane it is drawn in stays; the others
-    // are stale reservations for a commit already placed, and leaving them would
-    // keep drawing a line for a branch that has already ended.
+    // end here, and the renderer bends them into the dot.
+    const incomingLanes: number[] = []
     for (let other = 0; other < lanes.length; other++) {
-      if (other !== lane && lanes[other] === commit.sha) lanes[other] = null
+      if (other !== lane && lanes[other] === commit.sha) {
+        incomingLanes.push(other)
+        lanes[other] = null
+      }
     }
 
     // Hand the lane to the first parent: that is what keeps a branch straight.
@@ -69,6 +78,7 @@ export function buildGraph(commits: GitCommit[]): GraphRow[] {
       lanesBefore,
       lanesAfter: [...lanes],
       parentLanes,
+      incomingLanes,
       width: Math.max(lanesBefore.length, lanes.length, lane + 1)
     })
   }
