@@ -1605,6 +1605,232 @@ body.canvas-interacting .floating-card-inner {
   color: #e06c75;
 }
 
+/* Hooks, memory and extensions */
+
+.hook-event {
+  margin-bottom: 7px;
+}
+
+.hook-event-name {
+  font-size: 10px;
+  color: var(--fg-secondary);
+  font-weight: var(--weight-medium);
+}
+
+.hook-entry {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0 2px 8px;
+}
+
+.hook-matcher {
+  color: var(--accent);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.hook-command {
+  flex: 1;
+  min-width: 0;
+  color: var(--fg-secondary);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.hook-ours {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+  background: rgba(198, 120, 221, 0.15);
+  color: var(--accent);
+}
+
+.hook-log-toggle {
+  margin-top: 4px;
+}
+
+.hook-log {
+  margin-top: 5px;
+  max-height: 180px;
+  overflow-y: auto;
+  border-left: 2px solid var(--border-subtle);
+  padding-left: 8px;
+}
+
+.hook-run {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 0;
+  font-size: 10px;
+  color: var(--fg-secondary);
+}
+
+.hook-run--error {
+  color: #e06c75;
+}
+
+.hook-run-event {
+  color: var(--fg-primary);
+}
+
+.hook-run-tool,
+.hook-run-meta {
+  opacity: 0.7;
+}
+
+.hook-run-injected {
+  color: #4ec9b0;
+}
+
+.hook-run-error {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hook-note {
+  margin: 6px 0 0;
+  font-size: 10px;
+  color: var(--fg-secondary);
+  line-height: 1.4;
+}
+
+.memory-summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 8px;
+  font-size: 10px;
+  color: var(--fg-secondary);
+}
+
+.memory-row {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.memory-row--excluded {
+  opacity: 0.55;
+}
+
+.memory-row-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.memory-path {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  color: var(--fg-primary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-path:hover {
+  color: var(--accent);
+}
+
+.memory-size {
+  font-size: 10px;
+  color: var(--fg-secondary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.memory-note,
+.memory-warning {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 0;
+  font-size: 10px;
+  color: var(--fg-secondary);
+  line-height: 1.4;
+}
+
+.memory-warning {
+  color: #e5a84b;
+}
+
+.ext-group {
+  margin-bottom: 8px;
+}
+
+.ext-kind {
+  font-size: 10px;
+  color: var(--fg-secondary);
+  font-weight: var(--weight-medium);
+}
+
+.ext-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0 2px 8px;
+}
+
+.ext-name {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--fg-primary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ext-name--static {
+  cursor: default;
+}
+
+.ext-name:hover:not(.ext-name--static) {
+  color: var(--accent);
+}
+
+.ext-description {
+  flex: 1;
+  min-width: 0;
+  font-size: 10px;
+  color: var(--fg-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ext-pending,
+.ext-rejected {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.ext-pending {
+  color: #e5a84b;
+}
+
+.ext-rejected {
+  color: #e06c75;
+}
+
 /* Session goal ------------------------------------------------------------- */
 
 .goal-modal {

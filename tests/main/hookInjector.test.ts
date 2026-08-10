@@ -94,6 +94,26 @@ describe('injectHooks', () => {
     expect(hooks.PostToolUse).toHaveLength(1)
   })
 
+  it('reclaims its own entry after another writer dropped the marker', async () => {
+    // Found in the wild: something rewrote settings.local.json and normalised
+    // our entry, dropping the `_source` key it did not recognise. The next
+    // inject no longer saw its own hook and added a second one, so every hook
+    // fired twice — silently, because a duplicate hook just repeats the work.
+    const { injectHooks } = await import('../../src/main/hookInjector')
+    await injectHooks(project)
+
+    const settings = readJson(localSettings())
+    const hooks = settings.hooks as Record<string, Array<Record<string, unknown>>>
+    for (const entries of Object.values(hooks)) for (const entry of entries) delete entry._source
+    writeFileSync(localSettings(), JSON.stringify(settings))
+
+    await injectHooks(project)
+
+    const after = readJson(localSettings()).hooks as Record<string, unknown[]>
+    expect(after.SessionStart).toHaveLength(1)
+    expect(after.PostToolUse).toHaveLength(1)
+  })
+
   it('migrates a project set up by an older version', async () => {
     // Old layout: entries in the committed file plus scripts in the checkout.
     writeFileSync(

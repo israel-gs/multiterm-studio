@@ -36,6 +36,32 @@ const SHARED_SETTINGS = 'settings.json'
 
 const NOTIFY_SCRIPT = `#!/usr/bin/env node
 const fs = require('fs'), net = require('net'), os = require('os'), path = require('path')
+const STARTED_AT = Date.now()
+
+// --- Run log ------------------------------------------------------------------
+// A hook that fails does so in silence: Claude Code carries on and the user
+// never learns why the goal stopped being injected. One line per firing gives
+// the config panel something to show.
+
+const LOG_PATH = path.join(os.homedir(), '.multiterm-studio', 'hook-log.jsonl')
+const LOG_MAX_BYTES = 256 * 1024
+
+function log(entry) {
+  try {
+    fs.mkdirSync(path.dirname(LOG_PATH), { recursive: true })
+    // Trimming only when it has actually grown keeps the common path a single
+    // append.
+    try {
+      if (fs.statSync(LOG_PATH).size > LOG_MAX_BYTES) {
+        const kept = fs.readFileSync(LOG_PATH, 'utf-8').split('\\n').slice(-200).join('\\n')
+        fs.writeFileSync(LOG_PATH, kept)
+      }
+    } catch {}
+    entry.at = STARTED_AT
+    entry.ms = Date.now() - STARTED_AT
+    fs.appendFileSync(LOG_PATH, JSON.stringify(entry) + '\\n')
+  } catch {}
+}
 
 // --- Session goal ------------------------------------------------------------
 // The goal reaches the model as hook output: plain stdout is added to context
@@ -185,9 +211,14 @@ let input = ''
 process.stdin.on('data', c => input += c)
 process.stdin.on('end', () => {
   let data
-  try { data = JSON.parse(input) } catch { process.exit(0) }
+  try { data = JSON.parse(input) } catch {
+    log({ event: 'unknown', error: 'stdin was not JSON' })
+    process.exit(0)
+  }
   const event = data.hook_event_name
   const sessionId = data.session_id || ''
+  const tool = data.tool_name || undefined
+  let injected = false
 
   // Injecting the goal must not depend on the app being reachable: the socket
   // may be gone while the terminal (and its agent) is still running.
@@ -227,19 +258,31 @@ process.stdin.on('end', () => {
           } else {
             process.stdout.write(block)
           }
+          injected = true
           if (sessionId) writeSeen(sessionId, goal)
         } else if (sessionId && !seen) {
           writeSeen(sessionId, goal)
         }
       }
-    } catch {}
-    if (event === 'UserPromptSubmit') process.exit(0)
+    } catch (err) {
+      log({ event, tool, error: 'goal injection failed: ' + ((err && err.message) || err) })
+    }
+    if (event === 'UserPromptSubmit') {
+      log({ event, tool, injected })
+      process.exit(0)
+    }
   }
 
   const stateDir = path.join(os.homedir(), '.multiterm-studio')
   let socketPath, token
-  try { socketPath = fs.readFileSync(path.join(stateDir, 'socket-path'), 'utf-8').trim() } catch { process.exit(0) }
-  try { token = fs.readFileSync(path.join(stateDir, 'socket-token'), 'utf-8').trim() } catch { process.exit(0) }
+  try { socketPath = fs.readFileSync(path.join(stateDir, 'socket-path'), 'utf-8').trim() } catch {
+    log({ event, tool, injected, error: 'Multiterm is not running' })
+    process.exit(0)
+  }
+  try { token = fs.readFileSync(path.join(stateDir, 'socket-token'), 'utf-8').trim() } catch {
+    log({ event, tool, injected, error: 'no socket token' })
+    process.exit(0)
+  }
   let method, params
   switch (data.hook_event_name) {
     case 'SessionStart':
@@ -251,7 +294,10 @@ process.stdin.on('end', () => {
       }
       break
     case 'PreToolUse':
-      if (data.tool_name !== 'Agent') { process.exit(0) }
+      if (data.tool_name !== 'Agent') {
+        log({ event, tool, injected })
+        process.exit(0)
+      }
       method = 'agent.spawning'
       var ti = data.tool_input || {}
       var subDir = path.join(path.dirname(data.transcript_path), data.session_id, 'subagents')
@@ -277,11 +323,19 @@ process.stdin.on('end', () => {
       params = { session_id: data.session_id }
       break
     default:
+      log({ event, tool, injected })
       process.exit(0)
   }
   const msg = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params, token }) + '\\n'
-  const client = net.createConnection(socketPath, () => { client.write(msg); client.end() })
-  client.on('error', () => process.exit(0))
+  const client = net.createConnection(socketPath, () => {
+    client.write(msg)
+    client.end()
+    log({ event, tool, injected })
+  })
+  client.on('error', (err) => {
+    log({ event, tool, injected, error: 'socket: ' + ((err && err.message) || err) })
+    process.exit(0)
+  })
 })
 `
 
@@ -300,13 +354,37 @@ function makeHookEntry(matcher?: string): HookEntry {
   return entry
 }
 
-/** Strips every entry this app owns from a hooks map, in place. */
+/**
+ * Strips every entry this app owns from a hooks map, in place.
+ *
+ * Ownership is recognised two ways on purpose. The `_source` marker is ours,
+ * but it does not always survive: another writer that rewrites the settings
+ * file can normalise the entry and drop the key it does not know. When that
+ * happened the next inject no longer recognised its own entry and appended a
+ * second one, so every hook fired twice — invisibly, since a duplicate hook
+ * just does the same work again. Matching the command path as well makes the
+ * clean-up idempotent whatever the file has been through.
+ */
 function stripOwnEntries(hooks: Record<string, unknown[]>): void {
+  const isOurs = (entry: unknown): boolean => {
+    if (!entry || typeof entry !== 'object') return false
+    const record = entry as Record<string, unknown>
+    if (record._source === HOOK_MARKER) return true
+    const commands = Array.isArray(record.hooks) ? record.hooks : []
+    return (
+      commands.length > 0 &&
+      commands.every(
+        (command) =>
+          command &&
+          typeof command === 'object' &&
+          String((command as Record<string, unknown>).command ?? '').includes(NOTIFY_SCRIPT_PATH)
+      )
+    )
+  }
+
   for (const event of Object.keys(hooks)) {
     if (!Array.isArray(hooks[event])) continue
-    hooks[event] = hooks[event].filter(
-      (e) => !(e && typeof e === 'object' && (e as Record<string, unknown>)._source === HOOK_MARKER)
-    )
+    hooks[event] = hooks[event].filter((entry) => !isOurs(entry))
     if (hooks[event].length === 0) delete hooks[event]
   }
 }

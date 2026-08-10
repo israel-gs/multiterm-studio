@@ -12,6 +12,9 @@ import {
 } from '../../../shared/claudeConfig'
 import type { RuleKind } from '../../../shared/permissionRules'
 import { PermissionsSection } from './PermissionsSection'
+import { HooksSection } from './HooksSection'
+import { MemorySection } from './MemorySection'
+import { ExtensionsSection } from './ExtensionsSection'
 
 interface Props {
   /** The project whose `.claude` directory is being resolved. */
@@ -165,6 +168,11 @@ export function ConfigPanel({ cwd }: Props): React.JSX.Element {
   if (!config) return <div className="config-panel config-panel--empty">Reading .claude…</div>
 
   const broken = config.files.filter((f) => f.parseError)
+  // Excludes merge across scopes, so the resolver already has the full list.
+  const excludeSetting = config.settings.find((s) => s.key === 'claudeMdExcludes')
+  const excludes = Array.isArray(excludeSetting?.value)
+    ? (excludeSetting.value as unknown[]).map(String)
+    : []
 
   return (
     <div className="config-panel">
@@ -207,6 +215,21 @@ export function ConfigPanel({ cwd }: Props): React.JSX.Element {
       </div>
 
       <PermissionsSection config={config} onEdit={editRule} />
+
+      <HooksSection cwd={cwd} reloadKey={reloadKey + fsRefreshKey} onOpenFile={openFileInEditor} />
+
+      <MemorySection
+        cwd={cwd}
+        reloadKey={reloadKey + fsRefreshKey}
+        excludes={excludes}
+        onOpenFile={openFileInEditor}
+      />
+
+      <ExtensionsSection
+        cwd={cwd}
+        reloadKey={reloadKey + fsRefreshKey}
+        onOpenFile={openFileInEditor}
+      />
 
       {config.settings.length === 0 ? (
         <p className="config-empty-note">

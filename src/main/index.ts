@@ -33,6 +33,9 @@ import {
 import { installCli } from './cliInstaller'
 import { loadWorkspaceConfig, saveWorkspaceConfig } from './workspaceConfig'
 import { resolveClaudeConfig, editPermissionRule } from './claudeConfig'
+import { resolveHooks } from './claudeHooks'
+import { resolveMemory } from './claudeMemory'
+import { resolveExtensions } from './claudeExtensions'
 import type { Scope } from '../shared/claudeConfig'
 import {
   loadGoals,
@@ -373,6 +376,13 @@ ipcMain.handle('workspace:save', async (_event, folderPath: string, config: unkn
 // Claude Code's own configuration, resolved across its four scopes.
 ipcMain.handle('claudeConfig:load', async (_event, folderPath: string) =>
   resolveClaudeConfig(folderPath)
+)
+ipcMain.handle('claudeConfig:hooks', async (_event, folderPath: string) => resolveHooks(folderPath))
+ipcMain.handle('claudeConfig:memory', async (_event, folderPath: string, excludes: string[]) =>
+  resolveMemory(folderPath, excludes)
+)
+ipcMain.handle('claudeConfig:extensions', async (_event, folderPath: string) =>
+  resolveExtensions(folderPath)
 )
 ipcMain.handle(
   'claudeConfig:editRule',

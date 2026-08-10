@@ -8,6 +8,9 @@ import type {
 import type { FileSearchResult } from '../shared/search'
 import type { GoalFile } from '../shared/goals'
 import type { ResolvedConfig, Scope } from '../shared/claudeConfig'
+import type { HookReport } from '../shared/claudeHooks'
+import type { MemoryReport } from '../shared/claudeMemory'
+import type { ExtensionReport } from '../shared/claudeExtensions'
 
 /** A project or workspace shown on the welcome screen. */
 export interface RecentProject {
@@ -393,6 +396,18 @@ const api = {
   /** Claude Code's own configuration, resolved across its four scopes. */
   claudeConfigLoad: (folderPath: string): Promise<ResolvedConfig> =>
     ipcRenderer.invoke('claudeConfig:load', folderPath),
+
+  /** Every hook registered for this project, plus the app's own run log. */
+  claudeConfigHooks: (folderPath: string): Promise<HookReport> =>
+    ipcRenderer.invoke('claudeConfig:hooks', folderPath),
+
+  /** The instruction files Claude Code loads, in load order. */
+  claudeConfigMemory: (folderPath: string, excludes: string[]): Promise<MemoryReport> =>
+    ipcRenderer.invoke('claudeConfig:memory', folderPath, excludes),
+
+  /** Skills, subagents, commands and MCP servers. */
+  claudeConfigExtensions: (folderPath: string): Promise<ExtensionReport> =>
+    ipcRenderer.invoke('claudeConfig:extensions', folderPath),
 
   /** Adds or removes one permission rule in the scope you choose. */
   claudeConfigEditRule: (
