@@ -9,6 +9,7 @@ import { WelcomeScreen } from './components/WelcomeScreen'
 import { ErrorToasts } from './components/ErrorToasts'
 import { useProjectStore } from './store/projectStore'
 import { usePanelStore } from './store/panelStore'
+import { useGoalStore } from './store/goalStore'
 import { flushSave } from './utils/layoutPersistence'
 import { useAppearanceStore } from './store/appearanceStore'
 import type { AppearanceMode } from './tokens'
@@ -265,6 +266,20 @@ function App(): React.JSX.Element {
       unsubscribe()
       if (timer) clearTimeout(timer)
     }
+  }, [])
+
+  // Session goals are stored per project, so they reload on every switch.
+  useEffect(() => {
+    if (!folderPath) return
+    void useGoalStore.getState().load(folderPath)
+  }, [folderPath])
+
+  // The agent writes goals.json directly through its MCP tools, so the panel
+  // has to be told when a goal was ticked or closed from the other side.
+  useEffect(() => {
+    return window.electronAPI.onGoalsChanged(() => {
+      void useGoalStore.getState().refresh()
+    })
   }, [])
 
   // Tell the main process which folders local-resource:// may serve from.

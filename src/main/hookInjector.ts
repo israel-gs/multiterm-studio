@@ -9,6 +9,12 @@ import {
 } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
+import {
+  GOAL_READ_PERMISSION,
+  installGoalServer,
+  registerGoalServer,
+  unregisterGoalServer
+} from './goalMcpServer'
 
 const HOOK_MARKER = 'multiterm-studio'
 
@@ -30,15 +36,210 @@ const SHARED_SETTINGS = 'settings.json'
 
 const NOTIFY_SCRIPT = `#!/usr/bin/env node
 const fs = require('fs'), net = require('net'), os = require('os'), path = require('path')
+
+// --- Session goal ------------------------------------------------------------
+// The goal reaches the model as hook output: plain stdout is added to context
+// for UserPromptSubmit and SessionStart, and hookSpecificOutput.additionalContext
+// carries it on PostToolUse — the one place a running turn can still be reached.
+// Nothing here announces the goal to the user directly: that is Claude's job,
+// asked for in the instructions below.
+
+function findGoals(startDir) {
+  let dir = startDir
+  for (let i = 0; i < 12 && dir; i++) {
+    try {
+      const raw = fs.readFileSync(path.join(dir, '.multiterm', 'goals.json'), 'utf-8')
+      return JSON.parse(raw)
+    } catch {}
+    const parent = path.dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return null
+}
+
+/** The goal this terminal answers to: its own, or the project's. */
+function hasContent(goal) {
+  // A goal written as nothing but a checklist has no headline, and is still
+  // a goal.
+  return !!goal && (!!goal.text || ((goal.steps || []).length > 0))
+}
+
+function goalFor(cwd) {
+  const goals = findGoals(cwd || process.cwd())
+  if (!goals) return null
+  const tileId = process.env.MULTITERM_PTY_SESSION_ID || ''
+  const tile = tileId && goals.tiles ? goals.tiles[tileId] : null
+  const project = goals.project || null
+
+  let goal
+  if (hasContent(tile)) {
+    goal = tile
+  } else if (tile && tile.proposal) {
+    // The tile holds nothing but a pending proposal, so the objective in force
+    // is still the project's — but the proposal has to travel with it, or the
+    // agent would never learn that its own request is waiting on the user.
+    goal = hasContent(project)
+      ? Object.assign({}, project, { proposal: tile.proposal, rejection: tile.rejection })
+      : tile
+  } else {
+    goal = project
+  }
+
+  if (!hasContent(goal) && !(goal && goal.proposal) && !(goal && goal.rejection)) return null
+  // A finished goal has nothing to steer; injecting it would only invite the
+  // agent to re-do work the user already signed off.
+  if (goal.status === 'done') return null
+  return goal
+}
+
+function renderGoal(goal) {
+  const steps = goal.steps || []
+  let out = goal.text
+    ? 'Objective: ' + goal.text
+    : (steps.length ? 'Objective: work through the checklist below.' : 'No objective set yet.')
+  if (steps.length) {
+    const done = steps.filter(s => s.done).length
+    out += '\\nChecklist (' + done + '/' + steps.length + ' done):'
+    steps.forEach((s, i) => {
+      out += '\\n  ' + (i + 1) + '. [' + (s.done ? 'x' : ' ') + '] ' + s.text
+    })
+  }
+  return out
+}
+
+const TOOLING =
+  'You have MCP tools for this goal: goal_get (re-read it), goal_step_done (tick a step as you ' +
+  'finish it), goal_complete (only when the objective is genuinely met), and goal_set (ask for a ' +
+  'different objective, with a reason). The last two only *propose*: the user accepts or rejects ' +
+  'in the app, and you are told the outcome here. Use them rather than asking in prose.'
+
+/** A proposal the user has not answered yet, restated so it is not forgotten. */
+function pendingBlock(goal) {
+  const p = goal.proposal
+  const what = p.kind === 'complete'
+    ? 'that this goal is met' + (p.summary ? ' — "' + p.summary + '"' : '')
+    : 'to change the objective to "' + (p.text || '') + '"' + (p.reason ? ' because ' + p.reason : '')
+  return '<session-goal-proposal>\\n' +
+    'You proposed ' + what + '. The user has not answered yet, so nothing has changed. ' +
+    'Do not act as though it were accepted, and do not propose it again.\\n' +
+    '</session-goal-proposal>\\n'
+}
+
+function rejectionBlock(goal) {
+  const kind = goal.rejection.kind === 'complete'
+    ? 'that the goal was met'
+    : 'your change of objective'
+  return '<session-goal-rejected>\\n' +
+    'The user rejected ' + kind + '. The objective below still stands — ask them what is ' +
+    'missing rather than proposing the same thing again.\\n' +
+    renderGoal(goal) + '\\n</session-goal-rejected>\\n'
+}
+
+function openingBlock(goal) {
+  return '<session-goal>\\n' + renderGoal(goal) + '\\n</session-goal>\\n' +
+    'This is what the user set this terminal to work towards. Open your first reply by stating ' +
+    'the objective in one short line, so they can see what you are steering by. ' +
+    'If a request would not advance it, say so and ask before doing the work. ' + TOOLING + '\\n'
+}
+
+function turnBlock(goal) {
+  return '<session-goal>\\n' + renderGoal(goal) + '\\n</session-goal>\\n' +
+    'If this request does not advance the objective, say so before acting on it.\\n'
+}
+
+function changeBlock(goal, previousText) {
+  return '<session-goal-changed>\\n' +
+    'The user changed this terminal\\'s objective mid-session.\\n' +
+    (previousText ? 'Previous: ' + previousText + '\\n' : '') +
+    renderGoal(goal) + '\\n</session-goal-changed>\\n' +
+    'Acknowledge the change in one line, then work towards the new objective. ' +
+    'If what you are doing right now no longer serves it, stop and say so.\\n'
+}
+
+// What this session was last told, so a change can be announced as a change.
+// Session state, so it lives in the app's directory rather than the project's.
+function seenPath(sessionId) {
+  return path.join(os.homedir(), '.multiterm-studio', 'goal-seen', sessionId + '.json')
+}
+
+function readSeen(sessionId) {
+  try { return JSON.parse(fs.readFileSync(seenPath(sessionId), 'utf-8')) } catch { return null }
+}
+
+function writeSeen(sessionId, goal) {
+  try {
+    const p = seenPath(sessionId)
+    fs.mkdirSync(path.dirname(p), { recursive: true })
+    const steps = goal.steps || []
+    const headline = goal.text || (steps[0] && steps[0].text) || ''
+    fs.writeFileSync(p, JSON.stringify({
+      updatedAt: goal.updatedAt || 0,
+      text: headline,
+      rejectionAt: (goal.rejection && goal.rejection.at) || 0
+    }))
+  } catch {}
+}
+
 let input = ''
 process.stdin.on('data', c => input += c)
 process.stdin.on('end', () => {
+  let data
+  try { data = JSON.parse(input) } catch { process.exit(0) }
+  const event = data.hook_event_name
+  const sessionId = data.session_id || ''
+
+  // Injecting the goal must not depend on the app being reachable: the socket
+  // may be gone while the terminal (and its agent) is still running.
+  if (event === 'SessionStart' || event === 'UserPromptSubmit' || event === 'PostToolUse') {
+    try {
+      const goal = goalFor(data.cwd)
+      if (goal) {
+        const seen = sessionId ? readSeen(sessionId) : null
+        const changed = seen && (goal.updatedAt || 0) > (seen.updatedAt || 0)
+        const rejected = goal.rejection &&
+          (!seen || (goal.rejection.at || 0) > (seen.rejectionAt || 0))
+        let block = null
+
+        if (rejected) {
+          // A verdict the agent is waiting on outranks the routine restatement.
+          block = rejectionBlock(goal)
+        } else if (changed) {
+          // Reaches a turn already in flight, next to a tool result.
+          block = changeBlock(goal, seen.text)
+        } else if (goal.proposal) {
+          block = pendingBlock(goal)
+          // Only worth saying alongside a prompt or a fresh session; repeating
+          // it after every tool call would drown the turn.
+          if (event === 'PostToolUse') block = null
+          else if (event === 'SessionStart') block = openingBlock(goal) + block
+        } else if (event === 'SessionStart') {
+          block = openingBlock(goal)
+        } else if (event === 'UserPromptSubmit') {
+          block = turnBlock(goal)
+        }
+
+        if (block) {
+          if (event === 'PostToolUse') {
+            process.stdout.write(JSON.stringify({
+              hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: block }
+            }) + '\\n')
+          } else {
+            process.stdout.write(block)
+          }
+          if (sessionId) writeSeen(sessionId, goal)
+        } else if (sessionId && !seen) {
+          writeSeen(sessionId, goal)
+        }
+      }
+    } catch {}
+    if (event === 'UserPromptSubmit') process.exit(0)
+  }
+
   const stateDir = path.join(os.homedir(), '.multiterm-studio')
   let socketPath, token
   try { socketPath = fs.readFileSync(path.join(stateDir, 'socket-path'), 'utf-8').trim() } catch { process.exit(0) }
   try { token = fs.readFileSync(path.join(stateDir, 'socket-token'), 'utf-8').trim() } catch { process.exit(0) }
-  let data
-  try { data = JSON.parse(input) } catch { process.exit(0) }
   let method, params
   switch (data.hook_event_name) {
     case 'SessionStart':
@@ -234,28 +435,75 @@ export async function injectHooks(projectPath: string): Promise<void> {
   // Drop stale entries from a previous run before re-registering.
   stripOwnEntries(hooks)
 
-  // SessionStart and SessionEnd — standard hooks
-  for (const event of ['SessionStart', 'SessionEnd']) {
+  // SessionStart also re-injects the goal after a compaction or a --resume,
+  // which is exactly where the original objective used to get dropped.
+  // UserPromptSubmit re-states it on every turn.
+  for (const event of ['SessionStart', 'SessionEnd', 'UserPromptSubmit']) {
     if (!Array.isArray(hooks[event])) hooks[event] = []
     hooks[event].push(makeHookEntry())
   }
 
-  // PostToolUse with Read|Write|Edit matcher — track file activity
+  // PostToolUse tracks file activity, and is also the only way to reach a turn
+  // that is already running — which is how a goal changed mid-turn lands. Bash
+  // is in the matcher for that second reason, not the first.
   if (!Array.isArray(hooks['PostToolUse'])) hooks['PostToolUse'] = []
-  hooks['PostToolUse'].push(makeHookEntry('Read|Write|Edit'))
+  hooks['PostToolUse'].push(makeHookEntry('Read|Write|Edit|Bash'))
 
   // PreToolUse with Agent matcher — detect agent spawning for panel creation
   if (!Array.isArray(hooks['PreToolUse'])) hooks['PreToolUse'] = []
   hooks['PreToolUse'].push(makeHookEntry('Agent'))
 
   settings.hooks = hooks
+  allowGoalRead(settings)
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8')
+
+  // Goal tools. Reading the goal is pre-approved above; changing or closing it
+  // deliberately is not, so Claude Code asks the user first.
+  installGoalServer()
+  registerGoalServer(projectPath)
+  ignoreGeneratedFile(projectPath, '.mcp.json')
+}
+
+/**
+ * Pre-approves the read-only goal tool.
+ *
+ * Without this the agent gets a permission prompt just for looking up what it
+ * is supposed to be doing, which is exactly the interruption the goal is meant
+ * to avoid. The three tools that write are left to prompt.
+ */
+function allowGoalRead(settings: Record<string, unknown>): void {
+  const permissions = (settings.permissions ?? {}) as Record<string, unknown>
+  const allow = Array.isArray(permissions.allow) ? (permissions.allow as string[]) : []
+  if (!allow.includes(GOAL_READ_PERMISSION)) allow.push(GOAL_READ_PERMISSION)
+  permissions.allow = allow
+  settings.permissions = permissions
 }
 
 export async function removeHooks(projectPath: string): Promise<void> {
   // Both locations: the current one and anything an older version left behind.
   purgeFrom(join(projectPath, '.claude', LOCAL_SETTINGS))
   migrateLegacyProjectFiles(projectPath)
+  revokeGoalRead(join(projectPath, '.claude', LOCAL_SETTINGS))
+  unregisterGoalServer(projectPath)
+}
+
+/** Takes back the pre-approval, leaving the user's own rules untouched. */
+function revokeGoalRead(settingsPath: string): void {
+  if (!existsSync(settingsPath)) return
+  try {
+    const settings = readSettings(settingsPath)
+    const permissions = settings.permissions as Record<string, unknown> | undefined
+    if (!permissions || !Array.isArray(permissions.allow)) return
+    const allow = permissions.allow as string[]
+    if (!allow.includes(GOAL_READ_PERMISSION)) return
+
+    // Only our own rule goes. The surrounding structure may predate us — an
+    // empty `allow: []` the user wrote is theirs to keep.
+    permissions.allow = allow.filter((rule) => rule !== GOAL_READ_PERMISSION)
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8')
+  } catch {
+    // ignore
+  }
 }
 
 // --- OpenCode integration ---
@@ -348,19 +596,27 @@ export async function injectOpenCodeHooks(projectPath: string): Promise<void> {
   }
 
   writeFileSync(join(pluginsDir, OPENCODE_PLUGIN_NAME), OPENCODE_PLUGIN_SCRIPT, { mode: 0o644 })
-  ignoreGeneratedPlugin(projectPath)
+  ignoreGeneratedFile(
+    projectPath,
+    `.opencode/plugins/${OPENCODE_PLUGIN_NAME}`,
+    /^\s*\.opencode\/?\s*$/m
+  )
 }
 
-/** Adds the generated OpenCode plugin to .gitignore, if the project has one. */
-function ignoreGeneratedPlugin(projectPath: string): void {
+/**
+ * Adds a file this app generates to .gitignore, if the project has one.
+ *
+ * `broaderRule` recognises an existing rule that already covers the entry, so
+ * a project that ignores a whole directory is left alone instead of collecting
+ * a redundant line on every open.
+ */
+function ignoreGeneratedFile(projectPath: string, entry: string, broaderRule?: RegExp): void {
   const gitignorePath = join(projectPath, '.gitignore')
-  const entry = `.opencode/plugins/${OPENCODE_PLUGIN_NAME}`
   try {
     if (!existsSync(gitignorePath)) return
     const contents = readFileSync(gitignorePath, 'utf-8')
-    // Already covered — either by this exact entry or by a broader rule.
-    // Without this check every project open would append to the file again.
-    if (contents.includes(entry) || /^\s*\.opencode\/?\s*$/m.test(contents)) return
+    if (contents.includes(entry)) return
+    if (broaderRule && broaderRule.test(contents)) return
     writeFileSync(
       gitignorePath,
       `${contents.replace(/\n*$/, '')}\n\n# Generated by Multiterm Studio\n${entry}\n`,

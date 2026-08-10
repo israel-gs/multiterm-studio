@@ -8,12 +8,15 @@ import {
   Save,
   FolderOpen,
   Files,
-  GitBranch
+  GitBranch,
+  Target
 } from 'lucide-react'
 import { FileTree, MultiRootFileTree, SortMode } from './FileTree'
 import { GitBranchSection } from './GitBranchSection'
 import { GitChangesSection } from './GitChangesSection'
 import { SearchView } from './SearchView'
+import { GoalsSection } from './GoalsSection'
+import { usePendingProposalCount } from '../store/goalStore'
 import { useGitStatusSync } from '../hooks/useGitStatusSync'
 import { useGitStore } from '../store/gitStore'
 import { SettingsPanel } from './SettingsPanel'
@@ -43,12 +46,13 @@ function shortenPath(fullPath: string): string {
   return fullPath.replace(/^\/Users\/[^/]+/, '~')
 }
 
-type SidebarView = 'files' | 'search' | 'git'
+type SidebarView = 'files' | 'search' | 'git' | 'goals'
 
 const VIEWS: { id: SidebarView; label: string; Icon: typeof Files }[] = [
   { id: 'files', label: 'Explorer', Icon: Files },
   { id: 'search', label: 'Search', Icon: Search },
-  { id: 'git', label: 'Source Control', Icon: GitBranch }
+  { id: 'git', label: 'Source Control', Icon: GitBranch },
+  { id: 'goals', label: 'Goals', Icon: Target }
 ]
 
 export function EnhancedSidebar({
@@ -79,6 +83,7 @@ export function EnhancedSidebar({
   const changeCount = useGitStore((s) =>
     s.statusPath === effectivePaths[0] ? (s.status?.files.length ?? 0) : 0
   )
+  const pendingCount = usePendingProposalCount()
 
   // Load recent projects when dropdown opens
   useEffect(() => {
@@ -236,6 +241,11 @@ export function EnhancedSidebar({
             {id === 'git' && changeCount > 0 && (
               <span className="sidebar-view-badge">{changeCount}</span>
             )}
+            {/* A proposal waits on the user, so it has to be visible without
+                opening the panel — the agent is blocked until it is answered. */}
+            {id === 'goals' && pendingCount > 0 && (
+              <span className="sidebar-view-badge sidebar-view-badge--pending">{pendingCount}</span>
+            )}
           </button>
         ))}
       </nav>
@@ -321,6 +331,8 @@ export function EnhancedSidebar({
         </>
       ) : view === 'search' ? (
         <SearchView rootPaths={effectivePaths} />
+      ) : view === 'goals' ? (
+        <GoalsSection />
       ) : (
         <GitChangesSection folderPath={effectivePaths[0]} />
       )}

@@ -308,6 +308,22 @@ export async function startRpcServer(
     { description: 'End an agent session' }
   )
 
+  // --- Session goal methods ---
+
+  registerMethod(
+    'goals.changed',
+    (params) => {
+      // The MCP server writes goals.json directly — the app has to be told, or
+      // the panel would keep showing the goal as it was before the agent acted.
+      win.webContents.send('goals:changed', {
+        folderPath: String(params.folder_path ?? ''),
+        ptySessionId: String(params.pty_session_id ?? '') || null
+      })
+      return { ok: true }
+    },
+    { description: 'Notify the app that goals.json was written from outside' }
+  )
+
   // --- Pane management methods ---
 
   registerMethod(

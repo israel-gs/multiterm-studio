@@ -230,7 +230,7 @@ export class SidecarServer {
       cols,
       rows,
       cwd,
-      env: ptyEnv()
+      env: ptyEnv(sessionId)
     })
 
     // Determine data endpoint path
@@ -554,10 +554,18 @@ const STRIPPED_ENV_VARS = [
   'SIDECAR_CONTROL_ENDPOINT'
 ]
 
-/** The environment a spawned shell should see. */
-function ptyEnv(): Record<string, string> {
+/**
+ * The environment a spawned shell should see.
+ *
+ * `MULTITERM_PTY_SESSION_ID` is what lets a process started inside the tile —
+ * an agent's hook script, most of all — know which tile it belongs to. Without
+ * it every hook reports an empty session id and per-tile state (the session
+ * goal, the subagent panel) has nothing to key on.
+ */
+function ptyEnv(sessionId: string): Record<string, string> {
   const env: Record<string, string> = { ...(process.env as Record<string, string>) }
   for (const key of STRIPPED_ENV_VARS) delete env[key]
+  env.MULTITERM_PTY_SESSION_ID = sessionId
   return env
 }
 

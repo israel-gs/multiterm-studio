@@ -6,6 +6,7 @@ import { CanvasToolbar } from './CanvasToolbar'
 import { NewTerminalModal } from './NewTerminalModal'
 import { usePanelStore, type PanelMeta } from '../store/panelStore'
 import { useCanvasStore } from '../store/canvasStore'
+import { useGoalStore } from '../store/goalStore'
 import { useProjectStore } from '../store/projectStore'
 import type { AgentSpawnRequest, PaneCreateRequest } from '../store/projectStore'
 import { scheduleSave } from '../utils/layoutPersistence'
@@ -1858,6 +1859,10 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       window.electronAPI.ptyKill(id)
     }
     removePanel(id)
+
+    // The tile is gone, so its goal is too — tile ids are never reused, and a
+    // kept goal would just sit in the file forever.
+    if (useGoalStore.getState().goals.tiles[id]) void useGoalStore.getState().setGoal(id, '')
 
     // Clean up edge dot
     const dot = edgeDotMapRef.current.get(id)

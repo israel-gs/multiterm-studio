@@ -6,6 +6,7 @@ import type {
   GitStatusResult
 } from '../shared/git'
 import type { FileSearchResult } from '../shared/search'
+import type { GoalFile } from '../shared/goals'
 
 /** A project or workspace shown on the welcome screen. */
 export interface RecentProject {
@@ -222,6 +223,19 @@ const api = {
     return () => ipcRenderer.removeListener('agent:spawning', listener)
   },
 
+  // Fires when the agent changed a goal through its MCP tools, so the panel
+  // reloads instead of showing what the file said before.
+  onGoalsChanged: (
+    callback: (data: { folderPath: string; ptySessionId: string | null }) => void
+  ): (() => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: { folderPath: string; ptySessionId: string | null }
+    ): void => callback(data)
+    ipcRenderer.on('goals:changed', listener)
+    return () => ipcRenderer.removeListener('goals:changed', listener)
+  },
+
   // Agent session push channels (SessionStart/End → session tracking)
   onAgentSessionStarted: (
     callback: (data: { sessionId: string; ptySessionId: string | null; cwd: string }) => void
@@ -374,6 +388,26 @@ const api = {
     folderPath: string,
     config: { selected_file: string | null; expanded_dirs: string[] }
   ): Promise<void> => ipcRenderer.invoke('workspace:save', folderPath, config),
+
+  // Session goals — per tile, with the project goal as fallback
+  goalsLoad: (folderPath: string): Promise<GoalFile> =>
+    ipcRenderer.invoke('goals:load', folderPath),
+  goalSet: (folderPath: string, tileId: string | null, text: string): Promise<GoalFile> =>
+    ipcRenderer.invoke('goals:set', folderPath, tileId, text),
+  goalComplete: (folderPath: string, tileId: string | null, claim: string): Promise<GoalFile> =>
+    ipcRenderer.invoke('goals:complete', folderPath, tileId, claim),
+  goalReopen: (folderPath: string, tileId: string | null): Promise<GoalFile> =>
+    ipcRenderer.invoke('goals:reopen', folderPath, tileId),
+  goalApprove: (folderPath: string, tileId: string | null): Promise<GoalFile> =>
+    ipcRenderer.invoke('goals:approve', folderPath, tileId),
+  goalReject: (folderPath: string, tileId: string | null): Promise<GoalFile> =>
+    ipcRenderer.invoke('goals:reject', folderPath, tileId),
+  goalStep: (
+    folderPath: string,
+    tileId: string | null,
+    index: number,
+    done: boolean
+  ): Promise<GoalFile> => ipcRenderer.invoke('goals:step', folderPath, tileId, index, done),
 
   // Settings persistence
   settingsGet: (key: string): Promise<unknown> => ipcRenderer.invoke('settings:get', key),

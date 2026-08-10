@@ -681,6 +681,44 @@ describe('SidecarServer — JSON-RPC over Unix socket', () => {
     }
   }, 15_000)
 
+  // ── The shell knows which tile it belongs to ───────────────────────────────
+
+  it('exports MULTITERM_PTY_SESSION_ID so hooks can tell the tiles apart', async () => {
+    // Per-tile features — the session goal, the subagent panel — key on this
+    // variable; without it every hook reports an empty session id.
+    const ctrl = await connectControl(controlSock)
+    const dataLines: string[] = []
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 72,
+      method: 'session.create',
+      params: { sessionId: 'sess-tile-id', shell: '/bin/sh', cwd: tmpdir(), cols: 80, rows: 24 }
+    })
+    const created = JSON.parse(await ctrl.nextLine())
+
+    const data = createConnection(created.result.dataEndpoint)
+    data.on('data', (c: Buffer) => dataLines.push(c.toString()))
+    await new Promise((r) => data.once('connect', r))
+
+    ctrl.send({
+      jsonrpc: '2.0',
+      id: 73,
+      method: 'session.write',
+      params: {
+        sessionId: 'sess-tile-id',
+        data: 'echo "TILE=[${MULTITERM_PTY_SESSION_ID:-unset}]"\n'
+      }
+    })
+    await ctrl.nextLine()
+    await sleep(700)
+
+    expect(dataLines.join('')).toContain('TILE=[sess-tile-id]')
+
+    data.destroy()
+    ctrl.close()
+  }, 15_000)
+
   // ── PTY exit is reported and the session can be recreated ──────────────────
 
   it('broadcasts a session.exit notification when the shell dies', async () => {

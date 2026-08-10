@@ -32,6 +32,16 @@ import {
 } from './fileWatcher'
 import { installCli } from './cliInstaller'
 import { loadWorkspaceConfig, saveWorkspaceConfig } from './workspaceConfig'
+import {
+  loadGoals,
+  setGoal,
+  pruneGoals,
+  completeGoal,
+  reopenGoal,
+  setStepDone,
+  approveProposal,
+  rejectProposal
+} from './sessionGoal'
 import { loadWorkspaceFile, saveWorkspaceFile, saveWorkspaceFileSync } from './workspaceFileManager'
 import type { MultiTermWorkspace } from './workspaceFileManager'
 import { setupUpdateIPC, updateManager } from './updater'
@@ -358,11 +368,48 @@ ipcMain.handle('workspace:save', async (_event, folderPath: string, config: unkn
   )
 })
 
+/** The tiles a layout snapshot still contains, across every schema version. */
+function liveTileIds(layout: LayoutSnapshot): string[] {
+  return 'panelIds' in layout ? layout.panelIds : layout.panels.map((p) => p.id)
+}
+
+// Session goal IPC handlers
+ipcMain.handle('goals:load', async (_event, folderPath: string) => loadGoals(folderPath))
+ipcMain.handle(
+  'goals:set',
+  async (_event, folderPath: string, tileId: string | null, text: string) =>
+    setGoal(folderPath, tileId, text)
+)
+ipcMain.handle(
+  'goals:complete',
+  async (_event, folderPath: string, tileId: string | null, claim: string) =>
+    completeGoal(folderPath, tileId, claim)
+)
+ipcMain.handle('goals:reopen', async (_event, folderPath: string, tileId: string | null) =>
+  reopenGoal(folderPath, tileId)
+)
+// Approving is what actually closes or rewrites a goal — the agent's tool call
+// only ever files the proposal, whatever permission mode the session runs in.
+ipcMain.handle('goals:approve', async (_event, folderPath: string, tileId: string | null) =>
+  approveProposal(folderPath, tileId)
+)
+ipcMain.handle('goals:reject', async (_event, folderPath: string, tileId: string | null) =>
+  rejectProposal(folderPath, tileId)
+)
+ipcMain.handle(
+  'goals:step',
+  async (_event, folderPath: string, tileId: string | null, index: number, done: boolean) =>
+    setStepDone(folderPath, tileId, index, done)
+)
+
 // Layout persistence IPC handlers
 ipcMain.handle('layout:save', async (_event, folderPath: string, layout: LayoutSnapshot) => {
   lastSaveData = { mode: 'folder', folderPath, layout }
   await saveLayout(folderPath, layout)
   await ensureGitignore(folderPath)
+  // The saved layout is the authoritative list of tiles, so this is where a
+  // goal left behind by a tile closed in an earlier run gets collected.
+  await pruneGoals(folderPath, liveTileIds(layout))
 })
 
 ipcMain.handle('layout:load', async (_event, folderPath: string) => {

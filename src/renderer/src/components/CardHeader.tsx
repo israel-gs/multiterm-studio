@@ -1,6 +1,20 @@
 import { useState, useCallback } from 'react'
-import { Eye, Code, Maximize2, Minimize2, X, Zap, Copy, Check } from 'lucide-react'
+import {
+  Eye,
+  Code,
+  Maximize2,
+  Minimize2,
+  X,
+  Zap,
+  Copy,
+  Check,
+  Target,
+  CheckCircle2
+} from 'lucide-react'
 import { usePanelStore } from '../store/panelStore'
+import { useGoalStore } from '../store/goalStore'
+import { GoalModal } from './GoalModal'
+import { goalHeadline, stepProgress } from '../../../shared/goals'
 import { colors } from '../tokens'
 
 interface Props {
@@ -38,6 +52,9 @@ export function CardHeader({
   onClose
 }: Props): React.JSX.Element {
   const [copied, setCopied] = useState(false)
+  const [goalOpen, setGoalOpen] = useState(false)
+  const tileGoal = useGoalStore((s) => s.goals.tiles[sessionId] ?? null)
+  const projectGoal = useGoalStore((s) => s.goals.project)
   const handleCopyPath = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation()
@@ -71,6 +88,21 @@ export function CardHeader({
       : '#ffffff'
   const isEditor = panel.type === 'editor'
   const isImage = panel.type === 'image'
+  const isTerminal = panel.type === 'terminal'
+  // The tile's own goal wins; the project goal is only a fallback, and is shown
+  // dimmed so an inherited objective is not mistaken for one set here.
+  const activeGoal = tileGoal ?? projectGoal
+  const goalDone = activeGoal?.status === 'done'
+  const pending = tileGoal?.proposal ?? projectGoal?.proposal ?? null
+  const progress = activeGoal ? stepProgress(activeGoal) : null
+  const goalLabel = pending
+    ? pending.kind === 'complete'
+      ? `Claude says this goal is done — ${pending.summary ?? 'waiting for you'}`
+      : `Claude asks to change this goal — waiting for you`
+    : activeGoal
+      ? `${goalDone ? 'Goal met' : tileGoal ? 'Goal' : 'Project goal'}: ${goalHeadline(activeGoal)}` +
+        (progress ? ` (${progress.done}/${progress.total})` : '')
+      : 'Set a session goal'
   const isMd = isMarkdownFile(panel.filePath)
   const isSvg = isSvgFile(panel.filePath)
 
@@ -166,6 +198,42 @@ export function CardHeader({
           {copied ? <Check size={12} strokeWidth={2} /> : <Copy size={12} strokeWidth={1.5} />}
         </button>
       )}
+
+      {isTerminal && (
+        <button
+          className={`panel-header-btn panel-header-goal-btn${
+            pending
+              ? ' panel-header-goal-btn--pending'
+              : goalDone
+                ? ' panel-header-goal-btn--done'
+                : tileGoal
+                  ? ' panel-header-goal-btn--set'
+                  : projectGoal
+                    ? ' panel-header-goal-btn--inherited'
+                    : ''
+          }`}
+          style={tileGoal || goalDone || pending ? undefined : { color: fgColor }}
+          title={goalLabel}
+          onClick={(e) => {
+            e.stopPropagation()
+            setGoalOpen(true)
+          }}
+          aria-label={goalLabel}
+        >
+          {goalDone ? (
+            <CheckCircle2 size={12} strokeWidth={1.5} />
+          ) : (
+            <Target size={12} strokeWidth={1.5} />
+          )}
+          {progress && !goalDone && (
+            <span className="panel-header-goal-progress">
+              {progress.done}/{progress.total}
+            </span>
+          )}
+        </button>
+      )}
+
+      {goalOpen && <GoalModal cardId={sessionId} onDismiss={() => setGoalOpen(false)} />}
 
       {onToggleMaximize && (
         <button
