@@ -32,7 +32,8 @@ import {
 } from './fileWatcher'
 import { installCli } from './cliInstaller'
 import { loadWorkspaceConfig, saveWorkspaceConfig } from './workspaceConfig'
-import { resolveClaudeConfig } from './claudeConfig'
+import { resolveClaudeConfig, editPermissionRule } from './claudeConfig'
+import type { Scope } from '../shared/claudeConfig'
 import {
   loadGoals,
   setGoal,
@@ -372,6 +373,17 @@ ipcMain.handle('workspace:save', async (_event, folderPath: string, config: unkn
 // Claude Code's own configuration, resolved across its four scopes.
 ipcMain.handle('claudeConfig:load', async (_event, folderPath: string) =>
   resolveClaudeConfig(folderPath)
+)
+ipcMain.handle(
+  'claudeConfig:editRule',
+  async (
+    _event,
+    folderPath: string,
+    scope: Scope,
+    kind: 'allow' | 'deny' | 'ask',
+    rule: string,
+    action: 'add' | 'remove'
+  ) => editPermissionRule(folderPath, scope, kind, rule, action)
 )
 
 /** The tiles a layout snapshot still contains, across every schema version. */

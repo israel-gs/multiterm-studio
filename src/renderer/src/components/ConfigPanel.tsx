@@ -10,6 +10,8 @@ import {
   type ResolvedSetting,
   type Scope
 } from '../../../shared/claudeConfig'
+import type { RuleKind } from '../../../shared/permissionRules'
+import { PermissionsSection } from './PermissionsSection'
 
 interface Props {
   /** The project whose `.claude` directory is being resolved. */
@@ -131,6 +133,15 @@ export function ConfigPanel({ cwd }: Props): React.JSX.Element {
 
   const load = useCallback(() => setReloadKey((k) => k + 1), [])
 
+  const editRule = useCallback(
+    async (scope: Scope, kind: RuleKind, rule: string, action: 'add' | 'remove') => {
+      // The main process hands back the freshly resolved config, so the panel
+      // shows the merged result rather than guessing at it.
+      setConfig(await window.electronAPI.claudeConfigEditRule(cwd, scope, kind, rule, action))
+    },
+    [cwd]
+  )
+
   const openScope = useCallback(
     (scope: Scope) => {
       const file = config?.files.find((f) => f.scope === scope)
@@ -194,6 +205,8 @@ export function ConfigPanel({ cwd }: Props): React.JSX.Element {
           </button>
         ))}
       </div>
+
+      <PermissionsSection config={config} onEdit={editRule} />
 
       {config.settings.length === 0 ? (
         <p className="config-empty-note">

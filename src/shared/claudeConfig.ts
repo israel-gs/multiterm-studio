@@ -73,6 +73,8 @@ export interface PermissionRule {
 
 export interface ResolvedConfig {
   folderPath: string
+  /** The real home directory, so `~/…` rules can be resolved in the renderer. */
+  home: string
   files: ScopeFile[]
   settings: ResolvedSetting[]
   /** Every rule from every scope, merged — deny beats allow at match time. */

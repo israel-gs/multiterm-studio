@@ -1,5 +1,5 @@
-import { readFile } from 'fs/promises'
-import { join } from 'path'
+import { mkdir, readFile, writeFile } from 'fs/promises'
+import { dirname, join } from 'path'
 import { homedir, platform } from 'os'
 import {
   ADDITIVE_KEYS,
@@ -158,6 +158,7 @@ export async function resolveClaudeConfig(folderPath: string): Promise<ResolvedC
 
   return {
     folderPath,
+    home: homedir(),
     files: loaded.map((entry) => entry.file),
     settings,
     permissions: collectPermissions(flats)
@@ -177,6 +178,51 @@ function collectPermissions(flats: Array<Map<string, unknown>>): PermissionRule[
     })
   }
   return rules
+}
+
+/**
+ * Adds or removes a permission rule in one scope.
+ *
+ * Writes stay inside the scope the caller names, and the file is rewritten
+ * whole so nothing else in it is disturbed. `managed` is refused: it belongs to
+ * whoever deploys it, and editing it here would be quietly undone anyway.
+ */
+export async function editPermissionRule(
+  folderPath: string,
+  scope: Scope,
+  kind: 'allow' | 'deny' | 'ask',
+  rule: string,
+  action: 'add' | 'remove'
+): Promise<ResolvedConfig> {
+  if (scope === 'managed') throw new Error('Managed settings are deployed by your organisation')
+
+  const path = scopePath(scope, folderPath)
+  const { file, settings } = await loadScope(scope, folderPath)
+  // Refusing to touch a file we could not parse: rewriting it would throw away
+  // whatever the user was in the middle of writing.
+  if (file.parseError) throw new Error(`${path} is not valid JSON — fix it first`)
+
+  const permissions = (
+    settings.permissions && typeof settings.permissions === 'object' ? settings.permissions : {}
+  ) as Record<string, unknown>
+  const list = Array.isArray(permissions[kind]) ? [...(permissions[kind] as string[])] : []
+
+  if (action === 'add') {
+    if (!list.includes(rule)) list.push(rule)
+  } else {
+    const index = list.indexOf(rule)
+    if (index !== -1) list.splice(index, 1)
+  }
+
+  if (list.length > 0) permissions[kind] = list
+  else delete permissions[kind]
+
+  if (Object.keys(permissions).length > 0) settings.permissions = permissions
+  else delete settings.permissions
+
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, JSON.stringify(settings, null, 2) + '\n', 'utf-8')
+  return resolveClaudeConfig(folderPath)
 }
 
 /** The files to watch so the panel notices an edit made outside the app. */

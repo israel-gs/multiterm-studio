@@ -7,7 +7,7 @@ import type {
 } from '../shared/git'
 import type { FileSearchResult } from '../shared/search'
 import type { GoalFile } from '../shared/goals'
-import type { ResolvedConfig } from '../shared/claudeConfig'
+import type { ResolvedConfig, Scope } from '../shared/claudeConfig'
 
 /** A project or workspace shown on the welcome screen. */
 export interface RecentProject {
@@ -393,6 +393,16 @@ const api = {
   /** Claude Code's own configuration, resolved across its four scopes. */
   claudeConfigLoad: (folderPath: string): Promise<ResolvedConfig> =>
     ipcRenderer.invoke('claudeConfig:load', folderPath),
+
+  /** Adds or removes one permission rule in the scope you choose. */
+  claudeConfigEditRule: (
+    folderPath: string,
+    scope: Scope,
+    kind: 'allow' | 'deny' | 'ask',
+    rule: string,
+    action: 'add' | 'remove'
+  ): Promise<ResolvedConfig> =>
+    ipcRenderer.invoke('claudeConfig:editRule', folderPath, scope, kind, rule, action),
 
   // Session goals — per tile, with the project goal as fallback
   goalsLoad: (folderPath: string): Promise<GoalFile> =>

@@ -1,6 +1,6 @@
 /** @vitest-environment node */
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'fs'
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import type { ResolvedConfig, ResolvedSetting } from '../../src/shared/claudeConfig'
@@ -134,6 +134,73 @@ describe('resolving hooks', () => {
     expect(hooks?.mergeKind).toBe('additive')
     expect(hooks?.contributors).toEqual(['local', 'user'])
     expect(hooks?.shadowed).toEqual([])
+  })
+})
+
+describe('editing permission rules', () => {
+  async function edit(
+    scope: 'user' | 'project' | 'local' | 'managed',
+    kind: 'allow' | 'deny' | 'ask',
+    rule: string,
+    action: 'add' | 'remove'
+  ): Promise<ResolvedConfig> {
+    const { editPermissionRule } = await import('../../src/main/claudeConfig')
+    return editPermissionRule(project, scope, kind, rule, action)
+  }
+
+  function readLocal(): Record<string, unknown> {
+    return JSON.parse(readFileSync(join(project, '.claude', 'settings.local.json'), 'utf-8'))
+  }
+
+  it('writes a new rule into the scope it was told to', async () => {
+    const config = await edit('local', 'allow', 'Bash(npm test *)', 'add')
+
+    expect(config.permissions).toContainEqual({
+      rule: 'Bash(npm test *)',
+      kind: 'allow',
+      scope: 'local'
+    })
+    expect(readLocal()).toEqual({ permissions: { allow: ['Bash(npm test *)'] } })
+  })
+
+  it('leaves everything else in the file alone', async () => {
+    writeLocal({ model: 'opus', permissions: { deny: ['Bash(curl *)'] } })
+    await edit('local', 'allow', 'Bash(npm test *)', 'add')
+
+    const local = readLocal()
+    expect(local.model).toBe('opus')
+    expect((local.permissions as Record<string, string[]>).deny).toEqual(['Bash(curl *)'])
+  })
+
+  it('does not add the same rule twice', async () => {
+    await edit('local', 'allow', 'Bash(npm test *)', 'add')
+    await edit('local', 'allow', 'Bash(npm test *)', 'add')
+
+    expect((readLocal().permissions as Record<string, string[]>).allow).toEqual([
+      'Bash(npm test *)'
+    ])
+  })
+
+  it('removes a rule and tidies up after itself', async () => {
+    await edit('local', 'allow', 'Bash(npm test *)', 'add')
+    await edit('local', 'allow', 'Bash(npm test *)', 'remove')
+
+    // An empty allow list, and an empty permissions block, are noise.
+    expect(readLocal()).toEqual({})
+  })
+
+  it('refuses to touch managed settings', async () => {
+    // They belong to whoever deploys them, and the edit would be undone anyway.
+    await expect(edit('managed', 'allow', 'Bash(ls *)', 'add')).rejects.toThrow(/organisation/)
+  })
+
+  it('refuses to rewrite a file it could not parse', async () => {
+    // Rewriting it would throw away whatever the user was in the middle of.
+    mkdirSync(join(project, '.claude'), { recursive: true })
+    writeFileSync(join(project, '.claude', 'settings.local.json'), '{ broken')
+
+    await expect(edit('local', 'allow', 'Bash(ls *)', 'add')).rejects.toThrow(/not valid JSON/)
+    expect(readFileSync(join(project, '.claude', 'settings.local.json'), 'utf-8')).toBe('{ broken')
   })
 })
 
