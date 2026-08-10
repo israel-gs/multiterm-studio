@@ -6,7 +6,7 @@ export interface PanelMeta {
   title: string
   color: string
   attention: boolean
-  type: 'terminal' | 'editor' | 'note' | 'image' | 'diff'
+  type: 'terminal' | 'editor' | 'note' | 'image' | 'diff' | 'config'
   noteContent?: string
   filePath?: string
   /** Diff tiles only: compare the index against HEAD instead of disk vs index. */
@@ -28,7 +28,7 @@ export interface PanelStore {
     id: string,
     title?: string,
     color?: string,
-    type?: 'terminal' | 'editor' | 'note' | 'image' | 'diff',
+    type?: 'terminal' | 'editor' | 'note' | 'image' | 'diff' | 'config',
     filePath?: string,
     initialCommand?: string,
     cwd?: string,
@@ -67,6 +67,7 @@ function defaultTitle(type: PanelMeta['type'] | undefined, filePath?: string): s
   if (filePath && (type === 'image' || type === 'editor')) return basename(filePath)
   if (filePath && type === 'diff') return `Diff: ${basename(filePath)}`
   if (type === 'note') return 'Note'
+  if (type === 'config') return 'Claude config'
   return 'Terminal'
 }
 

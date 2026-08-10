@@ -1181,6 +1181,240 @@ body.canvas-interacting .floating-card-inner {
   background: var(--hover-bg-strong);
 }
 
+/* Claude configuration panel ------------------------------------------------ */
+
+.config-panel {
+  height: 100%;
+  overflow-y: auto;
+  padding: 10px 12px 16px;
+  background: var(--bg-card);
+  color: var(--fg-primary);
+  font-size: var(--text-xs);
+}
+
+.config-panel--empty,
+.config-panel--error {
+  color: var(--fg-secondary);
+}
+
+.config-panel--error {
+  color: #e06c75;
+}
+
+.config-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.config-title {
+  font-weight: var(--weight-medium);
+}
+
+.config-refresh {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.config-refresh:hover {
+  color: var(--fg-primary);
+}
+
+/* A settings file Claude Code cannot parse is skipped in silence, so the
+   warning has to be loud here. */
+.config-broken {
+  display: flex;
+  gap: 8px;
+  padding: 8px 9px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(224, 108, 117, 0.5);
+  background: rgba(224, 108, 117, 0.08);
+  border-radius: 6px;
+  color: #e06c75;
+  line-height: 1.45;
+}
+
+.config-broken p {
+  margin: 3px 0 0;
+  color: var(--fg-secondary);
+}
+
+.config-broken-open {
+  margin-top: 4px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 10px;
+  text-align: left;
+}
+
+.config-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.config-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.config-file:hover:not(:disabled) {
+  background: var(--hover-bg-strong);
+}
+
+.config-file--missing {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.config-file-missing-tag {
+  font-size: 9px;
+  color: var(--fg-secondary);
+}
+
+.config-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg-header);
+  color: var(--fg-secondary);
+  flex-shrink: 0;
+}
+
+.config-scope--local {
+  color: var(--accent);
+}
+
+.config-scope--project {
+  color: #4ec9b0;
+}
+
+.config-scope--managed {
+  color: #e06c75;
+}
+
+.config-scope--merged {
+  color: #e5a84b;
+}
+
+.config-group {
+  margin-top: 12px;
+}
+
+.config-group-title {
+  margin: 0 0 5px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-secondary);
+  font-weight: var(--weight-medium);
+}
+
+.config-row {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.config-row-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.config-row-key {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--fg-primary);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.config-row-key:hover {
+  color: var(--accent);
+}
+
+.config-row-value {
+  flex: 1;
+  min-width: 0;
+  color: var(--fg-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-row-notes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.config-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  color: #e5a84b;
+}
+
+.config-shadow-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 9px;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.config-shadowed {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 3px;
+  padding-left: 10px;
+}
+
+.config-shadowed-value {
+  color: var(--fg-secondary);
+  text-decoration: line-through;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-empty-note {
+  margin-top: 12px;
+  color: var(--fg-secondary);
+  line-height: 1.5;
+}
+
 /* Session goal ------------------------------------------------------------- */
 
 .goal-modal {

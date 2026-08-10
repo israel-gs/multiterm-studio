@@ -7,6 +7,7 @@ import type {
 } from '../shared/git'
 import type { FileSearchResult } from '../shared/search'
 import type { GoalFile } from '../shared/goals'
+import type { ResolvedConfig } from '../shared/claudeConfig'
 
 /** A project or workspace shown on the welcome screen. */
 export interface RecentProject {
@@ -388,6 +389,10 @@ const api = {
     folderPath: string,
     config: { selected_file: string | null; expanded_dirs: string[] }
   ): Promise<void> => ipcRenderer.invoke('workspace:save', folderPath, config),
+
+  /** Claude Code's own configuration, resolved across its four scopes. */
+  claudeConfigLoad: (folderPath: string): Promise<ResolvedConfig> =>
+    ipcRenderer.invoke('claudeConfig:load', folderPath),
 
   // Session goals — per tile, with the project goal as fallback
   goalsLoad: (folderPath: string): Promise<GoalFile> =>

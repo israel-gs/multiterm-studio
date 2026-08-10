@@ -32,6 +32,7 @@ import {
 } from './fileWatcher'
 import { installCli } from './cliInstaller'
 import { loadWorkspaceConfig, saveWorkspaceConfig } from './workspaceConfig'
+import { resolveClaudeConfig } from './claudeConfig'
 import {
   loadGoals,
   setGoal,
@@ -367,6 +368,11 @@ ipcMain.handle('workspace:save', async (_event, folderPath: string, config: unkn
     config as { selected_file: string | null; expanded_dirs: string[] }
   )
 })
+
+// Claude Code's own configuration, resolved across its four scopes.
+ipcMain.handle('claudeConfig:load', async (_event, folderPath: string) =>
+  resolveClaudeConfig(folderPath)
+)
 
 /** The tiles a layout snapshot still contains, across every schema version. */
 function liveTileIds(layout: LayoutSnapshot): string[] {

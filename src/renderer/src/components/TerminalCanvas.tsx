@@ -35,7 +35,7 @@ export interface SavedLayoutShape {
     id: string
     title: string
     color: string
-    type?: 'terminal' | 'editor' | 'note' | 'image' | 'diff'
+    type?: 'terminal' | 'editor' | 'note' | 'image' | 'diff' | 'config'
     filePath?: string
     noteContent?: string
     diffStaged?: boolean
@@ -53,6 +53,9 @@ const DEFAULT_W = 620
 const DEFAULT_H = 420
 const NOTE_W = 280
 const NOTE_H = 220
+// Wider than a note: the rows carry a key, a value and its scope.
+const CONFIG_W = 520
+const CONFIG_H = 460
 const IMAGE_W = 280
 const IMAGE_H = 280
 const CASCADE_OFFSET = 30
@@ -1748,6 +1751,51 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
     })
   }
 
+  /** Opens the resolved `.claude` configuration, or reuses the tile if open. */
+  function handleAddConfig(): void {
+    const allPanels = usePanelStore.getState().panels
+    for (const id of panelIdsRef.current) {
+      // One is enough: the panel always shows the same project.
+      if (allPanels[id]?.type === 'config') {
+        usePanelStore.getState().revealTile(id)
+        return
+      }
+    }
+
+    const newId = crypto.randomUUID()
+    addPanel(newId, 'Claude config', colors.bgCard, 'config')
+
+    const viewport = viewportRef.current
+    const scale = scaleRef.current
+    let idealX = 40
+    let idealY = 40
+    if (viewport) {
+      idealX = (viewport.clientWidth / 2 - canvasXRef.current) / scale - CONFIG_W / 2
+      idealY = (viewport.clientHeight / 2 - canvasYRef.current) / scale - CONFIG_H / 2
+    }
+
+    const { x, y } = findNonOverlappingPosition(
+      idealX,
+      idealY,
+      CONFIG_W,
+      CONFIG_H,
+      positionsRef.current
+    )
+    const newRect: CardRect = { x, y, w: CONFIG_W, h: CONFIG_H, z: ++topZRef.current }
+
+    setPanelIds((prev) => {
+      const next = [...prev, newId]
+      panelIdsRef.current = next
+      return next
+    })
+    setPositions((prev) => {
+      const next = { ...prev, [newId]: newRect }
+      positionsRef.current = next
+      triggerSave([...panelIdsRef.current], next)
+      return next
+    })
+  }
+
   function handleAddImage(filePath: string, cx?: number, cy?: number): void {
     // Check if image is already open -> bring to front
     const allPanels = usePanelStore.getState().panels
@@ -2180,6 +2228,7 @@ export function TerminalCanvas({ savedLayout }: TerminalCanvasProps): React.JSX.
       <CanvasToolbar
         onNewTerminal={() => setShowNewTerminal(true)}
         onNewNote={() => handleAddNote()}
+        onOpenConfig={() => handleAddConfig()}
       />
       {showNewTerminal && (
         <NewTerminalModal

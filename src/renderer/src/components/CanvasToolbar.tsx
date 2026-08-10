@@ -1,15 +1,28 @@
 import { useEffect } from 'react'
-import { TerminalSquare, StickyNote, Download, RotateCw, AlertCircle, Loader2 } from 'lucide-react'
+import {
+  TerminalSquare,
+  StickyNote,
+  SlidersHorizontal,
+  Download,
+  RotateCw,
+  AlertCircle,
+  Loader2
+} from 'lucide-react'
 import { useUpdateStore } from '../store/updateStore'
 
 interface Props {
   onNewTerminal: () => void
   onNewNote: () => void
+  onOpenConfig: () => void
 }
 
 const isDevMode = !!(import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV
 
-export function CanvasToolbar({ onNewTerminal, onNewNote }: Props): React.JSX.Element {
+export function CanvasToolbar({
+  onNewTerminal,
+  onNewNote,
+  onOpenConfig
+}: Props): React.JSX.Element {
   const {
     status,
     progress,
@@ -97,6 +110,14 @@ export function CanvasToolbar({ onNewTerminal, onNewNote }: Props): React.JSX.El
         aria-label="New note"
       >
         <StickyNote size={16} strokeWidth={1.5} />
+      </button>
+      <button
+        className="canvas-toolbar-btn"
+        onClick={onOpenConfig}
+        title="Claude configuration"
+        aria-label="Claude configuration"
+      >
+        <SlidersHorizontal size={16} strokeWidth={1.5} />
       </button>
 
       {showUpdateButton && (
